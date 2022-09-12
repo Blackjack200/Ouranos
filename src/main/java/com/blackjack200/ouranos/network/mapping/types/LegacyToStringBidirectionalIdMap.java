@@ -34,4 +34,8 @@ public abstract class LegacyToStringBidirectionalIdMap extends AbstractMapping {
     public int fromString(int protocolId, String id) {
         return this.stringToIntMap.get(protocolId).get(id);
     }
+
+    public Map<String, Integer> getStringToIntMap(int protocolId) {
+        return stringToIntMap.get(protocolId);
+    }
 }

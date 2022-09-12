@@ -22,17 +22,19 @@ public class ItemTypeDictionary extends AbstractMapping {
 
     private final Map<Integer, Map<String, Integer>> stringToRuntimeIdMap = new LinkedHashMap<>();
     private final Map<Integer, Map<Integer, String>> runtimeIdToStringMap = new LinkedHashMap<>();
+    private final Map<Integer, Map<String, ItemTypeInfo>> all = new LinkedHashMap<>();
 
     public ItemTypeDictionary() {
         load("required_item_list.json", (protocolId, rawData) -> {
             Map<String, ItemTypeInfo> data = (new Gson()).fromJson(rawData, new TypeToken<Map<String, ItemTypeInfo>>() {
             }.getType());
+            this.all.put(protocolId, data);
             Map<String, Integer> stringToRuntime = new LinkedHashMap<>();
             Map<Integer, String> runtimeToString = new LinkedHashMap<>();
             data.forEach((stringId, info) -> {
                 stringToRuntime.put(stringId, info.runtime_id);
                 runtimeToString.put(info.runtime_id, stringId);
-                log.info("p={} k={} id={} cb={}", protocolId, stringId, info.runtime_id, info.component_based);
+                log.debug("p={} k={} id={} cb={}", protocolId, stringId, info.runtime_id, info.component_based);
             });
             this.stringToRuntimeIdMap.put(protocolId, stringToRuntime);
             this.runtimeIdToStringMap.put(protocolId, runtimeToString);
@@ -45,5 +47,9 @@ public class ItemTypeDictionary extends AbstractMapping {
 
     public int fromStringId(int protocolId, String itemId) {
         return this.stringToRuntimeIdMap.get(protocolId).get(itemId);
+    }
+
+    public Map<String, ItemTypeInfo> getEntries(int protocolId) {
+        return this.all.get(protocolId);
     }
 }

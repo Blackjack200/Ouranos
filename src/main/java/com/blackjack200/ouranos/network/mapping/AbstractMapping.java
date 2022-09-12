@@ -7,7 +7,7 @@ import java.util.function.BiConsumer;
 
 public class AbstractMapping {
     protected void load(String file, BiConsumer<Integer, String> handler) {
-        ProtocolInfo.getPacketCodecs().parallelStream().forEach((codec) -> {
+        ProtocolInfo.getPacketCodecs().forEach((codec) -> {
             int protocolId = codec.getProtocolVersion();
             String rawData = IoUtil.readUtf8(getClass().getClassLoader().getResourceAsStream("vanilla/v" + protocolId + "/" + file));
             handler.accept(protocolId, rawData);

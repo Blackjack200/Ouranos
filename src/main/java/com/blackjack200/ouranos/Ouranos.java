@@ -1,16 +1,21 @@
 package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
+import com.blackjack200.ouranos.network.cache.StaticPackets;
+import com.blackjack200.ouranos.network.mapping.ItemTypeDictionary;
+import com.blackjack200.ouranos.network.translate.Translate;
 import com.blackjack200.ouranos.utils.Port;
 import com.blackjack200.ouranos.utils.YamlConfig;
 import com.nukkitx.protocol.bedrock.*;
 import com.nukkitx.protocol.bedrock.handler.BedrockPacketHandler;
-import com.nukkitx.protocol.bedrock.packet.LoginPacket;
+import com.nukkitx.protocol.bedrock.packet.*;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 
 import java.io.File;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Log4j2
@@ -43,12 +48,15 @@ public class Ouranos {
             @Override
             public void onSessionCreation(BedrockServerSession clientSession) {
                 log.info("{} connected", clientSession.getAddress());
-                clientSession.addDisconnectHandler((reason) -> log.info("{} disconnected due to {}", clientSession.getAddress(), reason));
+                clientSession.addDisconnectHandler((reason) -> {
+                    log.info("{} disconnected due to {}", clientSession.getAddress(), reason);
+                });
                 clientSession.setPacketHandler(new BedrockPacketHandler() {
                     @Override
                     public boolean handle(LoginPacket packet) {
                         clientSession.setPacketCodec(ProtocolInfo.getPacketCodec(packet.getProtocolVersion()));
-                        log.info("{} log-in using minecraft {} {}", clientSession.getAddress(), clientSession.getPacketCodec().getMinecraftVersion(), clientSession.getPacketCodec().getProtocolVersion());
+                        val clientCodec = clientSession.getPacketCodec();
+                        log.info("{} log-in using minecraft {} {}", clientSession.getAddress(), clientCodec.getMinecraftVersion(), clientCodec.getProtocolVersion());
 
                         val remoteClient = newClient();
 
@@ -59,9 +67,53 @@ public class Ouranos {
                             }
 
                             remoteSession.addDisconnectHandler((reason) -> clientSession.disconnect(reason.toString()));
+                            clientSession.addDisconnectHandler((reason) -> remoteSession.disconnect());
                             remoteSession.setPacketCodec(serverCodec);
-                            remoteSession.setBatchHandler((session12, compressed, packets) -> clientSession.sendWrapped(packets, true));
-                            clientSession.setBatchHandler((session1, compressed, packets) -> remoteSession.sendWrapped(packets, true));
+                            remoteSession.setBatchHandler((session12, compressed, packets) -> {
+                                Collection<BedrockPacket> newCollection = new ArrayList<>();
+                                for (BedrockPacket pk : packets) {
+                                    pk = Translate.translate(
+                                            remoteSession.getPacketCodec().getProtocolVersion(),
+                                            clientCodec.getProtocolVersion(),
+                                            pk
+                                    );
+                                    if (pk instanceof StartGamePacket) {
+                                        val p = (StartGamePacket) pk;
+                                        p.setVanillaVersion(clientCodec.getMinecraftVersion());
+                                        p.getItemEntries().clear();
+                                        ItemTypeDictionary.getInstance().getEntries(clientCodec.getProtocolVersion()).forEach((id, info) -> p.getItemEntries().add(new StartGamePacket.ItemEntry(id, (short) info.runtime_id, info.component_based)));
+                                        log.info(pk);
+                                    }
+                                    if(pk instanceof AvailableEntityIdentifiersPacket){
+                                        pk = StaticPackets.getInstance().getActorIdsPacket(clientCodec.getProtocolVersion());
+                                    }if(pk instanceof BiomeDefinitionListPacket){
+                                        pk = StaticPackets.getInstance().biomeDefinition(clientCodec.getProtocolVersion());
+                                    }
+                                    log.info("-> {}", pk.getClass());
+                                    if (clientCodec.getPacketDefinition(pk.getPacketId()) != null) {
+                                        newCollection.add(pk);
+                                    }
+                                }
+                                clientSession.sendWrapped(newCollection, true, true);
+                            });
+                            clientSession.setBatchHandler((session1, compressed, packets) -> {
+                                Collection<BedrockPacket> newCollection = new ArrayList<>();
+                                for (BedrockPacket pk : packets) {
+                                    pk = Translate.translate(
+                                            clientCodec.getProtocolVersion(),
+                                            remoteSession.getPacketCodec().getProtocolVersion(),
+                                            pk
+                                    );
+                                    if (pk instanceof ResourcePackClientResponsePacket){
+                                        log.info(pk);
+                                    }
+                                    log.info("<- {}", pk.getClass());
+                                    if (clientCodec.getPacketDefinition(pk.getPacketId()) != null) {
+                                        newCollection.add(pk);
+                                    }
+                                }
+                                remoteSession.sendWrapped(newCollection, true, true);
+                            });
 
                             packet.setProtocolVersion(serverCodec.getProtocolVersion());
                             remoteSession.sendPacket(packet);
