@@ -84,15 +84,16 @@ public class Ouranos {
                                         ItemTypeDictionary.getInstance().getEntries(clientCodec.getProtocolVersion()).forEach((id, info) -> p.getItemEntries().add(new StartGamePacket.ItemEntry(id, (short) info.runtime_id, info.component_based)));
                                         log.info(pk);
                                     }
-                                    if(pk instanceof AvailableEntityIdentifiersPacket){
+                                    if (pk instanceof AvailableEntityIdentifiersPacket) {
                                         pk = StaticPackets.getInstance().getActorIdsPacket(clientCodec.getProtocolVersion());
-                                    }if(pk instanceof BiomeDefinitionListPacket){
+                                    }
+                                    if (pk instanceof BiomeDefinitionListPacket) {
                                         pk = StaticPackets.getInstance().biomeDefinition(clientCodec.getProtocolVersion());
                                     }
-                                    log.info("-> {}", pk.getClass());
-                                    if (clientCodec.getPacketDefinition(pk.getPacketId()) != null) {
-                                        newCollection.add(pk);
-                                    }
+                                    log.info("-> {}", pk.toString());
+
+                                       newCollection.add(pk);
+
                                 }
                                 clientSession.sendWrapped(newCollection, true, true);
                             });
@@ -107,7 +108,7 @@ public class Ouranos {
                                     if (pk instanceof ResourcePackClientResponsePacket){
                                         log.info(pk);
                                     }
-                                    log.info("<- {}", pk.getClass());
+                                    log.info("<- {} {}", pk.getClass(), pk.toString());
                                     if (clientCodec.getPacketDefinition(pk.getPacketId()) != null) {
                                         newCollection.add(pk);
                                     }

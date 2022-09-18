@@ -2,6 +2,9 @@ package com.blackjack200.ouranos.network.translate;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
 import com.blackjack200.ouranos.network.mapping.ItemTranslator;
+import com.blackjack200.ouranos.network.mapping.ItemTypeDictionary;
+import com.blackjack200.ouranos.network.mapping.LegacyBlockIdToStringIdMap;
+import com.blackjack200.ouranos.network.mapping.RuntimeBlockMapping;
 import com.nukkitx.protocol.bedrock.BedrockPacket;
 import com.nukkitx.protocol.bedrock.data.inventory.ContainerMixData;
 import com.nukkitx.protocol.bedrock.data.inventory.CraftingData;
@@ -11,16 +14,25 @@ import lombok.extern.log4j.Log4j2;
 import lombok.val;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 
 @Log4j2
 public class Translate {
     public static BedrockPacket translate(int originalProtocolId, int targetProtocolId, BedrockPacket p) {
-        if(p instanceof PlayStatusPacket){
+        if (p instanceof PlayStatusPacket) {
             log.info(p);
         }
         if (p instanceof CraftingDataPacket) {
             return translateCraftingData(originalProtocolId, targetProtocolId, (CraftingDataPacket) p);
+        }
+        if (p instanceof StartGamePacket) {
+            val pk = ((StartGamePacket) p);
+            val newEntires = new ArrayList<StartGamePacket.ItemEntry>();
+            ItemTypeDictionary.getInstance().getEntries(targetProtocolId).forEach((key, val) -> {
+                newEntires.add(new StartGamePacket.ItemEntry(key, (short) val.runtime_id, val.component_based));
+            });
+            pk.setItemEntries(newEntires);
         }
         if (p instanceof InventoryContentPacket) {
             val pk = ((InventoryContentPacket) p);
@@ -38,17 +50,19 @@ public class Translate {
             val pk = (CreativeContentPacket) p;
             val newContents = new ArrayList<ItemData>();
             for (int i = 0; i < pk.getContents().length; i++) {
-                try {
-                    newContents.add(translateItemStack(originalProtocolId, targetProtocolId, pk.getContents()[i]));
-                } catch (Throwable ignored) {
-
-                }
+                newContents.add(translateItemStack(originalProtocolId, targetProtocolId, pk.getContents()[i]));
             }
-            pk.setContents(newContents.toArray(new ItemData[0]));
+            pk.setContents(Arrays.stream(pk.getContents()).map((e) -> translateItemStack(originalProtocolId, targetProtocolId, e)).toArray(ItemData[]::new));
+            return pk;
         }
-        if(p instanceof MobEquipmentPacket){
+        if (p instanceof AvailableCommandsPacket) {
+            val pk = ((AvailableCommandsPacket) p);
+            return pk;
+        }
+        if (p instanceof MobEquipmentPacket) {
             var pk = ((MobEquipmentPacket) p);
             pk.setItem(translateItemStack(originalProtocolId, targetProtocolId, pk.getItem()));
+            return pk;
         }
         String minecraftVersion = Objects.requireNonNull(ProtocolInfo.getPacketCodec(targetProtocolId)).getMinecraftVersion();
         if (p instanceof ResourcePacksInfoPacket) {
@@ -124,7 +138,7 @@ public class Translate {
     }
 
     private static ItemData translateItemStack(int originalProtocolId, int targetProtocolId, ItemData oldStack) {
-        if (oldStack.isValid()) {
+        if (!oldStack.isValid()) {
             return oldStack;
         }
         val item = translateItem(originalProtocolId, targetProtocolId, oldStack.getId(), oldStack.getDamage());
@@ -136,10 +150,17 @@ public class Translate {
                 .canPlace(oldStack.getCanPlace())
                 .canBreak(oldStack.getCanBreak())
                 .blockingTicks(oldStack.getBlockingTicks())
-                //TODO BlockRuntimeId
-                .blockRuntimeId(oldStack.getBlockRuntimeId())
-                .usingNetId(oldStack.isUsingNetId())
+                .blockRuntimeId(translateBlockRuntimeId(originalProtocolId, targetProtocolId, oldStack.getBlockRuntimeId()))
+                .usingNetId(oldStack.getNetId() != 0)
                 .netId(oldStack.getNetId()).build();
+    }
+
+    private static int translateBlockRuntimeId(int originalProtocolId, int targetProtocolId, int blockRuntimeId) {
+        if (blockRuntimeId == 0) {
+            return 0;
+        }
+        val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(originalProtocolId, blockRuntimeId);
+        return RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
     }
 
     private static int[] translateItem(int originalProtocolId, int targetProtocolId, int itemId, int itemMeta) {
