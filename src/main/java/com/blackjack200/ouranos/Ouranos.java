@@ -1,130 +1,133 @@
 package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
-import com.blackjack200.ouranos.network.cache.StaticPackets;
-import com.blackjack200.ouranos.network.mapping.ItemTypeDictionary;
-import com.blackjack200.ouranos.network.translate.Translate;
-import com.blackjack200.ouranos.utils.Port;
-import com.blackjack200.ouranos.utils.YamlConfig;
-import com.nukkitx.protocol.bedrock.*;
-import com.nukkitx.protocol.bedrock.handler.BedrockPacketHandler;
-import com.nukkitx.protocol.bedrock.packet.*;
+import com.blackjack200.ouranos.network.session.AuthData;
+import com.blackjack200.ouranos.network.session.DownstreamSession;
+import com.blackjack200.ouranos.network.session.UpstreamSession;
+import com.blackjack200.ouranos.utils.*;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioDatagramChannel;
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.ResourceLeakDetector;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.cloudburstmc.nbt.NBTInputStream;
+import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.nbt.NbtType;
+import org.cloudburstmc.nbt.NbtUtils;
+import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
+import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
+import org.cloudburstmc.protocol.bedrock.BedrockPeer;
+import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
+import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
+import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
+import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
+import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
+import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
+import org.cloudburstmc.protocol.bedrock.packet.*;
+import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
+import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
+import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
+import org.cloudburstmc.protocol.common.DefinitionRegistry;
+import org.cloudburstmc.protocol.common.PacketSignal;
+import org.cloudburstmc.protocol.common.SimpleDefinitionRegistry;
+import org.jose4j.json.JsonUtil;
+import org.jose4j.json.internal.json_simple.JSONObject;
+import org.jose4j.jws.JsonWebSignature;
+import org.jose4j.jwx.HeaderParameterNames;
+import org.jose4j.lang.JoseException;
 
+import javax.crypto.SecretKey;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.ECPublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.util.Base64;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 @Log4j2
 public class Ouranos {
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
+    private final BedrockCodec REMOTE_CODEC = Bedrock_v766.CODEC;
+    private NioEventLoopGroup group;
+
     private Ouranos() {
         this.config = new ServerConfig(new YamlConfig(new File("config.yml")));
     }
 
     private void start() {
-        BedrockServer server = new BedrockServer(this.config.getBind());
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
+
+        InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", 19132);
         val pong = this.config.getPong();
-        val serverCodec = ProtocolInfo.getPacketCodec(pong.getProtocolVersion());
-        assert serverCodec != null;
 
-        log.info("Remote server codec: {}", serverCodec.getProtocolVersion());
-        server.setHandler(new BedrockServerEventHandler() {
-            @Override
-            public boolean onConnectionRequest(InetSocketAddress address) {
-                return true;
-            }
+        pong.ipv4Port(this.config.getBind().getPort())
+                .ipv6Port(this.config.getBind().getPort());
 
-            @Override
-            public BedrockPong onQuery(InetSocketAddress address) {
-                return pong;
-            }
+        var protocol = ProtocolInfo.getPacketCodecs().stream().mapToInt(BedrockCodec::getRaknetProtocolVersion).distinct().toArray();
+        group = new NioEventLoopGroup();
 
-            @Override
-            public void onSessionCreation(BedrockServerSession clientSession) {
-                log.info("{} connected", clientSession.getAddress());
-                clientSession.addDisconnectHandler((reason) -> {
-                    log.info("{} disconnected due to {}", clientSession.getAddress(), reason);
-                });
-                clientSession.setPacketHandler(new BedrockPacketHandler() {
+        new ServerBootstrap()
+                .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
+                .option(RakChannelOption.RAK_ADVERTISEMENT, pong.toByteBuf())
+                .group(group)
+                .childHandler(new BedrockChannelInitializer<DownstreamSession>() {
                     @Override
-                    public boolean handle(LoginPacket packet) {
-                        clientSession.setPacketCodec(ProtocolInfo.getPacketCodec(packet.getProtocolVersion()));
-                        val clientCodec = clientSession.getPacketCodec();
-                        log.info("{} log-in using minecraft {} {}", clientSession.getAddress(), clientCodec.getMinecraftVersion(), clientCodec.getProtocolVersion());
+                    protected DownstreamSession createSession0(BedrockPeer peer, int subClientId) {
+                        return new DownstreamSession(peer, subClientId);
+                    }
 
-                        val remoteClient = newClient();
-
-                        remoteClient.connect(Ouranos.this.config.getRemote()).whenComplete((remoteSession, throwable) -> {
-                            if (throwable != null) {
-                                log.error("connecting server {}", throwable.toString());
-                                return;
+                    @Override
+                    protected void initSession(DownstreamSession session) {
+                        log.info("{} connected", session.getPeer().getSocketAddress());
+                        session.setPacketHandler(new BedrockPacketHandler() {
+                            @Override
+                            public void onDisconnect(String reason) {
+                                log.info("{} disconnected due to {}", session.getPeer().getSocketAddress(), reason);
                             }
 
-                            remoteSession.addDisconnectHandler((reason) -> clientSession.disconnect(reason.toString()));
-                            clientSession.addDisconnectHandler((reason) -> remoteSession.disconnect());
-                            remoteSession.setPacketCodec(serverCodec);
-                            remoteSession.setBatchHandler((session12, compressed, packets) -> {
-                                Collection<BedrockPacket> newCollection = new ArrayList<>();
-                                for (BedrockPacket pk : packets) {
-                                    pk = Translate.translate(
-                                            remoteSession.getPacketCodec().getProtocolVersion(),
-                                            clientCodec.getProtocolVersion(),
-                                            pk
-                                    );
-                                    if (pk instanceof StartGamePacket) {
-                                        val p = (StartGamePacket) pk;
-                                        p.setVanillaVersion(clientCodec.getMinecraftVersion());
-                                        p.getItemEntries().clear();
-                                        ItemTypeDictionary.getInstance().getEntries(clientCodec.getProtocolVersion()).forEach((id, info) -> p.getItemEntries().add(new StartGamePacket.ItemEntry(id, (short) info.runtime_id, info.component_based)));
-                                        log.info(pk);
-                                    }
-                                    if (pk instanceof AvailableEntityIdentifiersPacket) {
-                                        pk = StaticPackets.getInstance().getActorIdsPacket(clientCodec.getProtocolVersion());
-                                    }
-                                    if (pk instanceof BiomeDefinitionListPacket) {
-                                        pk = StaticPackets.getInstance().biomeDefinition(clientCodec.getProtocolVersion());
-                                    }
-                                    log.info("-> {}", pk.toString());
+                            @Override
+                            public PacketSignal handle(LoginPacket packet) {
+                                val codec = session.getCodec();
+                                log.info("{} log-in using minecraft {} {}", session.getPeer().getSocketAddress(), codec.getMinecraftVersion(), codec.getProtocolVersion());
+                                handlePlayerLogin(session, packet);
+                                return PacketSignal.HANDLED;
+                            }
 
-                                       newCollection.add(pk);
-
-                                }
-                                clientSession.sendWrapped(newCollection, true, true);
-                            });
-                            clientSession.setBatchHandler((session1, compressed, packets) -> {
-                                Collection<BedrockPacket> newCollection = new ArrayList<>();
-                                for (BedrockPacket pk : packets) {
-                                    pk = Translate.translate(
-                                            clientCodec.getProtocolVersion(),
-                                            remoteSession.getPacketCodec().getProtocolVersion(),
-                                            pk
-                                    );
-                                    if (pk instanceof ResourcePackClientResponsePacket){
-                                        log.info(pk);
-                                    }
-                                    log.info("<- {} {}", pk.getClass(), pk.toString());
-                                    if (clientCodec.getPacketDefinition(pk.getPacketId()) != null) {
-                                        newCollection.add(pk);
-                                    }
-                                }
-                                remoteSession.sendWrapped(newCollection, true, true);
-                            });
-
-                            packet.setProtocolVersion(serverCodec.getProtocolVersion());
-                            remoteSession.sendPacket(packet);
+                            @Override
+                            public PacketSignal handle(RequestNetworkSettingsPacket packet) {
+                                session.setCodec(ProtocolInfo.getPacketCodec(packet.getProtocolVersion()));
+                                val codec = session.getCodec();
+                                log.info("{} requesting network setting with minecraft {} {}", session.getPeer().getSocketAddress(), codec.getProtocolVersion(), codec.getMinecraftVersion());
+                                val pk = new NetworkSettingsPacket();
+                                pk.setCompressionThreshold(0);
+                                pk.setCompressionAlgorithm(PacketCompressionAlgorithm.ZLIB);
+                                session.sendPacketImmediately(pk);
+                                session.setCompression(PacketCompressionAlgorithm.ZLIB);
+                                return PacketSignal.HANDLED;
+                            }
                         });
-                        return true;
                     }
-                });
-            }
-        });
-        server.bind().join();
+                })
+                .bind(bindAddress)
+                .syncUninterruptibly();
+
+        log.info("Remote codec: {} {}", REMOTE_CODEC.getProtocolVersion(),REMOTE_CODEC.getMinecraftVersion());
+
         log.info("Ouranos started at {}", this.config.getBind());
         this.running.set(true);
         while (this.running.get()) {
@@ -137,10 +140,197 @@ public class Ouranos {
         log.info("Ouranos shutdown gracefully");
     }
 
-    private BedrockClient newClient() {
-        val client = new BedrockClient(Port.allocateAddr());
-        client.bind().join();
-        return client;
+    public Object loadGzipNBT(String dataName) {
+        try (InputStream inputStream =  this.getClass().getClassLoader().getResourceAsStream(dataName);
+             NBTInputStream nbtInputStream = NbtUtils.createGZIPReader(inputStream)) {
+            return nbtInputStream.readTag();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private void handlePlayerLogin(DownstreamSession client, LoginPacket loginPacket) {
+        newClient(this.config.getRemote(), (upstream) -> {
+            client.upstream = upstream;
+            upstream.setCodec(REMOTE_CODEC);
+
+            log.info("{} connected to the remote server {}=>{}", client.getPeer().getSocketAddress(), client.getCodec().getProtocolVersion(), upstream.getCodec().getProtocolVersion());
+
+            client.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
+            upstream.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
+
+            val packet = new RequestNetworkSettingsPacket();
+            packet.setProtocolVersion(upstream.getCodec().getProtocolVersion());
+            upstream.sendPacketImmediately(packet);
+
+            client.setPacketHandler(new BedrockPacketHandler() {
+                @Override
+                public PacketSignal handlePacket(BedrockPacket packet) {
+                    log.info("-> {}", packet.getPacketType());
+                    upstream.sendPacket(packet);
+                    return PacketSignal.HANDLED;
+                }
+
+                @Override
+                public void onDisconnect(String reason) {
+                    if (upstream.isConnected()) {
+                        upstream.disconnect(reason);
+                        upstream.getPeer().getChannel().close();
+                    }
+                }
+
+                @Override
+                public PacketSignal handle(DisconnectPacket packet) {
+                    if (upstream.isConnected()) {
+                        upstream.disconnect(packet.getKickMessage());
+                        upstream.getPeer().getChannel().close();
+                    }
+                    return PacketSignal.HANDLED;
+                }
+            });
+
+            upstream.setPacketHandler(new BedrockPacketHandler() {
+                @Override
+                public void onDisconnect(String reason) {
+                    if (client.isConnected()) {
+                        client.disconnect(reason);
+                        client.getPeer().getChannel().close();
+                    }
+                }
+
+                @Override
+                public PacketSignal handlePacket(BedrockPacket packet) {
+                    log.info("<- {}", packet.getPacketType());
+                    if (packet instanceof DisconnectPacket pk) {
+                        if (client.isConnected()) {
+                            client.disconnect(pk.getKickMessage());
+                        }
+                        client.getPeer().getChannel().close();
+                        return PacketSignal.HANDLED;
+                    }
+                    if (packet instanceof NetworkSettingsPacket pk) {
+                        upstream.setCompression(pk.getCompressionAlgorithm());
+                        try {
+                            var login = makeNewLoginPacket(loginPacket, client);
+                            upstream.sendPacketImmediately(login);
+                        } catch (JoseException | InvalidKeySpecException | NoSuchAlgorithmException e) {
+                            throw new RuntimeException(e);
+                        }
+                        return PacketSignal.HANDLED;
+                    }
+                    if (packet instanceof ServerToClientHandshakePacket pk) {
+                        try {
+                            JsonWebSignature jws = new JsonWebSignature();
+                            jws.setCompactSerialization(pk.getJwt());
+                            JSONObject saltJwt = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
+                            String x5u = jws.getHeader(HeaderParameterNames.X509_URL);
+                            ECPublicKey serverKey = EncryptionUtils.parseKey(x5u);
+                            SecretKey key = EncryptionUtils.getSecretKey(EncryptionUtils.createKeyPair().getPrivate(), serverKey,
+                                    Base64.getDecoder().decode(JsonUtils.childAsType(saltJwt, "salt", String.class)));
+                            upstream.enableEncryption(key);
+                        } catch (JoseException | NoSuchAlgorithmException | InvalidKeySpecException |
+                                 InvalidKeyException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        ClientToServerHandshakePacket clientToServerHandshake = new ClientToServerHandshakePacket();
+
+                        upstream.sendPacketImmediately(clientToServerHandshake);
+                        return PacketSignal.HANDLED;
+                    }
+                    if (packet instanceof StartGamePacket pk) {
+                        var itemRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
+                                .addAll(pk.getItemDefinitions())
+                                .add(new SimpleItemDefinition("minecraft:empty", 0, false))
+                                .build();
+                        //var blockRegistry = new NbtBlockDefinitionRegistry(pk.getBlockPalette());
+                        // Load block palette, if it exists
+
+                        var blockRegistry = new UnknownBlockDefinitionRegistry();
+
+                        upstream.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
+                        client.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
+
+                        Object object = Ouranos.this.loadGzipNBT("block_palette_729.nbt");
+
+                        DefinitionRegistry<BlockDefinition> blockDefinitions;
+                        if (object instanceof NbtMap map) {
+                             blockDefinitions = new NbtBlockDefinitionRegistry(map.getList("blocks", NbtType.COMPOUND));
+                        }else{
+                            blockDefinitions = new UnknownBlockDefinitionRegistry();
+                            log.warn("Failed to load block palette. Blocks will appear as runtime IDs in packet traces and creative_content.json!");
+                        }
+
+                        upstream.getPeer().getCodecHelper().setBlockDefinitions(blockDefinitions);
+                        client.getPeer().getCodecHelper().setBlockDefinitions(blockDefinitions);
+                    }
+
+                    ReferenceCountUtil.retain(packet);
+                    client.sendPacket(packet);
+                    return PacketSignal.HANDLED;
+                }
+            });
+        });
+    }
+
+    private static LoginPacket makeNewLoginPacket(LoginPacket loginPacket, DownstreamSession client) throws JoseException, NoSuchAlgorithmException, InvalidKeySpecException {
+        ChainValidationResult chain = null;
+        chain = EncryptionUtils.validateChain(loginPacket.getChain());
+
+        var payload = chain.rawIdentityClaims();
+        if (!(payload.get("extraData") instanceof Map<?, ?>)) {
+            throw new RuntimeException("AuthData was not found!");
+        }
+
+        var extraData = new JSONObject(JsonUtils.childAsType(payload, "extraData", Map.class));
+
+        var identityData = new AuthData(chain.identityClaims().extraData.displayName,
+                chain.identityClaims().extraData.identity, chain.identityClaims().extraData.xuid);
+
+        if (!(payload.get("identityPublicKey") instanceof String)) {
+            throw new RuntimeException("Identity Public Key was not found!");
+        }
+
+        ECPublicKey identityPublicKey = EncryptionUtils.parseKey(payload.get("identityPublicKey").toString());
+
+        String clientJwt = loginPacket.getExtra();
+        JsonWebSignature jws = new JsonWebSignature();
+        jws.setKey(identityPublicKey);
+        jws.setCompactSerialization(clientJwt);
+        jws.verifySignature();
+
+        var skinData = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
+        var chainData = HandshakeUtils.createExtraData(client.keyPair, extraData);
+
+        var authData = ForgeryUtils.forgeAuthData(client.keyPair, extraData);
+        var skinDataString = ForgeryUtils.forgeSkinData(client.keyPair, skinData);
+
+        LoginPacket login = new LoginPacket();
+        login.getChain().add(chainData.serialize());
+        login.setExtra(skinDataString);
+        login.setProtocolVersion(client.upstream.getCodec().getProtocolVersion());
+        return login;
+    }
+
+    public void newClient(InetSocketAddress socketAddress, Consumer<UpstreamSession> sessionConsumer) {
+        new Bootstrap()
+                .group(group)
+                .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
+                .option(RakChannelOption.RAK_PROTOCOL_VERSION, REMOTE_CODEC.getRaknetProtocolVersion())
+                .handler(new BedrockChannelInitializer<UpstreamSession>() {
+
+                    @Override
+                    protected UpstreamSession createSession0(BedrockPeer peer, int subClientId) {
+                        return new UpstreamSession(peer, subClientId);
+                    }
+
+                    @Override
+                    protected void initSession(UpstreamSession session) {
+                        sessionConsumer.accept(session);
+                    }
+                })
+                .connect(socketAddress)
+                .awaitUninterruptibly();
     }
 
     public void shutdown() {
