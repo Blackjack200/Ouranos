@@ -5,6 +5,7 @@ import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
 import com.blackjack200.ouranos.network.session.UpstreamSession;
+import com.blackjack200.ouranos.network.translate.Translate;
 import com.blackjack200.ouranos.utils.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
@@ -277,7 +278,9 @@ public class Ouranos {
                     }
 
                     ReferenceCountUtil.retain(packet);
-                    client.sendPacket(packet);
+                    var originalProtocolId = client.upstream.getCodec().getProtocolVersion();
+                    var targetProtocolId = client.getCodec().getProtocolVersion();
+                    client.sendPacket(Translate.translate(originalProtocolId,targetProtocolId,packet));
                     return PacketSignal.HANDLED;
                 }
             });
