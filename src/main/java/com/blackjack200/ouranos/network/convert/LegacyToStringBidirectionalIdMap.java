@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.val;
 
+import java.io.ByteArrayInputStream;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -13,7 +15,7 @@ public abstract class LegacyToStringBidirectionalIdMap extends AbstractMapping {
 
     public LegacyToStringBidirectionalIdMap(String file) {
         load(file, (protocolId, rawData) -> {
-            Map<String, Integer> data = (new Gson()).fromJson(rawData, new TypeToken<Map<String, Integer>>() {
+            Map<String, Integer> data = (new Gson()).fromJson(new String(rawData), new TypeToken<Map<String, Integer>>() {
             }.getType());
             val stringToInt = new LinkedHashMap<String, Integer>();
             val intToString = new LinkedHashMap<Integer, String>();

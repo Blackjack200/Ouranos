@@ -69,6 +69,7 @@ public class Ouranos {
     }
 
     private void start() {
+        RuntimeBlockMapping.getInstance();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", 19132);
@@ -165,7 +166,9 @@ public class Ouranos {
             client.setPacketHandler(new BedrockPacketHandler() {
                 @Override
                 public PacketSignal handlePacket(BedrockPacket packet) {
-                    log.info("-> {}", packet.getPacketType());
+                    if(!(packet instanceof PlayerAuthInputPacket)) {
+                        log.info("-> {}", packet.getPacketType());
+                    }
                     upstream.sendPacket(packet);
                     return PacketSignal.HANDLED;
                 }
@@ -266,27 +269,11 @@ public class Ouranos {
                     if (packet instanceof LevelChunkPacket chunk) {
                         ByteBuf from = chunk.getData();
                         ByteBuf to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
-                        var ne = new LevelChunkPacket();
-                        try {
-                            boolean success = Ouranos.rewriteChunkData(client, from, to, chunk.getSubChunksLength());
-                            if (success) {
-                                ne.setCachingEnabled(chunk.isCachingEnabled());
-                                ne.setChunkX(chunk.getChunkX());
-                                ne.setChunkZ(chunk.getChunkZ());
-                                ne.setDimension(chunk.getDimension());
-                                ne.setRequestSubChunks(chunk.isRequestSubChunks());
-                                ne.setSubChunkLimit(chunk.getSubChunkLimit());
-                                ne.setSubChunksLength(chunk.getSubChunksLength());
-                                ReferenceCountUtil.retain(to);
-                                ReferenceCountUtil.retain(from);
-                                ne.setData(to);
-                            }
 
-                            ReferenceCountUtil.retain(ne);
-                            client.sendPacket(ne);
-                        } finally {
+                        boolean success = Ouranos.rewriteChunkData(client, from, to, chunk.getSubChunksLength());
+                        if (success) {
+                            chunk.setData(to);
                         }
-                        return PacketSignal.HANDLED;
                     }
 
                     ReferenceCountUtil.retain(packet);

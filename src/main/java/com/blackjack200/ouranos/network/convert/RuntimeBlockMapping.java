@@ -8,12 +8,10 @@ import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Log4j2
 public class RuntimeBlockMapping extends AbstractMapping {
@@ -35,15 +33,13 @@ public class RuntimeBlockMapping extends AbstractMapping {
     public RuntimeBlockMapping() {
         load("canonical_block_states.nbt", (protocolId, rawData) -> {
             val list = new ArrayList<NbtMap>();
-            val reader = new BinaryStream(rawData.getBytes(StandardCharsets.UTF_8));
+            val reader = new BinaryStream(rawData);
             val nbtReader = NbtUtils.createNetworkReader(reader);
             while (!reader.feof()) {
                 try {
                     list.add((NbtMap) nbtReader.readTag());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
-                }catch (ArithmeticException ignored){
-
                 }
             }
             this.bedrockKnownStates.put(protocolId, list);
@@ -52,7 +48,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
             this.runtimeToLegacy.put(protocolId, new LinkedHashMap<>());
             this.legacyToRuntime.put(protocolId, new LinkedHashMap<>());
             val legacyStateMap = new ArrayList<R12ToCurrentBlockMapEntry>();
-            val reader = new BinaryStream(rawData.getBytes(StandardCharsets.UTF_8));
+            val reader = new BinaryStream(rawData);
             while (!reader.feof()) {
                 try {
                     val id = reader.getString();
@@ -63,6 +59,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
                     val nbtReader = NbtUtils.createNetworkReader(reader);
 
                     val state = (NbtMap) nbtReader.readTag();
+
                     val d = new R12ToCurrentBlockMapEntry();
                     d.id = id;
                     d.meta = meta;
@@ -93,13 +90,14 @@ public class RuntimeBlockMapping extends AbstractMapping {
                 val mappedState = pair.state;
                 val mappedName = mappedState.getString("name");
                 if (!idToStateMap.containsKey(mappedName)) {
-                    throw new RuntimeException("Mapped new state does not appear in network table");
+                    log.warn(mappedName);
+                    return;
+                    //throw new RuntimeException("Mapped new state does not appear in network table");
+                    //   throw new RuntimeException("Mapped new state does not appear in network table");
                 }
                 idToStateMap.get(mappedName).forEach((k) -> {
-
                     val networkState = states.get(k);
                     registerMapping(protocolId, k, id, data);
-
                 });
             });
 
