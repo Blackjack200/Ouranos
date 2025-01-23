@@ -23,7 +23,7 @@ public final class ProtocolInfo {
     private static final Set<BedrockCodec> UNMODIFIABLE_PACKET_CODECS = Collections.unmodifiableSet(PACKET_CODECS);
 
     static {
-        addPacketCodec(Bedrock_v686.CODEC);
+        //addPacketCodec(Bedrock_v686.CODEC);
         addPacketCodec(Bedrock_v685.CODEC);
         addPacketCodec(Bedrock_v671.CODEC);
         addPacketCodec(Bedrock_v662.CODEC);

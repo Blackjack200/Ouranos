@@ -1,22 +1,22 @@
 package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
+import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
 import com.blackjack200.ouranos.network.session.UpstreamSession;
 import com.blackjack200.ouranos.utils.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.AbstractByteBufAllocator;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.ResourceLeakDetector;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
-import org.cloudburstmc.nbt.NBTInputStream;
-import org.cloudburstmc.nbt.NbtMap;
-import org.cloudburstmc.nbt.NbtType;
-import org.cloudburstmc.nbt.NbtUtils;
+import org.cloudburstmc.nbt.*;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
@@ -35,6 +35,7 @@ import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
 import org.cloudburstmc.protocol.common.DefinitionRegistry;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.cloudburstmc.protocol.common.SimpleDefinitionRegistry;
+import org.cloudburstmc.protocol.common.util.VarInts;
 import org.jose4j.json.JsonUtil;
 import org.jose4j.json.internal.json_simple.JSONObject;
 import org.jose4j.jws.JsonWebSignature;
@@ -46,8 +47,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPublicKey;
@@ -126,7 +125,7 @@ public class Ouranos {
                 .bind(bindAddress)
                 .syncUninterruptibly();
 
-        log.info("Remote codec: {} {}", REMOTE_CODEC.getProtocolVersion(),REMOTE_CODEC.getMinecraftVersion());
+        log.info("Remote codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
 
         log.info("Ouranos started at {}", this.config.getBind());
         this.running.set(true);
@@ -141,7 +140,7 @@ public class Ouranos {
     }
 
     public Object loadGzipNBT(String dataName) {
-        try (InputStream inputStream =  this.getClass().getClassLoader().getResourceAsStream(dataName);
+        try (InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream(dataName);
              NBTInputStream nbtInputStream = NbtUtils.createGZIPReader(inputStream)) {
             return nbtInputStream.readTag();
         } catch (IOException e) {
@@ -246,8 +245,6 @@ public class Ouranos {
                         //var blockRegistry = new NbtBlockDefinitionRegistry(pk.getBlockPalette());
                         // Load block palette, if it exists
 
-                        var blockRegistry = new UnknownBlockDefinitionRegistry();
-
                         upstream.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
                         client.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
 
@@ -255,14 +252,41 @@ public class Ouranos {
 
                         DefinitionRegistry<BlockDefinition> blockDefinitions;
                         if (object instanceof NbtMap map) {
-                             blockDefinitions = new NbtBlockDefinitionRegistry(map.getList("blocks", NbtType.COMPOUND));
-                        }else{
+                            blockDefinitions = new NbtBlockDefinitionRegistry(map.getList("blocks", NbtType.COMPOUND));
+                            pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, map.getList("blocks", NbtType.COMPOUND)));
+                        } else {
                             blockDefinitions = new UnknownBlockDefinitionRegistry();
                             log.warn("Failed to load block palette. Blocks will appear as runtime IDs in packet traces and creative_content.json!");
                         }
 
                         upstream.getPeer().getCodecHelper().setBlockDefinitions(blockDefinitions);
                         client.getPeer().getCodecHelper().setBlockDefinitions(blockDefinitions);
+                    }
+
+                    if (packet instanceof LevelChunkPacket chunk) {
+                        ByteBuf from = chunk.getData();
+                        ByteBuf to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
+                        var ne = new LevelChunkPacket();
+                        try {
+                            boolean success = Ouranos.rewriteChunkData(client, from, to, chunk.getSubChunksLength());
+                            if (success) {
+                                ne.setCachingEnabled(chunk.isCachingEnabled());
+                                ne.setChunkX(chunk.getChunkX());
+                                ne.setChunkZ(chunk.getChunkZ());
+                                ne.setDimension(chunk.getDimension());
+                                ne.setRequestSubChunks(chunk.isRequestSubChunks());
+                                ne.setSubChunkLimit(chunk.getSubChunkLimit());
+                                ne.setSubChunksLength(chunk.getSubChunksLength());
+                                ReferenceCountUtil.retain(to);
+                                ReferenceCountUtil.retain(from);
+                                ne.setData(to);
+                            }
+
+                            ReferenceCountUtil.retain(ne);
+                            client.sendPacket(ne);
+                        } finally {
+                        }
+                        return PacketSignal.HANDLED;
                     }
 
                     ReferenceCountUtil.retain(packet);
@@ -343,4 +367,57 @@ public class Ouranos {
         val main = new Ouranos();
         main.start();
     }
+
+    private static boolean rewriteChunkData(DownstreamSession sess, ByteBuf from, ByteBuf to, int sections) {
+        for (int section = 0; section < sections; section++) {
+            int chunkVersion = from.readUnsignedByte();
+            to.writeByte(chunkVersion);
+
+            switch (chunkVersion) {
+                // Legacy block ids, no remap needed
+                // MiNet uses this format
+                case 0, 4, 139 -> {
+                    to.writeBytes(from);
+                    return true;
+                }
+                case 8 -> { // New form chunk, baked-in palette
+                    int storageCount = from.readUnsignedByte();
+                    to.writeByte(storageCount);
+                    for (int storage = 0; storage < storageCount; storage++) {
+                        int flags = from.readUnsignedByte();
+                        int bitsPerBlock = flags >> 1; // isRuntime = (flags & 0x1) != 0
+                        int blocksPerWord = Integer.SIZE / bitsPerBlock;
+                        int nWords = ((16 * 16 * 16) + blocksPerWord - 1) / blocksPerWord;
+
+                        to.writeByte(flags);
+                        to.writeBytes(from, nWords * Integer.BYTES);
+
+                        int nPaletteEntries = VarInts.readInt(from);
+                        VarInts.writeInt(to, nPaletteEntries);
+
+                        for (int i = 0; i < nPaletteEntries; i++) {
+                            int runtimeId = VarInts.readInt(from);
+                            VarInts.writeInt(to, Ouranos.translateBlockRuntimeId(sess, runtimeId));
+                        }
+                    }
+                }
+                default -> { // Unsupported
+                    log.warn("PEBlockRewrite: Unknown subchunk format " + chunkVersion);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    public static int translateBlockRuntimeId(DownstreamSession sess, int blockRuntimeId) {
+        var originalProtocolId = sess.upstream.getCodec().getProtocolVersion();
+        var targetProtocolId = sess.getCodec().getProtocolVersion();
+        if (blockRuntimeId == 0) {
+            return 0;
+        }
+        val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(originalProtocolId, blockRuntimeId);
+        return RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
+    }
+
 }
