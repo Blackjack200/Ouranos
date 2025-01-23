@@ -21,7 +21,6 @@ public class ItemTranslator extends AbstractMapping {
     public static ItemTranslator getInstance() {
         return instance;
     }
-
     private Map<Integer, Map<Integer, Integer>> simpleCoreToNetMap = new LinkedHashMap<>();
     private Map<Integer, Map<Integer, Integer>> simpleNetToCoreMap = new LinkedHashMap<>();
     private Map<Integer, Map<Integer, Map<Integer, Integer>>> complexCoreToNetMap = new LinkedHashMap<>();
@@ -122,8 +121,7 @@ public class ItemTranslator extends AbstractMapping {
         if (simple.containsKey(networkId)) {
             return new int[]{simple.get(networkId), networkMeta};
         }
-        return new int[]{1, 0};
-      //  throw new RuntimeException("Unmapped network ID/metadata combination " + networkId + ":" + networkMeta);
+        throw new RuntimeException("Unmapped network ID/metadata combination " + networkId + ":" + networkMeta);
     }
 
     public boolean isComplex(int protocolId, int networkId, int networkMeta) {

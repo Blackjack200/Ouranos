@@ -22,7 +22,7 @@ import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
-import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
+import org.cloudburstmc.protocol.bedrock.codec.v685.Bedrock_v685;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
@@ -62,7 +62,7 @@ public class Ouranos {
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    private final BedrockCodec REMOTE_CODEC = Bedrock_v766.CODEC;
+    private final BedrockCodec REMOTE_CODEC = Bedrock_v685.CODEC;
     private NioEventLoopGroup group;
 
     private Ouranos() {
@@ -167,9 +167,10 @@ public class Ouranos {
             client.setPacketHandler(new BedrockPacketHandler() {
                 @Override
                 public PacketSignal handlePacket(BedrockPacket packet) {
-                    if(!(packet instanceof PlayerAuthInputPacket)) {
+                    if (!(packet instanceof PlayerAuthInputPacket)) {
                         log.info("-> {}", packet.getPacketType());
                     }
+                    ReferenceCountUtil.retain(packet);
                     upstream.sendPacket(packet);
                     return PacketSignal.HANDLED;
                 }
@@ -281,6 +282,7 @@ public class Ouranos {
                     var originalProtocolId = client.upstream.getCodec().getProtocolVersion();
                     var targetProtocolId = client.getCodec().getProtocolVersion();
                     client.sendPacket(Translate.translate(originalProtocolId,targetProtocolId,packet));
+                   // client.sendPacket(packet);
                     return PacketSignal.HANDLED;
                 }
             });
