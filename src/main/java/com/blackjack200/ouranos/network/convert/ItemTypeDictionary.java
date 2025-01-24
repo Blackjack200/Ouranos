@@ -33,7 +33,7 @@ public class ItemTypeDictionary extends AbstractMapping {
             data.forEach((stringId, info) -> {
                 stringToRuntime.put(stringId, info.runtime_id);
                 runtimeToString.put(info.runtime_id, stringId);
-                log.debug("p={} k={} id={} cb={}", protocolId, stringId, info.runtime_id, info.component_based);
+                //log.info("p={} k={} id={} cb={}", protocolId, stringId, info.runtime_id, info.component_based);
             });
             this.stringToRuntimeIdMap.put(protocolId, stringToRuntime);
             this.runtimeIdToStringMap.put(protocolId, runtimeToString);

@@ -32,7 +32,7 @@ public abstract class LegacyToStringBidirectionalIdMap extends AbstractMapping {
         return this.intToStringMap.get(protocolId).get(id);
     }
 
-    public int fromString(int protocolId, String id) {
+    public Integer fromString(int protocolId, String id) {
         return this.stringToIntMap.get(protocolId).get(id);
     }
 

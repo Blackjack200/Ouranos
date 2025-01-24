@@ -1,12 +1,16 @@
 package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
+import com.blackjack200.ouranos.network.convert.ItemTranslator;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
 import com.blackjack200.ouranos.network.session.UpstreamSession;
 import com.blackjack200.ouranos.network.translate.Translate;
-import com.blackjack200.ouranos.utils.*;
+import com.blackjack200.ouranos.utils.ForgeryUtils;
+import com.blackjack200.ouranos.utils.HandshakeUtils;
+import com.blackjack200.ouranos.utils.UnknownBlockDefinitionRegistry;
+import com.blackjack200.ouranos.utils.YamlConfig;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -17,12 +21,16 @@ import io.netty.util.ReferenceCountUtil;
 import io.netty.util.ResourceLeakDetector;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
-import org.cloudburstmc.nbt.*;
+import org.cloudburstmc.nbt.NBTInputStream;
+import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v622.Bedrock_v622;
+import org.cloudburstmc.protocol.bedrock.codec.v630.Bedrock_v630;
 import org.cloudburstmc.protocol.bedrock.codec.v685.Bedrock_v685;
+import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
@@ -33,7 +41,6 @@ import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
-import org.cloudburstmc.protocol.common.DefinitionRegistry;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.cloudburstmc.protocol.common.SimpleDefinitionRegistry;
 import org.cloudburstmc.protocol.common.util.VarInts;
@@ -62,7 +69,7 @@ public class Ouranos {
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    private final BedrockCodec REMOTE_CODEC = Bedrock_v685.CODEC;
+    private final BedrockCodec REMOTE_CODEC = Bedrock_v630.CODEC;
     private NioEventLoopGroup group;
 
     private Ouranos() {
@@ -71,6 +78,7 @@ public class Ouranos {
 
     private void start() {
         RuntimeBlockMapping.getInstance();
+        ItemTranslator.getInstance();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", 19132);
@@ -245,7 +253,6 @@ public class Ouranos {
                     if (packet instanceof StartGamePacket pk) {
                         var itemRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
                                 .addAll(pk.getItemDefinitions())
-                                .add(new SimpleItemDefinition("minecraft:empty", 0, false))
                                 .build();
                         //var blockRegistry = new NbtBlockDefinitionRegistry(pk.getBlockPalette());
                         // Load block palette, if it exists
@@ -253,36 +260,17 @@ public class Ouranos {
                         upstream.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
                         client.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
 
-                        Object object = Ouranos.this.loadGzipNBT("block_palette_729.nbt");
-
-                        DefinitionRegistry<BlockDefinition> blockDefinitions;
-                        if (object instanceof NbtMap map) {
-                            blockDefinitions = new NbtBlockDefinitionRegistry(map.getList("blocks", NbtType.COMPOUND));
-                            pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, map.getList("blocks", NbtType.COMPOUND)));
-                        } else {
-                            blockDefinitions = new UnknownBlockDefinitionRegistry();
-                            log.warn("Failed to load block palette. Blocks will appear as runtime IDs in packet traces and creative_content.json!");
-                        }
-
-                        upstream.getPeer().getCodecHelper().setBlockDefinitions(blockDefinitions);
-                        client.getPeer().getCodecHelper().setBlockDefinitions(blockDefinitions);
+                        upstream.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
+                        client.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
                     }
 
-                    if (packet instanceof LevelChunkPacket chunk) {
-                        ByteBuf from = chunk.getData();
-                        ByteBuf to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
 
-                        boolean success = Ouranos.rewriteChunkData(client, from, to, chunk.getSubChunksLength());
-                        if (success) {
-                            chunk.setData(to);
-                        }
-                    }
 
                     ReferenceCountUtil.retain(packet);
                     var originalProtocolId = client.upstream.getCodec().getProtocolVersion();
                     var targetProtocolId = client.getCodec().getProtocolVersion();
-                    client.sendPacket(Translate.translate(originalProtocolId,targetProtocolId,packet));
-                   // client.sendPacket(packet);
+                    client.sendPacket(Translate.translate(client, packet));
+                    // client.sendPacket(packet);
                     return PacketSignal.HANDLED;
                 }
             });
@@ -360,56 +348,5 @@ public class Ouranos {
         main.start();
     }
 
-    private static boolean rewriteChunkData(DownstreamSession sess, ByteBuf from, ByteBuf to, int sections) {
-        for (int section = 0; section < sections; section++) {
-            int chunkVersion = from.readUnsignedByte();
-            to.writeByte(chunkVersion);
-
-            switch (chunkVersion) {
-                // Legacy block ids, no remap needed
-                // MiNet uses this format
-                case 0, 4, 139 -> {
-                    to.writeBytes(from);
-                    return true;
-                }
-                case 8 -> { // New form chunk, baked-in palette
-                    int storageCount = from.readUnsignedByte();
-                    to.writeByte(storageCount);
-                    for (int storage = 0; storage < storageCount; storage++) {
-                        int flags = from.readUnsignedByte();
-                        int bitsPerBlock = flags >> 1; // isRuntime = (flags & 0x1) != 0
-                        int blocksPerWord = Integer.SIZE / bitsPerBlock;
-                        int nWords = ((16 * 16 * 16) + blocksPerWord - 1) / blocksPerWord;
-
-                        to.writeByte(flags);
-                        to.writeBytes(from, nWords * Integer.BYTES);
-
-                        int nPaletteEntries = VarInts.readInt(from);
-                        VarInts.writeInt(to, nPaletteEntries);
-
-                        for (int i = 0; i < nPaletteEntries; i++) {
-                            int runtimeId = VarInts.readInt(from);
-                            VarInts.writeInt(to, Ouranos.translateBlockRuntimeId(sess, runtimeId));
-                        }
-                    }
-                }
-                default -> { // Unsupported
-                    log.warn("PEBlockRewrite: Unknown subchunk format " + chunkVersion);
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    public static int translateBlockRuntimeId(DownstreamSession sess, int blockRuntimeId) {
-        var originalProtocolId = sess.upstream.getCodec().getProtocolVersion();
-        var targetProtocolId = sess.getCodec().getProtocolVersion();
-        if (blockRuntimeId == 0) {
-            return 0;
-        }
-        val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(originalProtocolId, blockRuntimeId);
-        return RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
-    }
 
 }

@@ -53,12 +53,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
                 try {
                     val id = reader.getString();
                     val meta = reader.getLShort();
-
-                    val offset = reader.getOffset();
-
-                    val nbtReader = NbtUtils.createNetworkReader(reader);
-
-                    val state = (NbtMap) nbtReader.readTag();
+                    val state = (NbtMap) NbtUtils.createNetworkReader(reader).readTag();
 
                     val d = new R12ToCurrentBlockMapEntry();
                     d.id = id;
@@ -82,6 +77,9 @@ public class RuntimeBlockMapping extends AbstractMapping {
 
             legacyStateMap.forEach((pair) -> {
                 val id = LegacyBlockIdToStringIdMap.getInstance().fromString(protocolId, pair.id);
+                if (id == null) {
+                    throw new RuntimeException("No legacy ID matches " + pair.id);
+                }
                 val data = pair.meta;
                 if (data > 15) {
                     //we can't handle metadata with more than 4 bits;
@@ -90,18 +88,12 @@ public class RuntimeBlockMapping extends AbstractMapping {
                 val mappedState = pair.state;
                 val mappedName = mappedState.getString("name");
                 if (!idToStateMap.containsKey(mappedName)) {
-                    log.warn(mappedName);
-                    return;
-                    //throw new RuntimeException("Mapped new state does not appear in network table");
-                    //   throw new RuntimeException("Mapped new state does not appear in network table");
+                    throw new RuntimeException("Mapped new state does not appear in network table");
                 }
-                idToStateMap.get(mappedName).forEach((k) -> {
-                    val networkState = states.get(k);
-                    registerMapping(protocolId, k, id, data);
-                });
+                idToStateMap.get(mappedName).forEach((k) -> registerMapping(protocolId, k, id, data));
             });
 
-            log.info(legacyStateMap.size());
+            //log.info(legacyStateMap.size());
         });
     }
 
@@ -116,7 +108,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
         return v.containsKey(internalStateId) ? v.get(internalStateId) : v.get(248 << 4);
     }
 
-    public int fromRuntimeId(int protocolId, int runtimeId) {
+    public Integer fromRuntimeId(int protocolId, int runtimeId) {
         return this.runtimeToLegacy.get(protocolId).get(runtimeId);
     }
 }

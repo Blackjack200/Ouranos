@@ -21,6 +21,7 @@ public class ItemTranslator extends AbstractMapping {
     public static ItemTranslator getInstance() {
         return instance;
     }
+
     private Map<Integer, Map<Integer, Integer>> simpleCoreToNetMap = new LinkedHashMap<>();
     private Map<Integer, Map<Integer, Integer>> simpleNetToCoreMap = new LinkedHashMap<>();
     private Map<Integer, Map<Integer, Map<Integer, Integer>>> complexCoreToNetMap = new LinkedHashMap<>();
@@ -40,35 +41,35 @@ public class ItemTranslator extends AbstractMapping {
             val simpleMapping = new LinkedHashMap<String, Integer>();
 
             Convert.toMap(String.class, String.class, data.get("simple")).forEach((oldId, newId) -> {
-                log.debug("p={} old={} new={}", protocolId, oldId, newId);
-                try {
-                    int intId = stringIdMap.fromString(protocolId, oldId);
-                    simpleMapping.put(newId, intId);
-                } catch (NullPointerException ignored) {
+                //log.info("p={} old={} new={}", protocolId, oldId, newId);
+                var intId = stringIdMap.fromString(protocolId, oldId);
+                if (intId == null) {
+                    //new item without a fixed legacy ID - we can't handle this right now
+                    return;
                 }
-                stringIdMap.getStringToIntMap(protocolId).forEach((stringId, intId) -> {
-                    if (!simpleMapping.containsKey(stringId)) {
-                        simpleMapping.put(stringId, intId);
-                    }
-                });
+                simpleMapping.put(newId, intId);
+            });
+
+            stringIdMap.getStringToIntMap(protocolId).forEach((stringId, intId) -> {
+                if (simpleMapping.containsKey(stringId)) {
+                    throw new RuntimeException("Old ID " + stringId + " collides with new ID");
+                }
+                simpleMapping.put(stringId, intId);
             });
 
             val complexMapping = new LinkedHashMap<String, int[]>();
             data.get("complex").forEach((oldId, obj) -> {
                 Map<String, String> map = Convert.toMap(String.class, String.class, obj);
-                try {
-                    int intId = stringIdMap.fromString(protocolId, oldId);
-                    map.forEach((meta, newId) -> {
-                        if (!complexMapping.containsKey(newId)) {
-                            complexMapping.put(newId, new int[2]);
-                        }
-                        int intMeta = Integer.parseInt(meta);
-
-                        complexMapping.put(newId, new int[]{intId, intMeta});
-                        log.debug("p={} old={} cmplx={}", protocolId, oldId, complexMapping.get(newId));
-                    });
-                } catch (NullPointerException ignored) {
+                var intId = stringIdMap.fromString(protocolId, oldId);
+                if (intId == null) {
+                    //new item without a fixed legacy ID - we can't handle this right now
+                    return;
                 }
+                map.forEach((meta, newId) -> {
+                    int intMeta = Integer.parseInt(meta);
+                    complexMapping.put(newId, new int[]{intId, intMeta});
+                    log.debug("p={} old={} cmplx={}", protocolId, oldId, complexMapping.get(newId));
+                });
             });
 
 
@@ -80,9 +81,7 @@ public class ItemTranslator extends AbstractMapping {
                     this.complexCoreToNetMap.get(protocolId).get(dd[0]).put(dd[1], netId);
 
                     this.complexNetToCoreMap.get(protocolId).put(netId, dd);
-                    return;
-                }
-                if (simpleMapping.containsKey(stringId)) {
+                } else if (simpleMapping.containsKey(stringId)) {
                     this.simpleCoreToNetMap.get(protocolId).put(simpleMapping.get(stringId), netId);
                     this.simpleNetToCoreMap.get(protocolId).put(netId, simpleMapping.get(stringId));
                 }
