@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
+import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
 import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
 import org.cloudburstmc.protocol.bedrock.codec.v649.Bedrock_v649;
 import org.cloudburstmc.protocol.bedrock.codec.v671.Bedrock_v671;
@@ -120,6 +121,14 @@ public class Translate {
                     //FIXME context based value: subclient
                     e.setSubClient(false);
                 }
+            }
+        }
+        if (source < Bedrock_v589.CODEC.getProtocolVersion()) {
+            if (p instanceof EmotePacket pk) {
+                //FIXME? context based value: xuid platformId
+                pk.setXuid("");
+                pk.setPlatformId("");
+                pk.setEmoteDuration(20);
             }
         }
 
