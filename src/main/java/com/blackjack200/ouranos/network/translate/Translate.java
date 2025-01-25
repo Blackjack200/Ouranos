@@ -7,45 +7,51 @@ import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
-import org.allaymc.updater.item.ItemStateUpdaters;
-import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
+import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
+import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
+import org.cloudburstmc.protocol.bedrock.codec.v649.Bedrock_v649;
+import org.cloudburstmc.protocol.bedrock.codec.v671.Bedrock_v671;
+import org.cloudburstmc.protocol.bedrock.codec.v685.Bedrock_v685;
+import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
+import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
+import org.cloudburstmc.protocol.bedrock.codec.v748.Bedrock_v748;
+import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
-import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.UUID;
 
 @Log4j2
 public class Translate {
 
     public static BedrockPacket translate(int source, int destination, BedrockPacket p) {
-        var pk = rewriteBlock(source, destination, p);
-        if (pk != null) {
-            return pk;
+        if (p instanceof ResourcePackStackPacket pk) {
+            pk.setGameVersion("*");
         }
-
+        rewriteBlock(source, destination, p);
+        rewriteProtocol(source, destination, p);
         if (p instanceof CreativeContentPacket packet) {
             val newContents = new ArrayList<ItemData>();
-
+            //FIXME
             packet.setContents(newContents.toArray(new ItemData[0]));
             return packet;
-        } if (p instanceof InventoryContentPacket packet) {
+        }
+        if (p instanceof InventoryContentPacket packet) {
             val newContents = new ArrayList<ItemData>();
             for (int i = 0; i < packet.getContents().size(); i++) {
-
                 ItemData d = translateItemStack(source, destination, packet.getContents().get(i));
-                if(d!=null){
-                newContents.add(d);
+                if (d != null) {
+                    newContents.add(d);
                 }
-
             }
             packet.setContents(newContents);
             return packet;
@@ -53,7 +59,85 @@ public class Translate {
         return p;
     }
 
-    private static BedrockPacket rewriteBlock(int source, int destination, BedrockPacket p) {
+    private static void rewriteProtocol(int source, int destination, BedrockPacket p) {
+        val provider = new ImmutableVectorProvider();
+        if (source < Bedrock_v766.CODEC.getProtocolVersion()) {
+            if (p instanceof ResourcePacksInfoPacket pk) {
+                pk.setWorldTemplateId(UUID.randomUUID());
+                pk.setWorldTemplateVersion("0.0.0");
+            }
+        }
+        if (source < Bedrock_v748.CODEC.getProtocolVersion()) {
+            if (p instanceof PlayerAuthInputPacket pk) {
+                pk.setInteractRotation(provider.createVector2f(0, 0));
+                pk.setCameraOrientation(provider.createVector3f(0, 0, 0));
+            }
+        }
+        if (source < Bedrock_v729.CODEC.getProtocolVersion()) {
+            if (p instanceof TransferPacket pk) {
+                pk.setReloadWorld(true);
+            }
+        }
+        if (source < Bedrock_v712.CODEC.getProtocolVersion()) {
+            if (p instanceof MobArmorEquipmentPacket pk) {
+                pk.setBody(ItemData.AIR);
+            }
+            if (p instanceof PlayerAuthInputPacket pk) {
+                pk.setRawMoveVector(provider.createVector2f(0, 0));
+                if (!pk.getPlayerActions().isEmpty()) {
+                    log.info(pk);
+                }
+                var transaction = pk.getItemUseTransaction();
+                if (transaction != null) {
+                    transaction.setTriggerType(ItemUseTransaction.TriggerType.PLAYER_INPUT);
+                    transaction.setClientInteractPrediction(ItemUseTransaction.PredictedResult.SUCCESS);
+                }
+            }
+        }
+        if (destination < Bedrock_v685.CODEC.getProtocolVersion()) {
+            if (p instanceof SetEntityDataPacket pk) {
+                pk.getMetadata().remove(EntityDataTypes.VISIBLE_MOB_EFFECTS);
+            }
+        }
+        if (source < Bedrock_v685.CODEC.getProtocolVersion()) {
+            if (p instanceof ContainerClosePacket pk) {
+                //TODO context based value: container type
+                pk.setType(ContainerType.NONE);
+            }
+        }
+        if (source < Bedrock_v671.CODEC.getProtocolVersion()) {
+            if (p instanceof ResourcePackStackPacket pk) {
+                pk.setHasEditorPacks(false);
+            }
+        }
+        if (source < Bedrock_v649.CODEC.getProtocolVersion()) {
+            if (p instanceof LevelChunkPacket pk) {
+                //FIXME overworld?
+                pk.setDimension(0);
+            }
+            if (p instanceof PlayerListPacket pk) {
+                for (var e : pk.getEntries()) {
+                    //FIXME context based value: subclient
+                    e.setSubClient(false);
+                }
+            }
+        }
+
+        if (destination < Bedrock_v594.CODEC.getProtocolVersion()) {
+            if (p instanceof SetEntityDataPacket pk) {
+                pk.getMetadata().remove(EntityDataTypes.COLLISION_BOX);
+            }
+        }
+        if (destination < Bedrock_v527.CODEC.getProtocolVersion()) {
+            if (p instanceof SetEntityDataPacket pk) {
+                pk.getMetadata().remove(EntityDataTypes.PLAYER_LAST_DEATH_POS);
+                pk.getMetadata().remove(EntityDataTypes.PLAYER_LAST_DEATH_DIMENSION);
+                pk.getMetadata().remove(EntityDataTypes.PLAYER_HAS_DIED);
+            }
+        }
+    }
+
+    private static void rewriteBlock(int source, int destination, BedrockPacket p) {
         if (p instanceof LevelChunkPacket packet) {
             var from = packet.getData();
             var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
@@ -63,37 +147,38 @@ public class Translate {
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             }
-            return packet;
+            return;
         }
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
             var translated = translateBlockRuntimeId(source, destination, runtimeId);
             packet.setDefinition(() -> translated);
+            return;
         }
         if (p instanceof LevelEventPacket packet) {
             var type = packet.getType();
             if (type != ParticleType.TERRAIN && type != LevelEvent.PARTICLE_DESTROY_BLOCK && type != LevelEvent.PARTICLE_CRACK_BLOCK) {
-                return packet;
+                return;
             }
             var data = packet.getData();
             var high = data & 0xFFFF0000;
             var blockID = translateBlockRuntimeId(source, destination, data & 0xFFFF) & 0xFFFF;
             packet.setData(high | blockID);
         }
-        if (p instanceof LevelSoundEventPacket packet) {
-            if (packet.getSound() == SoundEvent.PLACE || packet.getSound() == SoundEvent.BREAK) {
-                var runtimeId = packet.getExtraData();
-                packet.setExtraData(translateBlockRuntimeId(source, destination, runtimeId));
+        if (p instanceof LevelSoundEventPacket pk) {
+            if (pk.getSound() == SoundEvent.PLACE || pk.getSound() == SoundEvent.BREAK) {
+                var runtimeId = pk.getExtraData();
+                pk.setExtraData(translateBlockRuntimeId(source, destination, runtimeId));
             }
+            return;
         }
-        if (p instanceof AddEntityPacket packet) {
-            if (packet.getIdentifier().equals("minecraft:falling_block")) {
-                var metaData = packet.getMetadata();
+        if (p instanceof AddEntityPacket pk) {
+            if (pk.getIdentifier().equals("minecraft:falling_block")) {
+                var metaData = pk.getMetadata();
                 int runtimeId = metaData.get(EntityDataTypes.VARIANT);
                 metaData.put(EntityDataTypes.VARIANT, translateBlockRuntimeId(source, destination, runtimeId));
             }
         }
-        return null;
     }
 
     private static boolean rewriteChunkData(int source, int destination, ByteBuf from, ByteBuf to, int sections) {
@@ -157,9 +242,9 @@ public class Translate {
         if (!oldStack.isValid()) {
             return oldStack;
         }
-        var stringId=ItemTypeDictionary.getInstance().fromNumericId(source,oldStack.getDefinition().getRuntimeId());
+        var stringId = ItemTypeDictionary.getInstance().fromNumericId(source, oldStack.getDefinition().getRuntimeId());
         log.info(stringId);
-        var newId=ItemTypeDictionary.getInstance().fromStringId(destination,stringId);
+        var newId = ItemTypeDictionary.getInstance().fromStringId(destination, stringId);
         var newData = ItemData.builder()
                 .definition(oldStack.getDefinition())
                 .damage(oldStack.getDamage())

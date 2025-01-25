@@ -2,13 +2,6 @@ package com.blackjack200.ouranos.network;
 
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
-import org.cloudburstmc.protocol.bedrock.codec.v431.Bedrock_v431;
-import org.cloudburstmc.protocol.bedrock.codec.v554.Bedrock_v554;
-import org.cloudburstmc.protocol.bedrock.codec.v557.Bedrock_v557;
-import org.cloudburstmc.protocol.bedrock.codec.v560.Bedrock_v560;
-import org.cloudburstmc.protocol.bedrock.codec.v567.Bedrock_v567;
-import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
-import org.cloudburstmc.protocol.bedrock.codec.v582.Bedrock_v582;
 import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
 import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
 import org.cloudburstmc.protocol.bedrock.codec.v618.Bedrock_v618;
@@ -44,13 +37,13 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v685.CODEC);
         addPacketCodec(Bedrock_v671.CODEC);
         addPacketCodec(Bedrock_v662.CODEC);
+
         addPacketCodec(Bedrock_v649.CODEC);
         addPacketCodec(Bedrock_v630.CODEC);
         addPacketCodec(Bedrock_v622.CODEC);
         addPacketCodec(Bedrock_v618.CODEC);
         addPacketCodec(Bedrock_v594.CODEC);
         addPacketCodec(Bedrock_v589.CODEC);
-
     }
 
     private static BedrockCodec DEFAULT_PACKET_CODEC;

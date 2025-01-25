@@ -25,19 +25,12 @@ import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
-import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
-import org.cloudburstmc.protocol.bedrock.codec.v618.Bedrock_v618;
-import org.cloudburstmc.protocol.bedrock.codec.v622.Bedrock_v622;
-import org.cloudburstmc.protocol.bedrock.codec.v671.Bedrock_v671;
-import org.cloudburstmc.protocol.bedrock.codec.v685.Bedrock_v685;
-import org.cloudburstmc.protocol.bedrock.codec.v748.Bedrock_v748;
-import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
+import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.NetworkPermissions;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
-import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
@@ -71,7 +64,7 @@ public class Ouranos {
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    public static final BedrockCodec REMOTE_CODEC = Bedrock_v766.CODEC;
+    public static final BedrockCodec REMOTE_CODEC = Bedrock_v712.CODEC;
     private NioEventLoopGroup group;
 
     private Ouranos() {
@@ -95,8 +88,7 @@ public class Ouranos {
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_ADVERTISEMENT, pong.toByteBuf())
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 400)
-                .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS,protocol)
-                .option(RakChannelOption.RAK_PROTOCOL_VERSION,protocol[0])
+                .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, protocol)
                 .group(group)
                 .childHandler(new BedrockChannelInitializer<DownstreamSession>() {
                     @Override
@@ -169,7 +161,8 @@ public class Ouranos {
             client.upstream = upstream;
             upstream.setCodec(REMOTE_CODEC);
 
-            log.info("{} connected to the remote server {}=>{}", client.getPeer().getSocketAddress(), client.getCodec().getProtocolVersion(), upstream.getCodec().getProtocolVersion());
+            int clientProtocolId = client.getCodec().getProtocolVersion();
+            log.info("{} connected to the remote server {}=>{}", client.getPeer().getSocketAddress(), clientProtocolId, upstream.getCodec().getProtocolVersion());
 
             client.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
             upstream.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
@@ -184,11 +177,8 @@ public class Ouranos {
                     if (!(packet instanceof PlayerAuthInputPacket)) {
                         log.info("-> {}", packet.getPacketType());
                     }
-                    if(packet instanceof PlayerAuthInputPacket){
-                        log.info(((PlayerAuthInputPacket) packet).getPlayerActions().size());
-                    }
                     ReferenceCountUtil.retain(packet);
-                    upstream.sendPacket(Translate.translate(client.getCodec().getProtocolVersion(), client.upstream.getCodec().getProtocolVersion(), packet));
+                    upstream.sendPacket(Translate.translate(clientProtocolId, client.upstream.getCodec().getProtocolVersion(), packet));
                     return PacketSignal.HANDLED;
                 }
 
@@ -263,7 +253,7 @@ public class Ouranos {
 
                         upstream.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
 
-                        List<ItemDefinition> def = ItemTypeDictionary.getInstance().getEntries(client.getCodec().getProtocolVersion()).entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id, e.getValue().component_based)).toList();
+                        List<ItemDefinition> def = ItemTypeDictionary.getInstance().getEntries(clientProtocolId).entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id, e.getValue().component_based)).toList();
 
                         var oldRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
                                 .addAll(def)
@@ -279,22 +269,11 @@ public class Ouranos {
                         client.sendPacketImmediately(pk);
                         return PacketSignal.HANDLED;
                     }
-                    if (packet instanceof ResourcePacksInfoPacket pk) {
-                        log.warn("WTF");
-                    }
-                    if (packet instanceof ResourcePackStackPacket pk) {
-                        pk.setGameVersion("*");
-                    }
-                    if (packet instanceof SetEntityDataPacket pk) {
-                        if (client.getCodec().getProtocolVersion() < Bedrock_v685.CODEC.getProtocolVersion()) {
-                            pk.getMetadata().remove(EntityDataTypes.VISIBLE_MOB_EFFECTS);
-                        }
-                    }
                     if (!(packet instanceof LevelChunkPacket) && !(packet instanceof CraftingDataPacket) && !(packet instanceof AvailableEntityIdentifiersPacket) && !(packet instanceof BiomeDefinitionListPacket)) {
                         log.info("<- {}", packet.getPacketType());
                     }
                     ReferenceCountUtil.retain(packet);
-                    client.sendPacket(Translate.translate(client.upstream.getCodec().getProtocolVersion(), client.getCodec().getProtocolVersion(), packet));
+                    client.sendPacket(Translate.translate(client.upstream.getCodec().getProtocolVersion(), clientProtocolId, packet));
                     return PacketSignal.HANDLED;
                 }
             });
@@ -366,11 +345,7 @@ public class Ouranos {
     }
 
     public static void main(String[] args) {
-        System.setProperty("java.net.preferIPv4Stack", "true");
-        System.setProperty("log4j.skipJansi", "false");
         val main = new Ouranos();
         main.start();
     }
-
-
 }
