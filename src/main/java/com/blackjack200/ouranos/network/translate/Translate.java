@@ -18,8 +18,6 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
-import java.util.ArrayList;
-
 @Log4j2
 public class Translate {
     public static BedrockPacket translate(DownstreamSession session, BedrockPacket p) {
@@ -111,10 +109,16 @@ public class Translate {
         var targetProtocolId = sess.getCodec().getProtocolVersion();
 
         val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(originalProtocolId, blockRuntimeId);
+        Integer fallback = RuntimeBlockMapping.getInstance().getFallback(targetProtocolId);
         if (internalStateId == null) {
-            return RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, 248 << 4);
+            return fallback;
         }
-        return RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
+        val converted = RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
+        if (converted == null) {
+
+            return fallback;
+        }
+        return converted;
     }
 
 
@@ -127,8 +131,8 @@ public class Translate {
 
         var stringId = ItemTypeDictionary.getInstance().fromNumericId(originalProtocolId, oldStack.getDefinition().getRuntimeId());
         var newId = ItemTypeDictionary.getInstance().fromStringId(targetProtocolId, stringId);
-        if(newId == null){
-            log.warn("{} miss {}",targetProtocolId,stringId);
+        if (newId == null) {
+            log.warn("{} miss {}", targetProtocolId, stringId);
             return null;
         }
 
