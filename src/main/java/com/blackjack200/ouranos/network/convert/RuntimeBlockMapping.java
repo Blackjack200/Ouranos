@@ -63,14 +63,6 @@ public class RuntimeBlockMapping extends AbstractMapping {
         });
     }
 
-    public Integer translateBlock(int source, int target, int runtimeId) {
-        val hash = this.runtimeIdToHash.get(source).get(runtimeId);
-        if (hash == null) {
-            return null;
-        }
-        return this.hashToRuntimeId.get(target).get(hash);
-    }
-
     public Integer toRuntimeId(int protocolId, int hash) {
         return this.hashToRuntimeId.get(protocolId).get(hash);
     }

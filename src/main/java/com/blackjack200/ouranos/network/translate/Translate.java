@@ -1,6 +1,5 @@
 package com.blackjack200.ouranos.network.translate;
 
-import com.blackjack200.ouranos.network.convert.ItemTranslator;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -154,21 +153,5 @@ public class Translate {
             newData.blockDefinition(() -> translated);
         }
         return newData.build();
-    }
-
-    private static int[] translateItem(int originalProtocolId, int targetProtocolId, int itemId, int itemMeta) {
-        if (itemId == 0) {
-            return new int[]{itemId, itemMeta};
-        }
-        int[] coreData = ItemTranslator.getInstance().fromNetworkIdNotNull(originalProtocolId, itemId, itemMeta);
-        return ItemTranslator.getInstance().toNetworkId(targetProtocolId, coreData[0], coreData[1]);
-    }
-
-    private static int translateItemNetworkId(int originalProtocolId, int targetProtocolId, int networkId) {
-        if (networkId == 0) {
-            return networkId;
-        }
-        int[] data = ItemTranslator.getInstance().fromNetworkIdNotNull(originalProtocolId, networkId, 0);
-        return ItemTranslator.getInstance().toNetworkId(targetProtocolId, data[0], data[1])[0];
     }
 }

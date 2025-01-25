@@ -1,7 +1,6 @@
 package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
-import com.blackjack200.ouranos.network.convert.ItemTranslator;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
@@ -25,8 +24,6 @@ import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
-import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
-import org.cloudburstmc.protocol.bedrock.codec.v686.Bedrock_v686;
 import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
@@ -72,7 +69,6 @@ public class Ouranos {
 
     private void start() {
         RuntimeBlockMapping.getInstance();
-        ItemTranslator.getInstance();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", 19132);
