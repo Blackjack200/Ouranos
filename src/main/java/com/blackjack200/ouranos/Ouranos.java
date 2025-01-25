@@ -1,6 +1,7 @@
 package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
+import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
@@ -24,11 +25,12 @@ import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
-import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
+import org.cloudburstmc.protocol.bedrock.codec.v686.Bedrock_v686;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.NetworkPermissions;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
@@ -52,6 +54,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -61,7 +64,7 @@ public class Ouranos {
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    public static final BedrockCodec REMOTE_CODEC = Bedrock_v712.CODEC;
+    public static final BedrockCodec REMOTE_CODEC = Bedrock_v686.CODEC;
     private NioEventLoopGroup group;
 
     private Ouranos() {
@@ -112,6 +115,7 @@ public class Ouranos {
                             @Override
                             public PacketSignal handle(RequestNetworkSettingsPacket packet) {
                                 session.setCodec(ProtocolInfo.getPacketCodec(packet.getProtocolVersion()));
+                                session.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
                                 val codec = session.getCodec();
                                 log.info("{} requesting network setting with minecraft {} {}", session.getPeer().getSocketAddress(), codec.getProtocolVersion(), codec.getMinecraftVersion());
                                 val pk = new NetworkSettingsPacket();
@@ -168,7 +172,7 @@ public class Ouranos {
                 @Override
                 public PacketSignal handlePacket(BedrockPacket packet) {
                     if (!(packet instanceof PlayerAuthInputPacket)) {
-                        log.info("-> {}: {}", packet.getPacketType(), packet.toString());
+                        log.info("-> {}", packet.getPacketType());
                     }
                     ReferenceCountUtil.retain(packet);
                     upstream.sendPacket(Translate.translate(client.getCodec().getProtocolVersion(), client.upstream.getCodec().getProtocolVersion(), packet));
@@ -204,9 +208,6 @@ public class Ouranos {
 
                 @Override
                 public PacketSignal handlePacket(BedrockPacket packet) {
-                    if (!(packet instanceof LevelChunkPacket) && !(packet instanceof CraftingDataPacket) && !(packet instanceof AvailableEntityIdentifiersPacket) && !(packet instanceof BiomeDefinitionListPacket)) {
-                        log.info("<- {}: {}", packet.getPacketType(), packet.toString());
-                    }
                     if (packet instanceof DisconnectPacket pk) {
                         if (client.isConnected()) {
                             client.disconnect(pk.getKickMessage());
@@ -238,10 +239,8 @@ public class Ouranos {
                                  InvalidKeyException e) {
                             throw new RuntimeException(e);
                         }
-
-                        ClientToServerHandshakePacket clientToServerHandshake = new ClientToServerHandshakePacket();
-
-                        upstream.sendPacketImmediately(clientToServerHandshake);
+                        var handshake = new ClientToServerHandshakePacket();
+                        upstream.sendPacketImmediately(handshake);
                         return PacketSignal.HANDLED;
                     }
                     if (packet instanceof StartGamePacket pk) {
@@ -250,18 +249,32 @@ public class Ouranos {
                                 .build();
 
                         upstream.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
-                        client.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
+
+                        List<SimpleItemDefinition> def = ItemTypeDictionary.getInstance().getEntries(client.getCodec().getProtocolVersion()).entrySet().stream().map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id, e.getValue().component_based)).toList();
+
+                        var oldRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
+                                .addAll(def)
+                                .build();
+                        client.getPeer().getCodecHelper().setItemDefinitions(oldRegistry);
 
                         upstream.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
                         client.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
                         pk.setNetworkPermissions(new NetworkPermissions(true));
                         pk.setVanillaVersion(client.getPeer().getCodec().getMinecraftVersion());
                         pk.setServerEngine("Ouranos");
+                        client.sendPacketImmediately(pk);
+                        return PacketSignal.HANDLED;
                     }
-
+                    if (packet instanceof ResourcePacksInfoPacket pk) {
+                        var npk = new LabTablePacket();
+                        client.sendPacketImmediately(npk);
+                        log.warn("WTF");
+                    }
+                    if (!(packet instanceof LevelChunkPacket) && !(packet instanceof CraftingDataPacket) && !(packet instanceof AvailableEntityIdentifiersPacket) && !(packet instanceof BiomeDefinitionListPacket)) {
+                        log.info("<- {}", packet.getPacketType());
+                    }
                     ReferenceCountUtil.retain(packet);
-                    client.sendPacket(Translate.translate(client.upstream.getCodec().getProtocolVersion(), client.getCodec().getProtocolVersion(), packet));
-                    // client.sendPacket(packet);
+                    client.sendPacketImmediately(packet);
                     return PacketSignal.HANDLED;
                 }
             });

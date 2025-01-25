@@ -1,7 +1,6 @@
 package com.blackjack200.ouranos.network.translate;
 
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
-import com.blackjack200.ouranos.network.session.DownstreamSession;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
@@ -10,53 +9,67 @@ import lombok.val;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
+import java.util.Arrays;
+import java.util.Collection;
+
 @Log4j2
 public class Translate {
+
     public static BedrockPacket translate(int source, int destination, BedrockPacket p) {
+        var pk = rewriteBlock(source, destination, p);
+        if (pk != null) {
+            return pk;
+        }
+        return p;
+    }
+
+    private static BedrockPacket rewriteBlock(int source, int destination, BedrockPacket p) {
         if (p instanceof LevelChunkPacket packet) {
             var from = packet.getData();
             var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
 
-            var success = rewriteChunkData(source, destination,  from, to, packet.getSubChunksLength());
+            var success = rewriteChunkData(source, destination, from, to, packet.getSubChunksLength());
             if (success) {
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             }
+            return packet;
         }
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
-            var translated = translateBlockRuntimeId(source, destination,  runtimeId);
-            packet.setDefinition(()->translated);
+            var translated = translateBlockRuntimeId(source, destination, runtimeId);
+            packet.setDefinition(() -> translated);
         }
         if (p instanceof LevelEventPacket packet) {
             var type = packet.getType();
             if (type != ParticleType.TERRAIN && type != LevelEvent.PARTICLE_DESTROY_BLOCK && type != LevelEvent.PARTICLE_CRACK_BLOCK) {
-                return p;
+                return packet;
             }
             var data = packet.getData();
             var high = data & 0xFFFF0000;
-            var blockID = translateBlockRuntimeId(source, destination,  data & 0xFFFF) & 0xFFFF;
+            var blockID = translateBlockRuntimeId(source, destination, data & 0xFFFF) & 0xFFFF;
             packet.setData(high | blockID);
         }
         if (p instanceof LevelSoundEventPacket packet) {
             if (packet.getSound() == SoundEvent.PLACE || packet.getSound() == SoundEvent.BREAK) {
                 var runtimeId = packet.getExtraData();
-                packet.setExtraData(translateBlockRuntimeId(source, destination,  runtimeId));
+                packet.setExtraData(translateBlockRuntimeId(source, destination, runtimeId));
             }
         }
         if (p instanceof AddEntityPacket packet) {
             if (packet.getIdentifier().equals("minecraft:falling_block")) {
                 var metaData = packet.getMetadata();
                 int runtimeId = metaData.get(EntityDataTypes.VARIANT);
-                metaData.put(EntityDataTypes.VARIANT, translateBlockRuntimeId(source, destination,  runtimeId));
+                metaData.put(EntityDataTypes.VARIANT, translateBlockRuntimeId(source, destination, runtimeId));
             }
         }
-        return p;
+        return null;
     }
 
     private static boolean rewriteChunkData(int source, int destination, ByteBuf from, ByteBuf to, int sections) {
@@ -88,7 +101,7 @@ public class Translate {
 
                         for (int i = 0; i < nPaletteEntries; i++) {
                             int runtimeId = VarInts.readInt(from);
-                            VarInts.writeInt(to, translateBlockRuntimeId(source, destination,  runtimeId));
+                            VarInts.writeInt(to, translateBlockRuntimeId(source, destination, runtimeId));
                         }
                     }
                 }
@@ -116,7 +129,7 @@ public class Translate {
     }
 
 
-    private static ItemData translateItemStack(int source, int destination,  ItemData oldStack) {
+    private static ItemData translateItemStack(int source, int destination, ItemData oldStack) {
         if (!oldStack.isValid()) {
             return oldStack;
         }
@@ -131,7 +144,7 @@ public class Translate {
                 .usingNetId(oldStack.isUsingNetId())
                 .netId(oldStack.getNetId());
         if (oldStack.getBlockDefinition() != null) {
-            int translated = translateBlockRuntimeId(source, destination,  oldStack.getBlockDefinition().getRuntimeId());
+            int translated = translateBlockRuntimeId(source, destination, oldStack.getBlockDefinition().getRuntimeId());
             newData.blockDefinition(() -> translated);
         }
         return newData.build();
