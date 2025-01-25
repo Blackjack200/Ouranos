@@ -9,7 +9,11 @@ import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 
 import java.io.IOException;
-import java.util.*;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.Map;
 
 @Log4j2
 public class RuntimeBlockMapping extends AbstractMapping {
@@ -23,15 +27,13 @@ public class RuntimeBlockMapping extends AbstractMapping {
         return instance;
     }
 
-    private Map<Integer, Map<Integer, NbtMap>> bedrockKnownStates = new LinkedHashMap<>();
-    private Map<Integer, List<NbtMap>> bedrockKnownStatesList = new LinkedHashMap<>();
-
-    private Map<Integer, Map<Integer, Integer>> hashToRuntimeId = new HashMap<>();
-    private Map<Integer, Map<Integer, Integer>> runtimeIdToHash = new HashMap<>();
+    private Map<Integer, Map<Integer, NbtMap>> bedrockKnownStates = new LinkedHashMap<>(32);
+    private Map<Integer, Map<Integer, Integer>> hashToRuntimeId = new HashMap<>(32);
+    private Map<Integer, Map<Integer, Integer>> runtimeIdToHash = new HashMap<>(32);
 
     public RuntimeBlockMapping() {
         load("canonical_block_states.nbt", (protocolId, rawData) -> {
-            val map = new HashMap<Integer, NbtMap>();
+            val map = new HashMap<Integer, NbtMap>(20000);
             val states = new LinkedList<NbtMap>();
             val reader = new BinaryStream(rawData);
             val nbtReader = NbtUtils.createNetworkReader(reader);
@@ -50,9 +52,8 @@ public class RuntimeBlockMapping extends AbstractMapping {
                 }
             }
             this.bedrockKnownStates.put(protocolId, map);
-            this.bedrockKnownStatesList.put(protocolId, states);
-            this.hashToRuntimeId.put(protocolId, new HashMap<>());
-            this.runtimeIdToHash.put(protocolId, new HashMap<>());
+            this.hashToRuntimeId.put(protocolId, new HashMap<>(20000));
+            this.runtimeIdToHash.put(protocolId, new HashMap<>(20000));
 
             for (int i = 0; i < states.size(); i++) {
                 val state = states.get(i);
@@ -69,6 +70,20 @@ public class RuntimeBlockMapping extends AbstractMapping {
 
     public Integer fromRuntimeId(int protocolId, int runtimeId) {
         return this.runtimeIdToHash.get(protocolId).get(runtimeId);
+    }
+
+    public Integer fromNbt(int protocolId, InputStream input) {
+        try {
+            var reader = NbtUtils.createReaderLE(input);
+            var nbt = BlockStateUpdaters.updateBlockState((NbtMap) reader.readTag(), BlockStateUpdaters.LATEST_VERSION);
+            var tag = NbtMap.builder()
+                    .putString("name", nbt.getString("name"))
+                    .putCompound("states", nbt.getCompound("states"))
+                    .build();
+            return tag.hashCode();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public int getFallback(int protocolId) {

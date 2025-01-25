@@ -1,5 +1,6 @@
 package com.blackjack200.ouranos.network.translate;
 
+import com.blackjack200.ouranos.network.convert.CreativeInventory;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -15,8 +16,6 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
-import java.util.ArrayList;
-
 @Log4j2
 public class Translate {
     public static BedrockPacket translate(DownstreamSession session, BedrockPacket p) {
@@ -29,16 +28,6 @@ public class Translate {
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             }
-        }
-        if (p instanceof CreativeContentPacket packet) {
-            var originalProtocolId = session.upstream.getCodec().getProtocolVersion();
-            var targetProtocolId = session.getCodec().getProtocolVersion();
-            val newContents = new ArrayList<ItemData>();
-            for (int i = 0; i < packet.getContents().length; i++) {
-                newContents.add(translateItemStack(session, packet.getContents()[i]));
-            }
-            packet.setContents(newContents.toArray(new ItemData[0]));
-            return packet;
         }
         if (p instanceof UpdateBlockPacket packet) {
             int runtimeId = packet.getDefinition().getRuntimeId();

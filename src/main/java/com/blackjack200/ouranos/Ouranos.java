@@ -1,6 +1,7 @@
 package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
+import com.blackjack200.ouranos.network.convert.CreativeInventory;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
@@ -60,7 +61,7 @@ public class Ouranos {
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    private final BedrockCodec REMOTE_CODEC = Bedrock_v712.CODEC;
+    public static final BedrockCodec REMOTE_CODEC = Bedrock_v712.CODEC;
     private NioEventLoopGroup group;
 
     private Ouranos() {
@@ -69,6 +70,7 @@ public class Ouranos {
 
     private void start() {
         RuntimeBlockMapping.getInstance();
+        CreativeInventory.getInstance();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", 19132);
