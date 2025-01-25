@@ -1,6 +1,7 @@
 package com.blackjack200.ouranos.network.translate;
 
 import com.blackjack200.ouranos.network.convert.ItemTranslator;
+import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -11,6 +12,7 @@ import lombok.val;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.*;
@@ -30,18 +32,6 @@ public class Translate {
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             }
-        }
-        if (p instanceof CreativeContentPacket packet) {
-            var originalProtocolId = session.upstream.getCodec().getProtocolVersion();
-            var targetProtocolId = session.getCodec().getProtocolVersion();
-            val newContents = new ArrayList<ItemData>();
-            for (int i = 0; i < packet.getContents().length; i++) {
-
-                newContents.add(translateItemStack(originalProtocolId, targetProtocolId, packet.getContents()[i]));
-
-            }
-            packet.setContents(newContents.toArray(new ItemData[0]));
-            return packet;
         }
         if (p instanceof UpdateBlockPacket packet) {
             int runtimeId = packet.getDefinition().getRuntimeId();
@@ -128,29 +118,32 @@ public class Translate {
     }
 
 
-    private static ItemData translateItemStack(int originalProtocolId, int targetProtocolId, ItemData oldStack) {
+    private static ItemData translateItemStack(DownstreamSession session, ItemData oldStack) {
         if (!oldStack.isValid()) {
             return oldStack;
         }
-        //val item = translateItem(targetProtocolId, targetProtocolId, oldStack.getDefinition().getRuntimeId(), oldStack.getDamage());
-        return ItemData.builder()
-                .definition(oldStack.getDefinition())
+        var originalProtocolId = session.upstream.getCodec().getProtocolVersion();
+        var targetProtocolId = session.getCodec().getProtocolVersion();
+
+        var stringId = ItemTypeDictionary.getInstance().fromNumericId(originalProtocolId, oldStack.getDefinition().getRuntimeId());
+        var newId = ItemTypeDictionary.getInstance().fromStringId(targetProtocolId, stringId);
+        if(newId == null){
+            log.warn("{} miss {}",targetProtocolId,stringId);
+            return null;
+        }
+
+        var newData = ItemData.builder()
+                .definition(new SimpleItemDefinition(stringId, newId, oldStack.getDefinition().isComponentBased()))
                 .damage(oldStack.getDamage())
                 .count(oldStack.getCount())
                 .tag(oldStack.getTag())
                 .canPlace(oldStack.getCanPlace())
                 .canBreak(oldStack.getCanBreak())
                 .blockingTicks(oldStack.getBlockingTicks())
-                .usingNetId(oldStack.getNetId() != 0)
-                .netId(oldStack.getNetId()).build();
-    }
+                .usingNetId(oldStack.isUsingNetId())
+                .netId(oldStack.getNetId());
 
-    private static int translateBlockRuntimeId(int originalProtocolId, int targetProtocolId, int blockRuntimeId) {
-        if (blockRuntimeId == 0) {
-            return 0;
-        }
-        val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(originalProtocolId, blockRuntimeId);
-        return RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
+        return newData.build();
     }
 
     private static int[] translateItem(int originalProtocolId, int targetProtocolId, int itemId, int itemMeta) {

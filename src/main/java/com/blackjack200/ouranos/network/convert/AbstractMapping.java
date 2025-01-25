@@ -6,7 +6,6 @@ import com.blackjack200.ouranos.network.ProtocolInfo;
 import lombok.extern.log4j.Log4j2;
 
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 
 @Log4j2
 public class AbstractMapping {

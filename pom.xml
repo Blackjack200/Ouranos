@@ -26,6 +26,10 @@
             <id>central</id>
             <url>https://repo1.maven.org/maven2/</url>
         </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
     </repositories>
     <build>
         <plugins>
@@ -41,6 +45,11 @@
     </build>
 
     <dependencies>
+        <dependency>
+            <groupId>com.github.allaymc</groupId>
+            <artifactId>StateUpdater</artifactId>
+            <version>1.21.50</version>
+        </dependency>
         <dependency>
             <groupId>org.cloudburstmc.protocol</groupId>
             <artifactId>bedrock-connection</artifactId>

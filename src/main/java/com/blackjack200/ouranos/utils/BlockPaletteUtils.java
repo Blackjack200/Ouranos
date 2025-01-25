@@ -48,10 +48,4 @@ public class BlockPaletteUtils {
         }
         return hash;
     }
-
-    @Value
-    private static class BlockState {
-        private Object val;
-        private int type;
-    }
 }

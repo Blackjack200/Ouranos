@@ -44,7 +44,7 @@ public class ItemTypeDictionary extends AbstractMapping {
         return this.runtimeIdToStringMap.get(protocolId).get(itemId);
     }
 
-    public int fromStringId(int protocolId, String itemId) {
+    public Integer fromStringId(int protocolId, String itemId) {
         return this.stringToRuntimeIdMap.get(protocolId).get(itemId);
     }
 
