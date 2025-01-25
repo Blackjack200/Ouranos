@@ -245,7 +245,7 @@ public class Ouranos {
                             JSONObject saltJwt = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
                             String x5u = jws.getHeader(HeaderParameterNames.X509_URL);
                             ECPublicKey serverKey = EncryptionUtils.parseKey(x5u);
-                            SecretKey key = EncryptionUtils.getSecretKey(EncryptionUtils.createKeyPair().getPrivate(), serverKey,
+                            SecretKey key = EncryptionUtils.getSecretKey(client.keyPair.getPrivate(), serverKey,
                                     Base64.getDecoder().decode(JsonUtils.childAsType(saltJwt, "salt", String.class)));
                             upstream.enableEncryption(key);
                         } catch (JoseException | NoSuchAlgorithmException | InvalidKeySpecException |
