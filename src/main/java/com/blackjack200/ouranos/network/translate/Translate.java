@@ -1,20 +1,25 @@
 package com.blackjack200.ouranos.network.translate;
 
+import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.allaymc.updater.item.ItemStateUpdaters;
+import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -25,6 +30,31 @@ public class Translate {
         var pk = rewriteBlock(source, destination, p);
         if (pk != null) {
             return pk;
+        }
+        if (p instanceof CreativeContentPacket packet) {
+            val newContents = new ArrayList<ItemData>();
+            for (int i = 0; i < packet.getContents().length; i++) {
+
+                ItemData d = translateItemStack(source, destination, packet.getContents()[i]);
+                if(d!=null){
+                newContents.add(d);
+                }
+
+            }
+            packet.setContents(newContents.toArray(new ItemData[0]));
+            return packet;
+        } if (p instanceof InventoryContentPacket packet) {
+            val newContents = new ArrayList<ItemData>();
+            for (int i = 0; i < packet.getContents().size(); i++) {
+
+                ItemData d = translateItemStack(source, destination, packet.getContents().get(i));
+                if(d!=null){
+                newContents.add(d);
+                }
+
+            }
+            packet.setContents(newContents);
+            return packet;
         }
         return p;
     }
