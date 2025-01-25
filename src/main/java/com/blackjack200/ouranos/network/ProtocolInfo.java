@@ -50,14 +50,7 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v618.CODEC);
         addPacketCodec(Bedrock_v594.CODEC);
         addPacketCodec(Bedrock_v589.CODEC);
-        addPacketCodec(Bedrock_v582.CODEC);
-        addPacketCodec(Bedrock_v575.CODEC);
-        addPacketCodec(Bedrock_v567.CODEC);
-        addPacketCodec(Bedrock_v560.CODEC);
-        addPacketCodec(Bedrock_v557.CODEC);
-        addPacketCodec(Bedrock_v554.CODEC);
-        addPacketCodec(Bedrock_v554.CODEC);
-        addPacketCodec(Bedrock_v431.CODEC);
+
     }
 
     private static BedrockCodec DEFAULT_PACKET_CODEC;
