@@ -1,7 +1,6 @@
 package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
-import com.blackjack200.ouranos.network.convert.CreativeInventory;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
@@ -27,6 +26,7 @@ import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
+import org.cloudburstmc.protocol.bedrock.data.NetworkPermissions;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
@@ -69,8 +69,7 @@ public class Ouranos {
     }
 
     private void start() {
-        RuntimeBlockMapping.getInstance();
-        CreativeInventory.getInstance();
+        (new Thread(RuntimeBlockMapping::getInstance)).start();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", 19132);
@@ -103,6 +102,7 @@ public class Ouranos {
 
                             @Override
                             public PacketSignal handle(LoginPacket packet) {
+                                session.setCodec(ProtocolInfo.getPacketCodec(packet.getProtocolVersion()));
                                 val codec = session.getCodec();
                                 log.info("{} log-in using minecraft {} {}", session.getPeer().getSocketAddress(), codec.getMinecraftVersion(), codec.getProtocolVersion());
                                 handlePlayerLogin(session, packet);
@@ -168,10 +168,10 @@ public class Ouranos {
                 @Override
                 public PacketSignal handlePacket(BedrockPacket packet) {
                     if (!(packet instanceof PlayerAuthInputPacket)) {
-                        log.info("-> {}", packet.getPacketType());
+                        log.info("-> {}: {}", packet.getPacketType(), packet.toString());
                     }
                     ReferenceCountUtil.retain(packet);
-                    upstream.sendPacket(packet);
+                    upstream.sendPacket(Translate.translate(client.getCodec().getProtocolVersion(), client.upstream.getCodec().getProtocolVersion(), packet));
                     return PacketSignal.HANDLED;
                 }
 
@@ -204,7 +204,9 @@ public class Ouranos {
 
                 @Override
                 public PacketSignal handlePacket(BedrockPacket packet) {
-                    log.info("<- {}", packet.getPacketType());
+                    if (!(packet instanceof LevelChunkPacket) && !(packet instanceof CraftingDataPacket) && !(packet instanceof AvailableEntityIdentifiersPacket) && !(packet instanceof BiomeDefinitionListPacket)) {
+                        log.info("<- {}: {}", packet.getPacketType(), packet.toString());
+                    }
                     if (packet instanceof DisconnectPacket pk) {
                         if (client.isConnected()) {
                             client.disconnect(pk.getKickMessage());
@@ -246,20 +248,19 @@ public class Ouranos {
                         var itemRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
                                 .addAll(pk.getItemDefinitions())
                                 .build();
-                        //var blockRegistry = new NbtBlockDefinitionRegistry(pk.getBlockPalette());
-                        // Load block palette, if it exists
 
                         upstream.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
                         client.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
 
                         upstream.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
                         client.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
+                        pk.setNetworkPermissions(new NetworkPermissions(true));
+                        pk.setVanillaVersion(client.getPeer().getCodec().getMinecraftVersion());
+                        pk.setServerEngine("Ouranos");
                     }
 
                     ReferenceCountUtil.retain(packet);
-                    var originalProtocolId = client.upstream.getCodec().getProtocolVersion();
-                    var targetProtocolId = client.getCodec().getProtocolVersion();
-                    client.sendPacket(Translate.translate(client, packet));
+                    client.sendPacket(Translate.translate(client.upstream.getCodec().getProtocolVersion(), client.getCodec().getProtocolVersion(), packet));
                     // client.sendPacket(packet);
                     return PacketSignal.HANDLED;
                 }

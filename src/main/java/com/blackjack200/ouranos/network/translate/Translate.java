@@ -1,6 +1,5 @@
 package com.blackjack200.ouranos.network.translate;
 
-import com.blackjack200.ouranos.network.convert.CreativeInventory;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -18,21 +17,21 @@ import org.cloudburstmc.protocol.common.util.VarInts;
 
 @Log4j2
 public class Translate {
-    public static BedrockPacket translate(DownstreamSession session, BedrockPacket p) {
+    public static BedrockPacket translate(int source, int destination, BedrockPacket p) {
         if (p instanceof LevelChunkPacket packet) {
-            ByteBuf from = packet.getData();
-            ByteBuf to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
+            var from = packet.getData();
+            var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
 
-            boolean success = rewriteChunkData(session, from, to, packet.getSubChunksLength());
+            var success = rewriteChunkData(source, destination,  from, to, packet.getSubChunksLength());
             if (success) {
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             }
         }
         if (p instanceof UpdateBlockPacket packet) {
-            int runtimeId = packet.getDefinition().getRuntimeId();
-            var definition = session.getPeer().getCodecHelper().getBlockDefinitions().getDefinition(translateBlockRuntimeId(session, runtimeId));
-            packet.setDefinition(definition);
+            var runtimeId = packet.getDefinition().getRuntimeId();
+            var translated = translateBlockRuntimeId(source, destination,  runtimeId);
+            packet.setDefinition(()->translated);
         }
         if (p instanceof LevelEventPacket packet) {
             var type = packet.getType();
@@ -41,26 +40,26 @@ public class Translate {
             }
             var data = packet.getData();
             var high = data & 0xFFFF0000;
-            var blockID = translateBlockRuntimeId(session, data & 0xFFFF) & 0xFFFF;
+            var blockID = translateBlockRuntimeId(source, destination,  data & 0xFFFF) & 0xFFFF;
             packet.setData(high | blockID);
         }
         if (p instanceof LevelSoundEventPacket packet) {
             if (packet.getSound() == SoundEvent.PLACE || packet.getSound() == SoundEvent.BREAK) {
                 var runtimeId = packet.getExtraData();
-                packet.setExtraData(translateBlockRuntimeId(session, runtimeId));
+                packet.setExtraData(translateBlockRuntimeId(source, destination,  runtimeId));
             }
         }
         if (p instanceof AddEntityPacket packet) {
             if (packet.getIdentifier().equals("minecraft:falling_block")) {
                 var metaData = packet.getMetadata();
                 int runtimeId = metaData.get(EntityDataTypes.VARIANT);
-                metaData.put(EntityDataTypes.VARIANT, translateBlockRuntimeId(session, runtimeId));
+                metaData.put(EntityDataTypes.VARIANT, translateBlockRuntimeId(source, destination,  runtimeId));
             }
         }
         return p;
     }
 
-    private static boolean rewriteChunkData(DownstreamSession sess, ByteBuf from, ByteBuf to, int sections) {
+    private static boolean rewriteChunkData(int source, int destination, ByteBuf from, ByteBuf to, int sections) {
         for (int section = 0; section < sections; section++) {
             int chunkVersion = from.readUnsignedByte();
             to.writeByte(chunkVersion);
@@ -89,7 +88,7 @@ public class Translate {
 
                         for (int i = 0; i < nPaletteEntries; i++) {
                             int runtimeId = VarInts.readInt(from);
-                            VarInts.writeInt(to, translateBlockRuntimeId(sess, runtimeId));
+                            VarInts.writeInt(to, translateBlockRuntimeId(source, destination,  runtimeId));
                         }
                     }
                 }
@@ -102,16 +101,13 @@ public class Translate {
         return true;
     }
 
-    public static int translateBlockRuntimeId(DownstreamSession sess, int blockRuntimeId) {
-        var originalProtocolId = sess.upstream.getCodec().getProtocolVersion();
-        var targetProtocolId = sess.getCodec().getProtocolVersion();
-
-        val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(originalProtocolId, blockRuntimeId);
-        int fallback = RuntimeBlockMapping.getInstance().getFallback(targetProtocolId);
+    public static int translateBlockRuntimeId(int source, int destination, int blockRuntimeId) {
+        val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(source, blockRuntimeId);
+        int fallback = RuntimeBlockMapping.getInstance().getFallback(destination);
         if (internalStateId == null) {
             return fallback;
         }
-        val converted = RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
+        val converted = RuntimeBlockMapping.getInstance().toRuntimeId(destination, internalStateId);
         if (converted == null) {
 
             return fallback;
@@ -120,13 +116,10 @@ public class Translate {
     }
 
 
-    private static ItemData translateItemStack(DownstreamSession session, ItemData oldStack) {
+    private static ItemData translateItemStack(int source, int destination,  ItemData oldStack) {
         if (!oldStack.isValid()) {
             return oldStack;
         }
-        var originalProtocolId = session.upstream.getCodec().getProtocolVersion();
-        var targetProtocolId = session.getCodec().getProtocolVersion();
-
         var newData = ItemData.builder()
                 .definition(oldStack.getDefinition())
                 .damage(oldStack.getDamage())
@@ -138,7 +131,7 @@ public class Translate {
                 .usingNetId(oldStack.isUsingNetId())
                 .netId(oldStack.getNetId());
         if (oldStack.getBlockDefinition() != null) {
-            int translated = translateBlockRuntimeId(session, oldStack.getBlockDefinition().getRuntimeId());
+            int translated = translateBlockRuntimeId(source, destination,  oldStack.getBlockDefinition().getRuntimeId());
             newData.blockDefinition(() -> translated);
         }
         return newData.build();

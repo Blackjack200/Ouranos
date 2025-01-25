@@ -35,7 +35,9 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v748.CODEC);
         addPacketCodec(Bedrock_v729.CODEC);
         addPacketCodec(Bedrock_v712.CODEC);
+
         addPacketCodec(Bedrock_v686.CODEC);
+
         addPacketCodec(Bedrock_v685.CODEC);
         addPacketCodec(Bedrock_v671.CODEC);
         addPacketCodec(Bedrock_v662.CODEC);
