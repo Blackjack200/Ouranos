@@ -72,10 +72,15 @@ public class RuntimeBlockMapping extends AbstractMapping {
         return this.runtimeIdToHash.get(protocolId).get(runtimeId);
     }
 
-    public Integer fromNbt(int protocolId, InputStream input) {
+    public Integer fromNbt(int protocolId,String name, InputStream input) {
         try {
             var reader = NbtUtils.createReaderLE(input);
-            var nbt = BlockStateUpdaters.updateBlockState((NbtMap) reader.readTag(), BlockStateUpdaters.LATEST_VERSION);
+            var tg = (NbtMap) reader.readTag();
+            tg = NbtMap.builder()
+                    .putString("name",name)
+                    .putCompound("states", tg.getCompound("states"))
+                    .build();
+            var nbt = BlockStateUpdaters.updateBlockState(tg, BlockStateUpdaters.LATEST_VERSION);
             var tag = NbtMap.builder()
                     .putString("name", nbt.getString("name"))
                     .putCompound("states", nbt.getCompound("states"))
@@ -84,6 +89,19 @@ public class RuntimeBlockMapping extends AbstractMapping {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public Integer fromNbt2(int protocolId,String name, NbtMap input) {
+        var tg = NbtMap.builder()
+                .putString("name",name)
+                .putCompound("states", input.getCompound("states"))
+                .build();
+        var nbt = BlockStateUpdaters.updateBlockState(tg, BlockStateUpdaters.LATEST_VERSION);
+        var tag = NbtMap.builder()
+                .putString("name", nbt.getString("name"))
+                .putCompound("states", nbt.getCompound("states"))
+                .build();
+        return tag.hashCode();
     }
 
     public int getFallback(int protocolId) {

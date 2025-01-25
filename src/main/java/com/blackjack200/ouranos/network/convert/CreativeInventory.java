@@ -30,12 +30,13 @@ public class CreativeInventory extends AbstractMapping {
             var pk = new CreativeContentPacket();
             var list = new ArrayList<ItemData>(data.size());
             for (var entry : data) {
-                var e = entry.make(Ouranos.REMOTE_CODEC.getProtocolVersion(), protocolId);
+                var e = entry.make(protocolId);
                 if (e != null) {
                     list.add(e);
                 }
             }
             pk.setContents(list.toArray(new ItemData[]{}));
+            this.packets.put(protocolId,pk);
         });
     }
 

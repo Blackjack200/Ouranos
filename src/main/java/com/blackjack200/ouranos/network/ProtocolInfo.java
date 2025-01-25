@@ -2,6 +2,9 @@ package com.blackjack200.ouranos.network;
 
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v431.Bedrock_v431;
+import org.cloudburstmc.protocol.bedrock.codec.v554.Bedrock_v554;
+import org.cloudburstmc.protocol.bedrock.codec.v557.Bedrock_v557;
 import org.cloudburstmc.protocol.bedrock.codec.v560.Bedrock_v560;
 import org.cloudburstmc.protocol.bedrock.codec.v567.Bedrock_v567;
 import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
@@ -51,6 +54,10 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v575.CODEC);
         addPacketCodec(Bedrock_v567.CODEC);
         addPacketCodec(Bedrock_v560.CODEC);
+        addPacketCodec(Bedrock_v557.CODEC);
+        addPacketCodec(Bedrock_v554.CODEC);
+        addPacketCodec(Bedrock_v554.CODEC);
+        addPacketCodec(Bedrock_v431.CODEC);
     }
 
     private static BedrockCodec DEFAULT_PACKET_CODEC;

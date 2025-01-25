@@ -31,9 +31,13 @@ public class ServerConfig {
         return new BedrockPong()
                 .edition("MCPE")
                 .motd("My Server")
+                .subMotd("Ouranos")
+                .serverId(114514L)
+                .nintendoLimited(false)
                 .playerCount(0)
                 .maximumPlayerCount(20)
                 .gameType("Survival")
+                .version(Bedrock_v389.CODEC.getMinecraftVersion())
                 .protocolVersion(Bedrock_v389.CODEC.getProtocolVersion());
     }
 }
