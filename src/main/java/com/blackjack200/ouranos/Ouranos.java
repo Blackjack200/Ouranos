@@ -26,6 +26,8 @@ import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
+import org.cloudburstmc.protocol.bedrock.codec.v686.Bedrock_v686;
+import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
@@ -61,7 +63,7 @@ public class Ouranos {
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    private final BedrockCodec REMOTE_CODEC = Bedrock_v589.CODEC;
+    private final BedrockCodec REMOTE_CODEC = Bedrock_v712.CODEC;
     private NioEventLoopGroup group;
 
     private Ouranos() {

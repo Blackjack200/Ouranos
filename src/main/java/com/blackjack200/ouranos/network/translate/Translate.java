@@ -1,7 +1,6 @@
 package com.blackjack200.ouranos.network.translate;
 
 import com.blackjack200.ouranos.network.convert.ItemTranslator;
-import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.DownstreamSession;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -12,7 +11,6 @@ import lombok.val;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.*;
@@ -32,6 +30,16 @@ public class Translate {
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             }
+        }
+        if (p instanceof CreativeContentPacket packet) {
+            var originalProtocolId = session.upstream.getCodec().getProtocolVersion();
+            var targetProtocolId = session.getCodec().getProtocolVersion();
+            val newContents = new ArrayList<ItemData>();
+            for (int i = 0; i < packet.getContents().length; i++) {
+                newContents.add(translateItemStack(session, packet.getContents()[i]));
+            }
+            packet.setContents(newContents.toArray(new ItemData[0]));
+            return packet;
         }
         if (p instanceof UpdateBlockPacket packet) {
             int runtimeId = packet.getDefinition().getRuntimeId();
@@ -111,10 +119,15 @@ public class Translate {
         var targetProtocolId = sess.getCodec().getProtocolVersion();
 
         val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(originalProtocolId, blockRuntimeId);
+        int fallback = RuntimeBlockMapping.getInstance().getFallback(targetProtocolId);
         if (internalStateId == null) {
-            return RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, 248 << 4);
+            return fallback;
         }
-        return RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
+        val converted = RuntimeBlockMapping.getInstance().toRuntimeId(targetProtocolId, internalStateId);
+        if (converted == null) {
+            return fallback;
+        }
+        return converted;
     }
 
 
@@ -125,15 +138,8 @@ public class Translate {
         var originalProtocolId = session.upstream.getCodec().getProtocolVersion();
         var targetProtocolId = session.getCodec().getProtocolVersion();
 
-        var stringId = ItemTypeDictionary.getInstance().fromNumericId(originalProtocolId, oldStack.getDefinition().getRuntimeId());
-        var newId = ItemTypeDictionary.getInstance().fromStringId(targetProtocolId, stringId);
-        if(newId == null){
-            log.warn("{} miss {}",targetProtocolId,stringId);
-            return null;
-        }
-
         var newData = ItemData.builder()
-                .definition(new SimpleItemDefinition(stringId, newId, oldStack.getDefinition().isComponentBased()))
+                .definition(oldStack.getDefinition())
                 .damage(oldStack.getDamage())
                 .count(oldStack.getCount())
                 .tag(oldStack.getTag())
@@ -142,7 +148,10 @@ public class Translate {
                 .blockingTicks(oldStack.getBlockingTicks())
                 .usingNetId(oldStack.isUsingNetId())
                 .netId(oldStack.getNetId());
-
+        if (oldStack.getBlockDefinition() != null) {
+            int translated = translateBlockRuntimeId(session, oldStack.getBlockDefinition().getRuntimeId());
+            newData.blockDefinition(() -> translated);
+        }
         return newData.build();
     }
 
