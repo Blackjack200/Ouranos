@@ -42,6 +42,7 @@ import org.cloudburstmc.protocol.common.util.VarInts;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Log4j2
 public class Translate {
@@ -53,38 +54,34 @@ public class Translate {
 
         rewriteProtocol(source, destination, p);
         rewriteBlock(source, destination, p);
-        if (p instanceof CreativeContentPacket packet) {
-            val newContents = new ArrayList<ItemData>();
-            for (val x : packet.getContents()) {
-                val strid = ItemTypeDictionary.getInstance().fromNumericId(source, x.getDefinition().getRuntimeId());
-                if (!x.getDefinition().getIdentifier().equals(strid)) {
-                    log.warn("Translating {} to {}", x.getDefinition().getIdentifier(), strid);
-                }
-                val translated = Optional.ofNullable(ItemTypeDictionary.getInstance().fromStringId(destination, strid)).orElse(ItemTypeDictionary.getInstance().fromStringId(destination, "minecraft:barrier"));
-                if (x.getDefinition().getRuntimeId() != translated) {
-                    log.warn("Translating {} lol {}", x.getDefinition().getRuntimeId(), translated);
-                }
-                val newDef = new SimpleItemDefinition(strid, translated, false);
-
-                val blk = x.getBlockDefinition();
-                if (blk != null) {
-                    val rtId = Optional.ofNullable(RuntimeBlockMapping.getInstance().fromRuntimeId(source, blk.getRuntimeId())).orElse(RuntimeBlockMapping.getInstance().getFallback(source));
-                    newContents.add(x.toBuilder()
-                            .definition(newDef)
-                            .blockDefinition(new SimpleBlockDefinition(strid, rtId,null))
-                            .build());
-                }else{
-                    newContents.add(x.toBuilder()
-                            .definition(newDef)
-                            .build());
-                }
-
-            }
-            //FIXME
-            packet.setContents(newContents.toArray(new ItemData[0]));
-            return packet;
-        }
         return p;
+    }
+
+    private static ItemData translateItemData(int source, int destination, ItemData x) {
+        ItemData build;
+        val strid = ItemTypeDictionary.getInstance().fromNumericId(source, x.getDefinition().getRuntimeId());
+        if (!x.getDefinition().getIdentifier().equals(strid)) {
+            log.warn("Translating {} to {}", x.getDefinition().getIdentifier(), strid);
+        }
+        val translated = Optional.ofNullable(ItemTypeDictionary.getInstance().fromStringId(destination, strid)).orElse(ItemTypeDictionary.getInstance().fromStringId(destination, "minecraft:barrier"));
+        if (x.getDefinition().getRuntimeId() != translated) {
+            log.warn("Translating {} lol {}", x.getDefinition().getRuntimeId(), translated);
+        }
+        val newDef = new SimpleItemDefinition(strid, translated, false);
+
+        val blk = x.getBlockDefinition();
+        if (blk != null) {
+            val rtId = Optional.ofNullable(RuntimeBlockMapping.getInstance().fromRuntimeId(source, blk.getRuntimeId())).orElse(RuntimeBlockMapping.getInstance().getFallback(source));
+             build = x.toBuilder()
+                    .definition(newDef)
+                    .blockDefinition(new SimpleBlockDefinition(strid, rtId, null))
+                    .build();
+        }else{
+             build = x.toBuilder()
+                    .definition(newDef)
+                    .build();
+        }
+        return build;
     }
 
     private static void rewriteProtocol(int source, int destination, BedrockPacket p) {
@@ -328,6 +325,9 @@ public class Translate {
                             continue;
                         }
                         var blocksPerWord = Integer.SIZE / bitsPerBlock;
+                        if(blocksPerWord==0){
+                            continue;
+                        }
                         var nWords = ((16 * 16 * 16) + blocksPerWord - 1) / blocksPerWord;
 
                         to.writeByte(flags);
