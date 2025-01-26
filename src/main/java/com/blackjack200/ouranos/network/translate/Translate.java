@@ -38,8 +38,8 @@ public class Translate {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         }
-        rewriteBlock(source, destination, p);
         rewriteProtocol(source, destination, p);
+        rewriteBlock(source, destination, p);
         if (p instanceof CreativeContentPacket packet) {
             val newContents = new ArrayList<ItemData>();
             //FIXME
@@ -158,6 +158,9 @@ public class Translate {
             }
             return;
         }
+        if (p instanceof SubChunkPacket packet) {
+
+        }
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
             var translated = translateBlockRuntimeId(source, destination, runtimeId);
@@ -191,40 +194,40 @@ public class Translate {
     }
 
     private static boolean rewriteChunkData(int source, int destination, ByteBuf from, ByteBuf to, int sections) {
-        for (int section = 0; section < sections; section++) {
-            int chunkVersion = from.readUnsignedByte();
-            to.writeByte(chunkVersion);
-
-            switch (chunkVersion) {
-                // Legacy block ids, no remap needed
-                // MiNet uses this format
+        for (var section = 0; section < sections; section++) {
+            var version = from.readUnsignedByte();
+            to.writeByte(version);
+            switch (version) {
                 case 0, 4, 139 -> {
                     to.writeBytes(from);
                     return true;
                 }
                 case 8 -> { // New form chunk, baked-in palette
-                    int storageCount = from.readUnsignedByte();
+                    var storageCount = from.readUnsignedByte();
                     to.writeByte(storageCount);
-                    for (int storage = 0; storage < storageCount; storage++) {
-                        int flags = from.readUnsignedByte();
-                        int bitsPerBlock = flags >> 1; // isRuntime = (flags & 0x1) != 0
-                        int blocksPerWord = Integer.SIZE / bitsPerBlock;
-                        int nWords = ((16 * 16 * 16) + blocksPerWord - 1) / blocksPerWord;
+                    for (var storage = 0; storage < storageCount; storage++) {
+                        var flags = from.readUnsignedByte();
+                        var bitsPerBlock = flags >> 1; // isRuntime = (flags & 0x1) != 0
+                        if (bitsPerBlock == 0) {
+                            continue;
+                        }
+                        var blocksPerWord = Integer.SIZE / bitsPerBlock;
+                        var nWords = ((16 * 16 * 16) + blocksPerWord - 1) / blocksPerWord;
 
                         to.writeByte(flags);
                         to.writeBytes(from, nWords * Integer.BYTES);
 
-                        int nPaletteEntries = VarInts.readInt(from);
+                        var nPaletteEntries = VarInts.readInt(from);
                         VarInts.writeInt(to, nPaletteEntries);
 
-                        for (int i = 0; i < nPaletteEntries; i++) {
+                        for (var i = 0; i < nPaletteEntries; i++) {
                             int runtimeId = VarInts.readInt(from);
                             VarInts.writeInt(to, translateBlockRuntimeId(source, destination, runtimeId));
                         }
                     }
                 }
                 default -> { // Unsupported
-                    log.warn("PEBlockRewrite: Unknown subchunk format {}", chunkVersion);
+                    log.warn("PEBlockRewrite: Unknown subchunk format {}", version);
                     return false;
                 }
             }
