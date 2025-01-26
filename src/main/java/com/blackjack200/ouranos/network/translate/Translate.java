@@ -29,7 +29,6 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTrans
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
-import java.util.ArrayList;
 import java.util.UUID;
 
 @Log4j2
@@ -42,20 +41,9 @@ public class Translate {
         rewriteProtocol(source, destination, p);
         rewriteBlock(source, destination, p);
         if (p instanceof CreativeContentPacket packet) {
-            val newContents = new ArrayList<ItemData>();
+            // val newContents = new ArrayList<ItemData>();
             //FIXME
-            packet.setContents(newContents.toArray(new ItemData[0]));
-            return packet;
-        }
-        if (p instanceof InventoryContentPacket packet) {
-            val newContents = new ArrayList<ItemData>();
-            for (int i = 0; i < packet.getContents().size(); i++) {
-                ItemData d = translateItemStack(source, destination, packet.getContents().get(i));
-                if (d != null) {
-                    newContents.add(d);
-                }
-            }
-            packet.setContents(newContents);
+            //packet.setContents(newContents.toArray(new ItemData[0]));
             return packet;
         }
         return p;
@@ -86,9 +74,6 @@ public class Translate {
             }
             if (p instanceof PlayerAuthInputPacket pk) {
                 pk.setRawMoveVector(provider.createVector2f(0, 0));
-                if (!pk.getPlayerActions().isEmpty()) {
-                    log.info(pk);
-                }
                 var transaction = pk.getItemUseTransaction();
                 if (transaction != null) {
                     transaction.setTriggerType(ItemUseTransaction.TriggerType.PLAYER_INPUT);
@@ -239,8 +224,7 @@ public class Translate {
                     }
                 }
                 default -> { // Unsupported
-                    log.warn("PEBlockRewrite: Unknown subchunk format {}", version);
-                    return false;
+                    throw new RuntimeException("PEBlockRewrite: Unknown subchunk format " + version);
                 }
             }
         }
