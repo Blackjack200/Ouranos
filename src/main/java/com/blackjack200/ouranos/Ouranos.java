@@ -250,21 +250,18 @@ public class Ouranos {
                         var itemRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
                                 .addAll(pk.getItemDefinitions())
                                 .build();
-
                         upstream.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
 
                         List<ItemDefinition> def = ItemTypeDictionary.getInstance().getEntries(clientProtocolId).entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id, e.getValue().component_based)).toList();
-
                         var oldRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
                                 .addAll(def)
                                 .build();
                         client.getPeer().getCodecHelper().setItemDefinitions(oldRegistry);
+
                         pk.setItemDefinitions(def);
 
                         upstream.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
                         client.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
-                        pk.setNetworkPermissions(new NetworkPermissions(true));
-                        pk.setVanillaVersion(client.getPeer().getCodec().getMinecraftVersion());
                         pk.setServerEngine("Ouranos");
                         client.sendPacketImmediately(pk);
                         return PacketSignal.HANDLED;

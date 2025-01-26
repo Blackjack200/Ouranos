@@ -21,6 +21,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
+import org.cloudburstmc.protocol.bedrock.data.SubChunkRequestResult;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
@@ -159,7 +160,15 @@ public class Translate {
             return;
         }
         if (p instanceof SubChunkPacket packet) {
-
+            for (var subChunk : packet.getSubChunks()) {
+                if (subChunk.getResult().equals(SubChunkRequestResult.SUCCESS)) {
+                    ByteBuf from = subChunk.getData();
+                    var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
+                    rewriteChunkData(source, destination, from, to, 1);
+                    subChunk.setData(to);
+                    ReferenceCountUtil.release(from);
+                }
+            }
         }
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
@@ -202,9 +211,12 @@ public class Translate {
                     to.writeBytes(from);
                     return true;
                 }
-                case 8 -> { // New form chunk, baked-in palette
+                case 8, 9 -> { // New form chunk, baked-in palette
                     var storageCount = from.readUnsignedByte();
                     to.writeByte(storageCount);
+                    if (version == 9) {
+                        to.writeByte(from.readByte());
+                    }
                     for (var storage = 0; storage < storageCount; storage++) {
                         var flags = from.readUnsignedByte();
                         var bitsPerBlock = flags >> 1; // isRuntime = (flags & 0x1) != 0
