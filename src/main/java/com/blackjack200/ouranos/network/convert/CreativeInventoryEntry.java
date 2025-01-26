@@ -26,7 +26,7 @@ public class CreativeInventoryEntry {
             var stringId = ItemTranslator.getInstance().getAlias(target, LegacyItemIdToStringIdMap.getInstance().fromNumeric(target, this.id));
             entry = ItemTypeDictionary.getInstance().getEntries(target).get(stringId);
             na = stringId;
-            if(entry==null){
+            if (entry == null) {
                 return null;
             }
         }
@@ -35,13 +35,13 @@ public class CreativeInventoryEntry {
                 .count(1)
                 .definition(new SimpleItemDefinition(na, entry.runtime_id, entry.component_based));
         if (this.block_states != null) {
-            int translated = RuntimeBlockMapping.getInstance().fromNbt(target, this.name,Base64.getDecoder().wrap(new ByteArrayInputStream(this.block_states.getBytes())));
+            int translated = RuntimeBlockMapping.getInstance().fromNbt(target, this.name, Base64.getDecoder().wrap(new ByteArrayInputStream(this.block_states.getBytes())));
             newData.blockDefinition(() -> translated);
         }
         Integer translated = RuntimeBlockMapping.getInstance().fromNbt2(target, this.name, NbtMap.EMPTY);
-if(translated!=null) {
-    newData.blockDefinition(() -> translated);
-}
+        if (translated != null) {
+            newData.blockDefinition(() -> translated);
+        }
         try {
             if (this.nbt_b64 != null) {
                 var reader = new ByteArrayInputStream(this.nbt_b64.getBytes());

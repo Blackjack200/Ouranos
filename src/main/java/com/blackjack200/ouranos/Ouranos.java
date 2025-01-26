@@ -147,15 +147,6 @@ public class Ouranos {
         log.info("Ouranos shutdown gracefully");
     }
 
-    public Object loadGzipNBT(String dataName) {
-        try (InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream(dataName);
-             NBTInputStream nbtInputStream = NbtUtils.createGZIPReader(inputStream)) {
-            return nbtInputStream.readTag();
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
     private void handlePlayerLogin(DownstreamSession client, LoginPacket loginPacket) {
         newClient(this.config.getRemote(), (upstream) -> {
             client.upstream = upstream;

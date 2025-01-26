@@ -1,6 +1,5 @@
 package com.blackjack200.ouranos.network.convert;
 
-import com.blackjack200.ouranos.Ouranos;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
@@ -36,7 +35,7 @@ public class CreativeInventory extends AbstractMapping {
                 }
             }
             pk.setContents(list.toArray(new ItemData[]{}));
-            this.packets.put(protocolId,pk);
+            this.packets.put(protocolId, pk);
         });
     }
 
