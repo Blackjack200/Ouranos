@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.packet.CreativeContentPacket;
 
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,7 +26,7 @@ public class CreativeInventory extends AbstractMapping {
 
     public CreativeInventory() {
         load("creativeitems.json", (protocolId, rawData) -> {
-            List<CreativeInventoryEntry> data = (new Gson()).fromJson(new String(rawData), new TypeToken<List<CreativeInventoryEntry>>() {
+            List<CreativeInventoryEntry> data = (new Gson()).fromJson(new InputStreamReader(rawData), new TypeToken<List<CreativeInventoryEntry>>() {
             }.getType());
             var pk = new CreativeContentPacket();
             var list = new ArrayList<ItemData>(data.size());

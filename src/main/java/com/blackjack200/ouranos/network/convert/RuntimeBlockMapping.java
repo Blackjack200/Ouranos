@@ -3,6 +3,7 @@ package com.blackjack200.ouranos.network.convert;
 
 import com.blackjack200.ouranos.network.data.AbstractMapping;
 import com.blackjack200.ouranos.utils.BinaryStream;
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.allaymc.updater.block.BlockStateUpdaters;
@@ -18,39 +19,37 @@ import java.util.Map;
 
 @Log4j2
 public class RuntimeBlockMapping extends AbstractMapping {
-    private static RuntimeBlockMapping instance;
+    @Getter
+    private static final RuntimeBlockMapping instance;
 
     static {
         instance = new RuntimeBlockMapping();
     }
 
-    public static RuntimeBlockMapping getInstance() {
-        return instance;
-    }
-
-    private Map<Integer, Map<Integer, NbtMap>> bedrockKnownStates = new LinkedHashMap<>(32);
-    private Map<Integer, Map<Integer, Integer>> hashToRuntimeId = new HashMap<>(32);
-    private Map<Integer, Map<Integer, Integer>> runtimeIdToHash = new HashMap<>(32);
+    private final Map<Integer, Map<Integer, NbtMap>> bedrockKnownStates = new LinkedHashMap<>(32);
+    private final Map<Integer, Map<Integer, Integer>> hashToRuntimeId = new HashMap<>(32);
+    private final Map<Integer, Map<Integer, Integer>> runtimeIdToHash = new HashMap<>(32);
 
     public RuntimeBlockMapping() {
         load("canonical_block_states.nbt", (protocolId, rawData) -> {
             val map = new HashMap<Integer, NbtMap>(20000);
             val states = new LinkedList<NbtMap>();
-            val reader = new BinaryStream(rawData);
-            val nbtReader = NbtUtils.createNetworkReader(reader);
-            while (!reader.feof()) {
-                try {
-                    var nbt = BlockStateUpdaters.updateBlockState((NbtMap) nbtReader.readTag(), BlockStateUpdaters.LATEST_VERSION);
+            try {
+                val reader = new BinaryStream(rawData.readAllBytes());
+                val nbtReader = NbtUtils.createNetworkReader(reader);
+                while (!reader.feof()) {
+                    NbtMap blockState = (NbtMap) nbtReader.readTag();
+                    var nbt = BlockStateUpdaters.updateBlockState(blockState, BlockStateUpdaters.LATEST_VERSION);
                     nbt = NbtMap.builder()
                             .putString("name", nbt.getString("name"))
                             .putCompound("states", nbt.getCompound("states"))
                             .build();
-                    int hashCo = nbt.hashCode();
-                    map.put(hashCo, nbt);
+                    var hashCode = nbt.hashCode();
+                    map.put(hashCode, nbt);
                     states.add(nbt);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
                 }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
             this.bedrockKnownStates.put(protocolId, map);
             this.hashToRuntimeId.put(protocolId, new HashMap<>(20000));
@@ -58,11 +57,11 @@ public class RuntimeBlockMapping extends AbstractMapping {
 
             for (int i = 0; i < states.size(); i++) {
                 val state = states.get(i);
-                val name = state.getString("name");
                 this.hashToRuntimeId.get(protocolId).put(state.hashCode(), i);
                 this.runtimeIdToHash.get(protocolId).put(i, state.hashCode());
             }
         });
+        log.debug("Loaded runtime block mappings");
     }
 
     public Integer toRuntimeId(int protocolId, int hash) {

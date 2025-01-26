@@ -1,6 +1,4 @@
 package com.blackjack200.ouranos.network.convert;
 
-public class ItemTypeInfo {
-    public int runtime_id;
-    public boolean component_based;
+public record ItemTypeInfo(int runtime_id, boolean component_based) {
 }

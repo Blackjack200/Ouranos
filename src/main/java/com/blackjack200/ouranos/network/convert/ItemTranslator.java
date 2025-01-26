@@ -5,9 +5,11 @@ import com.blackjack200.ouranos.network.data.AbstractMapping;
 import com.blackjack200.ouranos.network.data.LegacyItemIdToStringIdMap;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 
+import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,25 +17,22 @@ import java.util.Objects;
 
 @Log4j2
 public class ItemTranslator extends AbstractMapping {
+    @Getter
     private static final ItemTranslator instance;
 
     static {
         instance = new ItemTranslator();
     }
 
-    public static ItemTranslator getInstance() {
-        return instance;
-    }
-
-    private Map<Integer, Map<String, String>> alias = new HashMap<>();
-    private Map<Integer, Map<Integer, Integer>> simpleCoreToNetMap = new LinkedHashMap<>();
-    private Map<Integer, Map<Integer, Integer>> simpleNetToCoreMap = new LinkedHashMap<>();
-    private Map<Integer, Map<Integer, Map<Integer, Integer>>> complexCoreToNetMap = new LinkedHashMap<>();
-    private Map<Integer, Map<Integer, int[]>> complexNetToCoreMap = new LinkedHashMap<>();
+    private final Map<Integer, Map<String, String>> alias = new HashMap<>();
+    private final Map<Integer, Map<Integer, Integer>> simpleCoreToNetMap = new LinkedHashMap<>();
+    private final Map<Integer, Map<Integer, Integer>> simpleNetToCoreMap = new LinkedHashMap<>();
+    private final Map<Integer, Map<Integer, Map<Integer, Integer>>> complexCoreToNetMap = new LinkedHashMap<>();
+    private final Map<Integer, Map<Integer, int[]>> complexNetToCoreMap = new LinkedHashMap<>();
 
     public ItemTranslator() {
         load("r16_to_current_item_map.json", (protocolId, rawData) -> {
-            Map<String, Map<String, Object>> data = (new Gson()).fromJson(new String(rawData), new TypeToken<Map<String, Map<String, Object>>>() {
+            Map<String, Map<String, Object>> data = (new Gson()).fromJson(new InputStreamReader(rawData), new TypeToken<Map<String, Map<String, Object>>>() {
             }.getType());
 
             LegacyItemIdToStringIdMap stringIdMap = LegacyItemIdToStringIdMap.getInstance();
@@ -81,7 +80,7 @@ public class ItemTranslator extends AbstractMapping {
 
 
             ItemTypeDictionary.getInstance().getEntries(protocolId).forEach((stringId, d) -> {
-                int netId = d.runtime_id;
+                int netId = d.runtime_id();
                 if (complexMapping.containsKey(stringId)) {
                     int[] dd = complexMapping.get(stringId);
                     this.complexCoreToNetMap.get(protocolId).putIfAbsent(dd[0], new LinkedHashMap<>());

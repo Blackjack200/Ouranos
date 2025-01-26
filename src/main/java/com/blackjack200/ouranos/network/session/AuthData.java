@@ -1,12 +1,6 @@
 package com.blackjack200.ouranos.network.session;
 
-import lombok.Value;
-
 import java.util.UUID;
 
-@Value
-public class AuthData {
-    private final String displayName;
-    private final UUID identity;
-    private final String xuid;
+public record AuthData(String displayName, UUID identity, String xuid) {
 }
