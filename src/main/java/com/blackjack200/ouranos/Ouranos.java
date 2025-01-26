@@ -6,10 +6,7 @@ import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import com.blackjack200.ouranos.network.translate.Translate;
-import com.blackjack200.ouranos.utils.ForgeryUtils;
-import com.blackjack200.ouranos.utils.HandshakeUtils;
-import com.blackjack200.ouranos.utils.UnknownBlockDefinitionRegistry;
-import com.blackjack200.ouranos.utils.YamlConfig;
+import com.blackjack200.ouranos.utils.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -20,6 +17,9 @@ import io.netty.util.ResourceLeakDetector;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.cloudburstmc.nbt.NbtList;
+import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.nbt.NbtType;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockClientSession;
@@ -73,6 +73,9 @@ public class Ouranos {
     @SneakyThrows
     private void start() {
         (new Thread(RuntimeBlockMapping::getInstance)).start();
+
+        // RuntimeBlockMapping.getInstance();
+        //CreativeInventory.getInstance();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         val bindAddress = this.config.getBind();
@@ -150,7 +153,7 @@ public class Ouranos {
         log.info("Ouranos started at {}", this.config.getBind());
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            Ouranos.this.shutdown();
+            Ouranos.this.shutdown(true);
         }));
         Scanner scanner = new Scanner(System.in);
 
@@ -159,7 +162,7 @@ public class Ouranos {
                 String input = scanner.nextLine();
                 if ("stop".equalsIgnoreCase(input)) {
                     log.info("Shutting down...");
-                    this.shutdown();
+                    this.shutdown(false);
                     break;
                 } else {
                     log.error("Unknown command: {}", input);
@@ -187,12 +190,13 @@ public class Ouranos {
 
                         val player = new OuranosPlayer(upstream, downstream);
 
-                        int clientProtocolId = downstream.getCodec().getProtocolVersion();
+                        val downstreamProtocolId = downstream.getCodec().getProtocolVersion();
+                        val upstreamProtocolId = upstream.getCodec().getProtocolVersion();
 
-                        log.info("{} connected to the remote server {}=>{}", downstream.getPeer().getSocketAddress(), clientProtocolId, upstream.getCodec().getProtocolVersion());
+                        log.info("{} connected to the remote server {}=>{}", downstream.getPeer().getSocketAddress(), downstreamProtocolId, upstreamProtocolId);
 
                         val packet = new RequestNetworkSettingsPacket();
-                        packet.setProtocolVersion(upstream.getCodec().getProtocolVersion());
+                        packet.setProtocolVersion(upstreamProtocolId);
                         upstream.sendPacketImmediately(packet);
 
                         player.setDownstreamHandler(new BedrockPacketHandler() {
@@ -256,26 +260,25 @@ public class Ouranos {
                                              InvalidKeyException e) {
                                         throw new RuntimeException(e);
                                     }
-                                    var handshake = new ClientToServerHandshakePacket();
+                                    val handshake = new ClientToServerHandshakePacket();
                                     upstream.sendPacketImmediately(handshake);
                                     return PacketSignal.HANDLED;
                                 }
                                 if (packet instanceof StartGamePacket pk) {
-                                    var itemRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
-                                            .addAll(pk.getItemDefinitions())
-                                            .build();
-                                    upstream.getPeer().getCodecHelper().setItemDefinitions(itemRegistry);
+                                    val newRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder().addAll(pk.getItemDefinitions()).build();
+                                    upstream.getPeer().getCodecHelper().setItemDefinitions(newRegistry);
 
-                                    List<ItemDefinition> def = ItemTypeDictionary.getInstance().getEntries(clientProtocolId).entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
-                                    var oldRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder()
-                                            .addAll(def)
-                                            .build();
+                                    List<ItemDefinition> def = ItemTypeDictionary.getInstance().getEntries(upstreamProtocolId).entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
+                                    val oldRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder().addAll(def).build();
                                     downstream.getPeer().getCodecHelper().setItemDefinitions(oldRegistry);
-
                                     pk.setItemDefinitions(def);
 
-                                    upstream.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
-                                    downstream.getPeer().getCodecHelper().setBlockDefinitions(new UnknownBlockDefinitionRegistry());
+                                    val registry = new UnknownBlockDefinitionRegistry();
+                                    upstream.getPeer().getCodecHelper().setBlockDefinitions(registry);
+                                    downstream.getPeer().getCodecHelper().setBlockDefinitions(registry);
+
+                                    List<NbtMap> states = RuntimeBlockMapping.getInstance().getBedrockKnownStates(upstreamProtocolId).values().stream().toList();
+                                    pk.setBlockPalette(new NbtList<>(NbtType.byClass(NbtMap.class), states));
                                     pk.setServerEngine("Ouranos");
                                     downstream.sendPacketImmediately(pk);
                                     return PacketSignal.HANDLED;
@@ -285,7 +288,7 @@ public class Ouranos {
                                 }
                                 ReferenceCountUtil.retain(packet);
                                 if (downstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
-                                    downstream.sendPacket(Translate.translate(player.getUpstreamProtocolId(), clientProtocolId, player, packet));
+                                    downstream.sendPacket(Translate.translate(player.getUpstreamProtocolId(), downstreamProtocolId, player, packet));
                                 }
                                 return PacketSignal.HANDLED;
                             }
@@ -335,17 +338,23 @@ public class Ouranos {
     }
 
     @SneakyThrows
-    public void shutdown() {
+    public void shutdown(boolean force) {
         if (!this.running.get()) {
             return;
         }
         OuranosPlayer.ouranosPlayers.forEach(player -> {
             player.downstream.disconnect("Ouranos closed.");
+            player.downstream.getPeer().getChannel().eventLoop().shutdownGracefully();
             player.disconnect("Ouranos closed.");
         });
-        OuranosPlayer.ouranosPlayers.clear();
-        this.bossGroup.shutdownGracefully().get(1, TimeUnit.MINUTES);
-        this.workerGroup.shutdownGracefully().get(1, TimeUnit.MINUTES);
+        if (force) {
+            this.bossGroup.shutdownGracefully(2, 2, TimeUnit.SECONDS);
+            this.workerGroup.shutdownGracefully(2, 2, TimeUnit.SECONDS);
+        } else {
+            OuranosPlayer.ouranosPlayers.clear();
+            this.bossGroup.shutdownGracefully().get(1, TimeUnit.MINUTES);
+            this.workerGroup.shutdownGracefully().get(1, TimeUnit.MINUTES);
+        }
         this.running.set(false);
     }
 

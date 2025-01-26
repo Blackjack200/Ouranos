@@ -1,17 +1,17 @@
 package com.blackjack200.ouranos.network.convert;
 
 import com.blackjack200.ouranos.network.data.BlockItemIdMap;
-import com.blackjack200.ouranos.network.data.LegacyItemIdToStringIdMap;
 import lombok.SneakyThrows;
+import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.nbt.NbtMap;
-import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 
 import java.io.ByteArrayInputStream;
 import java.util.Base64;
 
+@Log4j2
 public class CreativeInventoryEntry {
     public String name;
     public String block_states;
@@ -22,17 +22,23 @@ public class CreativeInventoryEntry {
 
     @SneakyThrows
     public ItemData make(int target) {
-        Integer blockRuntimeId = null;
         if (this.name != null) {
-            var blockName = BlockItemIdMap.getInstance().lookupBlockId(target, this.name);
+            val blockName = BlockItemIdMap.getInstance().lookupBlockId(target, this.name);
             if (blockName != null) {
+                log.warn("Found block id {} for name {}", blockName, this.name);
                 if (this.damage != 0) {
                     throw new RuntimeException("Meta should not be specified for blockitems");
                 }
                 if (this.block_states != null) {
-                    var x = Base64.getDecoder().wrap(new ByteArrayInputStream(this.block_states.getBytes()));
-                    blockRuntimeId = RuntimeBlockMapping.getInstance().toRuntimeId(target, RuntimeBlockMapping.getInstance().fromNbt(this.name, x));
+                    val x = Base64.getDecoder().wrap(new ByteArrayInputStream(this.block_states.getBytes()));
+                    val blockRuntimeId = RuntimeBlockMapping.getInstance().toRuntimeId(target, RuntimeBlockMapping.getInstance().fromNbt(this.name, x));
+                    if (blockRuntimeId == null) {
+                        return null;
+                    }
+                    log.warn("{} Found block id {} for blockid {}", target, blockRuntimeId, this.name);
                 }
+            } else {
+                //log.warn("Found stateless block id {} for name {}", blockName, this.name);
             }
             val builder = ItemData.builder()
                     .definition(new SimpleItemDefinition(this.name, ItemTypeDictionary.getInstance().fromStringId(target, this.name), false))
@@ -41,28 +47,8 @@ public class CreativeInventoryEntry {
                     .tag(NbtMap.EMPTY)
                     .blockingTicks(0)
                     .usingNetId(false);
-            if (blockRuntimeId != null) {
-                val rtId = blockRuntimeId;
-                builder.blockDefinition(() -> rtId);
-            }
-            return builder.build();
-        } else {
-            String lol = LegacyItemIdToStringIdMap.getInstance().fromNumeric(target, this.id);
-            if (lol == null) {
-                throw new RuntimeException("Meta should not be specified for lol");
-            }
-            val builder = ItemData.builder()
-                    .definition(new SimpleItemDefinition(lol, this.damage, false))
-                    .damage(this.damage)
-                    .count(1)
-                    .tag(NbtMap.EMPTY)
-                    .blockingTicks(0)
-                    .usingNetId(false);
-            if (this.nbt_b64 != null) {
-                var reader = new ByteArrayInputStream(this.nbt_b64.getBytes());
-                builder.tag((NbtMap) NbtUtils.createReaderLE(Base64.getDecoder().wrap(reader)).readTag());
-            }
             return builder.build();
         }
+        return null;
     }
 }

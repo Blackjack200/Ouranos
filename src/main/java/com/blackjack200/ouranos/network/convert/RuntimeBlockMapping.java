@@ -76,25 +76,16 @@ public class RuntimeBlockMapping extends AbstractMapping {
         try {
             var reader = NbtUtils.createReaderLE(input);
             var tg = (NbtMap) reader.readTag();
-            tg = NbtMap.builder()
-                    .putString("name", name)
-                    .putCompound("states", tg.getCompound("states"))
-                    .build();
-            var nbt = BlockStateUpdaters.updateBlockState(tg, BlockStateUpdaters.LATEST_VERSION);
-            var tag = NbtMap.builder()
-                    .putString("name", nbt.getString("name"))
-                    .putCompound("states", nbt.getCompound("states"))
-                    .build();
-            return tag.hashCode();
+            return toInternalId(name, tg);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public Integer toInternalId(String name, NbtMap input) {
-        var tg = NbtMap.builder()
+    public Integer toInternalId(String name, NbtMap tg) {
+        tg = NbtMap.builder()
                 .putString("name", name)
-                .putCompound("states", input.getCompound("states"))
+                .putCompound("states", tg.getCompound("states"))
                 .build();
         var nbt = BlockStateUpdaters.updateBlockState(tg, BlockStateUpdaters.LATEST_VERSION);
         var tag = NbtMap.builder()
@@ -102,6 +93,10 @@ public class RuntimeBlockMapping extends AbstractMapping {
                 .putCompound("states", nbt.getCompound("states"))
                 .build();
         return tag.hashCode();
+    }
+
+    public Map<Integer, NbtMap> getBedrockKnownStates(int protocolId) {
+        return this.bedrockKnownStates.get(protocolId);
     }
 
     public int getFallback(int protocolId) {

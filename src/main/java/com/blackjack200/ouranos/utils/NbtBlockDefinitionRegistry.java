@@ -26,7 +26,7 @@ public class NbtBlockDefinitionRegistry implements DefinitionRegistry<BlockDefin
 
     @Override
     public boolean isRegistered(BlockDefinition definition) {
-        return definitions.get(definition.getRuntimeId()) == definition;
+        return definitions.get(definition.getRuntimeId()).equals(definition);
     }
 
     public record NbtBlockDefinition(int runtimeId, NbtMap tag) implements BlockDefinition {

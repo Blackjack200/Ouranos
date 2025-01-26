@@ -25,6 +25,8 @@ import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleBlockDefinition;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
@@ -48,20 +50,38 @@ public class Translate {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         }
-        if (p instanceof CraftingDataPacket pk) {
-            pk.getContainerMixData().clear();
-            pk.getCraftingData().clear();
-            pk.getMaterialReducers().clear();
-            pk.getPotionMixData().clear();
-        }
 
         rewriteProtocol(source, destination, p);
         rewriteBlock(source, destination, p);
         if (p instanceof CreativeContentPacket packet) {
-            // val newContents = new ArrayList<ItemData>();
+            val newContents = new ArrayList<ItemData>();
+            for (val x : packet.getContents()) {
+                val strid = ItemTypeDictionary.getInstance().fromNumericId(source, x.getDefinition().getRuntimeId());
+                if (!x.getDefinition().getIdentifier().equals(strid)) {
+                    log.warn("Translating {} to {}", x.getDefinition().getIdentifier(), strid);
+                }
+                val translated = Optional.ofNullable(ItemTypeDictionary.getInstance().fromStringId(destination, strid)).orElse(ItemTypeDictionary.getInstance().fromStringId(destination, "minecraft:barrier"));
+                if (x.getDefinition().getRuntimeId() != translated) {
+                    log.warn("Translating {} lol {}", x.getDefinition().getRuntimeId(), translated);
+                }
+                val newDef = new SimpleItemDefinition(strid, translated, false);
+
+                val blk = x.getBlockDefinition();
+                if (blk != null) {
+                    val rtId = Optional.ofNullable(RuntimeBlockMapping.getInstance().fromRuntimeId(source, blk.getRuntimeId())).orElse(RuntimeBlockMapping.getInstance().getFallback(source));
+                    newContents.add(x.toBuilder()
+                            .definition(newDef)
+                            .blockDefinition(new SimpleBlockDefinition(strid, rtId,null))
+                            .build());
+                }else{
+                    newContents.add(x.toBuilder()
+                            .definition(newDef)
+                            .build());
+                }
+
+            }
             //FIXME
-            packet.setContents(new ItemData[0]);
-            //packet.setContents(newContents.toArray(new ItemData[0]));
+            packet.setContents(newContents.toArray(new ItemData[0]));
             return packet;
         }
         return p;
@@ -106,24 +126,27 @@ public class Translate {
                 val newRequests = new ArrayList<ItemStackRequest>(pk.getRequests().size());
                 for (val req : pk.getRequests()) {
                     val newActions = new ArrayList<ItemStackRequestAction>(pk.getRequests().size());
-                    for (val action : req.getActions()) {
+                    var actions = req.getActions();
+                    for (int i = 0, iMax = actions.length; i < iMax; i++) {
+                        val action = actions[i];
                         if (action instanceof TakeAction a) {
                             newActions.add(new TakeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
-                        }
-                        if (action instanceof ConsumeAction a) {
+                        } else if (action instanceof ConsumeAction a) {
                             newActions.add(new ConsumeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource())));
-                        }
-                        if (action instanceof DestroyAction a) {
+                        } else if (action instanceof DestroyAction a) {
                             newActions.add(new DestroyAction(a.getCount(), translateItemStackRequestSlotData(a.getSource())));
-                        }
-                        if (action instanceof DropAction a) {
+                        } else if (action instanceof DropAction a) {
                             newActions.add(new DropAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), a.isRandomly()));
-                        }
-                        if (action instanceof PlaceAction a) {
-                            newActions.add(new PlaceAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
-                        }
-                        if (action instanceof SwapAction a) {
+                        } else if (action instanceof PlaceAction a) {
+                            val newAct = new PlaceAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination()));
+                            // if (newAct.getSource().getContainerName().getContainer().equals(ContainerSlotType.CREATED_OUTPUT)) {
+                            //     newActions.add(new CraftCreativeAction(newAct.getSource().getContainerName().getContainer().ordinal(), 1));
+                            // }
+                            newActions.add(newAct);
+                        } else if (action instanceof SwapAction a) {
                             newActions.add(new SwapAction(translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
+                        } else {
+                            newActions.add(action);
                         }
                     }
                     newRequests.add(new ItemStackRequest(req.getRequestId(), newActions.toArray(new ItemStackRequestAction[0]), req.getFilterStrings()));

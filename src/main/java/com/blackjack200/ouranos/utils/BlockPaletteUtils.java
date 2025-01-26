@@ -1,6 +1,6 @@
 package com.blackjack200.ouranos.utils;
 
-import lombok.Value;
+import org.allaymc.updater.block.BlockStateUpdaters;
 import org.cloudburstmc.nbt.NBTOutputStream;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtMapBuilder;
@@ -35,6 +35,16 @@ public class BlockPaletteUtils {
         }
 
         return fnv1a_32(bytes);
+    }
+
+    public static int createHash(String name, NbtMap rawStates) {
+        if (name.equals("minecraft:unknown")) {
+            return -2; // This is special case
+        }
+        return createHash(BlockStateUpdaters.updateBlockState(
+                NbtMap.builder().putString("name", name).putCompound("states", rawStates).build(),
+                BlockStateUpdaters.LATEST_VERSION
+        ));
     }
 
     private static final int FNV1_32_INIT = 0x811c9dc5;
