@@ -1,6 +1,7 @@
 package com.blackjack200.ouranos.network.convert;
 
 
+import com.blackjack200.ouranos.network.data.AbstractMapping;
 import com.blackjack200.ouranos.utils.BinaryStream;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
@@ -72,7 +73,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
         return this.runtimeIdToHash.get(protocolId).get(runtimeId);
     }
 
-    public Integer fromNbt(int protocolId, String name, InputStream input) {
+    public Integer fromNbt(String name, InputStream input) {
         try {
             var reader = NbtUtils.createReaderLE(input);
             var tg = (NbtMap) reader.readTag();
@@ -91,7 +92,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
         }
     }
 
-    public Integer fromNbt2(int protocolId, String name, NbtMap input) {
+    public Integer toInternalId(String name, NbtMap input) {
         var tg = NbtMap.builder()
                 .putString("name", name)
                 .putCompound("states", input.getCompound("states"))

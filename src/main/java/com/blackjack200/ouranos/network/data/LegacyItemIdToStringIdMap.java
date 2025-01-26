@@ -1,4 +1,4 @@
-package com.blackjack200.ouranos.network.convert;
+package com.blackjack200.ouranos.network.data;
 
 public class LegacyItemIdToStringIdMap extends LegacyToStringBidirectionalIdMap {
     private static final LegacyItemIdToStringIdMap instance;

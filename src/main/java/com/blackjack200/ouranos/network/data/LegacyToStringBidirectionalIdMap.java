@@ -1,4 +1,4 @@
-package com.blackjack200.ouranos.network.convert;
+package com.blackjack200.ouranos.network.data;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
