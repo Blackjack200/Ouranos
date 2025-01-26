@@ -4,6 +4,7 @@ import com.blackjack200.ouranos.network.data.BlockItemIdMap;
 import com.blackjack200.ouranos.network.data.LegacyItemIdToStringIdMap;
 import lombok.SneakyThrows;
 import lombok.val;
+import org.allaymc.updater.item.ItemStateUpdaters;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;

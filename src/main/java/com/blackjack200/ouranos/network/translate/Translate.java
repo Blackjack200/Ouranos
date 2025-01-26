@@ -38,11 +38,18 @@ public class Translate {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         }
+        if (p instanceof CraftingDataPacket pk) {
+            pk.getContainerMixData().clear();
+            pk.getCraftingData().clear();
+            pk.getMaterialReducers().clear();
+            pk.getPotionMixData().clear();
+        }
         rewriteProtocol(source, destination, p);
         rewriteBlock(source, destination, p);
         if (p instanceof CreativeContentPacket packet) {
             // val newContents = new ArrayList<ItemData>();
             //FIXME
+            packet.setContents(new ItemData[0]);
             //packet.setContents(newContents.toArray(new ItemData[0]));
             return packet;
         }
