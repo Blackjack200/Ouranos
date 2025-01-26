@@ -25,7 +25,6 @@ import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
-import org.cloudburstmc.protocol.bedrock.data.SubChunkRequestResult;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
@@ -242,7 +241,8 @@ public class Translate {
         }
         if (p instanceof SubChunkPacket packet) {
             for (var subChunk : packet.getSubChunks()) {
-                if (subChunk.getResult().equals(SubChunkRequestResult.SUCCESS)) {
+                subChunk.getData().resetReaderIndex();
+                if (subChunk.getData().readableBytes() > 0) {
                     ByteBuf from = subChunk.getData();
                     var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
                     rewriteChunkData(source, destination, from, to, 1);
@@ -335,7 +335,6 @@ public class Translate {
         }
         val converted = RuntimeBlockMapping.getInstance().toRuntimeId(destination, internalStateId);
         if (converted == null) {
-
             return fallback;
         }
         return converted;
