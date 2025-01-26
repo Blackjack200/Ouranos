@@ -57,33 +57,6 @@ public class Translate {
         return p;
     }
 
-    private static ItemData translateItemData(int source, int destination, ItemData x) {
-        ItemData build;
-        val strid = ItemTypeDictionary.getInstance().fromNumericId(source, x.getDefinition().getRuntimeId());
-        if (!x.getDefinition().getIdentifier().equals(strid)) {
-            log.warn("Translating {} to {}", x.getDefinition().getIdentifier(), strid);
-        }
-        val translated = Optional.ofNullable(ItemTypeDictionary.getInstance().fromStringId(destination, strid)).orElse(ItemTypeDictionary.getInstance().fromStringId(destination, "minecraft:barrier"));
-        if (x.getDefinition().getRuntimeId() != translated) {
-            log.warn("Translating {} lol {}", x.getDefinition().getRuntimeId(), translated);
-        }
-        val newDef = new SimpleItemDefinition(strid, translated, false);
-
-        val blk = x.getBlockDefinition();
-        if (blk != null) {
-            val rtId = Optional.ofNullable(RuntimeBlockMapping.getInstance().fromRuntimeId(source, blk.getRuntimeId())).orElse(RuntimeBlockMapping.getInstance().getFallback(source));
-             build = x.toBuilder()
-                    .definition(newDef)
-                    .blockDefinition(new SimpleBlockDefinition(strid, rtId, null))
-                    .build();
-        }else{
-             build = x.toBuilder()
-                    .definition(newDef)
-                    .build();
-        }
-        return build;
-    }
-
     private static void rewriteProtocol(int source, int destination, BedrockPacket p) {
         val provider = new ImmutableVectorProvider();
         if (source < Bedrock_v766.CODEC.getProtocolVersion()) {
@@ -361,21 +334,5 @@ public class Translate {
             return fallback;
         }
         return converted;
-    }
-
-
-    private static ItemData translateItemStack(int source, int destination, ItemData oldStack) {
-        if (!oldStack.isValid()) {
-            return oldStack;
-        }
-        var stringId = ItemTypeDictionary.getInstance().fromNumericId(source, oldStack.getDefinition().getRuntimeId());
-        log.info(stringId);
-        var newId = ItemTypeDictionary.getInstance().fromStringId(destination, stringId);
-        var newData = ItemData.builder().definition(oldStack.getDefinition()).damage(oldStack.getDamage()).count(oldStack.getCount()).tag(oldStack.getTag()).canPlace(oldStack.getCanPlace()).canBreak(oldStack.getCanBreak()).blockingTicks(oldStack.getBlockingTicks()).usingNetId(oldStack.isUsingNetId()).netId(oldStack.getNetId());
-        if (oldStack.getBlockDefinition() != null) {
-            int translated = translateBlockRuntimeId(source, destination, oldStack.getBlockDefinition().getRuntimeId());
-            newData.blockDefinition(() -> translated);
-        }
-        return newData.build();
     }
 }
