@@ -149,6 +149,9 @@ public class Ouranos {
         log.info("Remote codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
         log.info("Ouranos started at {}", this.config.getBind());
 
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            Ouranos.this.shutdown();
+        }));
         Scanner scanner = new Scanner(System.in);
 
         while (this.running.get() && !this.bossGroup.isShutdown()) {
@@ -171,6 +174,9 @@ public class Ouranos {
                 .group(bossGroup)
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_PROTOCOL_VERSION, REMOTE_CODEC.getRaknetProtocolVersion())
+                .option(RakChannelOption.RAK_COMPATIBILITY_MODE,true)
+                .option(RakChannelOption.RAK_AUTO_FLUSH,true)
+                .option(RakChannelOption.RAK_FLUSH_INTERVAL,1)
                 .handler(new BedrockClientInitializer() {
                     @Override
                     protected void initSession(BedrockClientSession upstream) {
@@ -196,7 +202,7 @@ public class Ouranos {
                                     log.info("C->S {}", packet.getPacketType());
                                 }
                                 ReferenceCountUtil.retain(packet);
-                                upstream.sendPacket(Translate.translate(player.getDownstreamProtocolId(), player.getUpstreamProtocolId(), packet));
+                                upstream.sendPacket(Translate.translate(player.getDownstreamProtocolId(), player.getUpstreamProtocolId(), player, packet));
                                 return PacketSignal.HANDLED;
                             }
 
@@ -276,7 +282,7 @@ public class Ouranos {
                                     log.info("C<-S {}", packet.getPacketType());
                                 }
                                 ReferenceCountUtil.retain(packet);
-                                downstream.sendPacket(Translate.translate(player.getUpstreamProtocolId(), clientProtocolId, packet));
+                                downstream.sendPacket(Translate.translate(player.getUpstreamProtocolId(), clientProtocolId, player, packet));
                                 return PacketSignal.HANDLED;
                             }
                         });
@@ -329,6 +335,11 @@ public class Ouranos {
         if (!this.running.get()) {
             return;
         }
+        OuranosPlayer.ouranosPlayers.forEach(player -> {
+            player.downstream.disconnect("Ouranos closed.");
+            player.disconnect("Ouranos closed.");
+        });
+        OuranosPlayer.ouranosPlayers.clear();
         this.bossGroup.shutdownGracefully().get(1, TimeUnit.MINUTES);
         this.workerGroup.shutdownGracefully().get(1, TimeUnit.MINUTES);
         this.running.set(false);

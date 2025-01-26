@@ -2,13 +2,17 @@ package com.blackjack200.ouranos.network.translate;
 
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
+import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
+import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
+import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
 import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
 import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
 import org.cloudburstmc.protocol.bedrock.codec.v649.Bedrock_v649;
@@ -22,19 +26,26 @@ import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
 import org.cloudburstmc.protocol.bedrock.data.SubChunkRequestResult;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequestSlotData;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.*;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
+import java.util.ArrayList;
+import java.util.Optional;
 import java.util.UUID;
 
 @Log4j2
 public class Translate {
 
-    public static BedrockPacket translate(int source, int destination, BedrockPacket p) {
+    public static BedrockPacket translate(int source, int destination, OuranosPlayer player, BedrockPacket p) {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         }
@@ -44,6 +55,7 @@ public class Translate {
             pk.getMaterialReducers().clear();
             pk.getPotionMixData().clear();
         }
+
         rewriteProtocol(source, destination, p);
         rewriteBlock(source, destination, p);
         if (p instanceof CreativeContentPacket packet) {
@@ -76,6 +88,10 @@ public class Translate {
             }
         }
         if (source < Bedrock_v712.CODEC.getProtocolVersion()) {
+            if (p instanceof InventoryTransactionPacket pk) {
+                pk.setTriggerType(ItemUseTransaction.TriggerType.PLAYER_INPUT);
+                pk.setClientInteractPrediction(ItemUseTransaction.PredictedResult.SUCCESS);
+            }
             if (p instanceof MobArmorEquipmentPacket pk) {
                 pk.setBody(ItemData.AIR);
             }
@@ -87,12 +103,44 @@ public class Translate {
                     transaction.setClientInteractPrediction(ItemUseTransaction.PredictedResult.SUCCESS);
                 }
             }
-        }
-        if (destination < Bedrock_v685.CODEC.getProtocolVersion()) {
-            if (p instanceof SetEntityDataPacket pk) {
-                pk.getMetadata().remove(EntityDataTypes.VISIBLE_MOB_EFFECTS);
+            if (p instanceof ItemStackRequestPacket pk) {
+                val newRequests = new ArrayList<ItemStackRequest>(pk.getRequests().size());
+                for (val req : pk.getRequests()) {
+                    val newActions = new ArrayList<ItemStackRequestAction>(pk.getRequests().size());
+                    for (val action : req.getActions()) {
+                        if (action instanceof TakeAction a) {
+                            newActions.add(new TakeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
+                        }
+                        if (action instanceof ConsumeAction a) {
+                            newActions.add(new ConsumeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource())));
+                        }
+                        if (action instanceof DestroyAction a) {
+                            newActions.add(new DestroyAction(a.getCount(), translateItemStackRequestSlotData(a.getSource())));
+                        }
+                        if (action instanceof DropAction a) {
+                            newActions.add(new DropAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), a.isRandomly()));
+                        }
+                        if (action instanceof PlaceAction a) {
+                            newActions.add(new PlaceAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
+                        }
+                        if (action instanceof SwapAction a) {
+                            newActions.add(new SwapAction(translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
+                        }
+                    }
+                    newRequests.add(new ItemStackRequest(req.getRequestId(), newActions.toArray(new ItemStackRequestAction[0]), req.getFilterStrings()));
+                }
+                pk.getRequests().clear();
+                pk.getRequests().addAll(newRequests);
             }
         }
+        removeNewEntityData(p, destination, Bedrock_v685.CODEC, EntityDataTypes.VISIBLE_MOB_EFFECTS);
+        removeNewEntityData(p, destination, Bedrock_v594.CODEC,
+                EntityDataTypes.COLLISION_BOX, EntityDataTypes.PLAYER_HAS_DIED, EntityDataTypes.PLAYER_LAST_DEATH_DIMENSION, EntityDataTypes.PLAYER_LAST_DEATH_POS
+        );
+        removeNewEntityData(p, destination, Bedrock_v503.CODEC,
+                EntityDataTypes.HEARTBEAT_SOUND_EVENT, EntityDataTypes.HEARTBEAT_INTERVAL_TICKS, EntityDataTypes.MOVEMENT_SOUND_DISTANCE_OFFSET
+        );
+
         if (source < Bedrock_v685.CODEC.getProtocolVersion()) {
             if (p instanceof ContainerClosePacket pk) {
                 //TODO context based value: container type
@@ -124,6 +172,12 @@ public class Translate {
                 pk.setEmoteDuration(20);
             }
         }
+        if (source < Bedrock_v575.CODEC.getProtocolVersion()) {
+            if (p instanceof PlayerAuthInputPacket pk) {
+                //FIXME? context based value: xuid platformId
+                pk.setAnalogMoveVector(provider.createVector2f(0, 0));
+            }
+        }
 
         if (destination < Bedrock_v594.CODEC.getProtocolVersion()) {
             if (p instanceof SetEntityDataPacket pk) {
@@ -135,6 +189,41 @@ public class Translate {
                 pk.getMetadata().remove(EntityDataTypes.PLAYER_LAST_DEATH_POS);
                 pk.getMetadata().remove(EntityDataTypes.PLAYER_LAST_DEATH_DIMENSION);
                 pk.getMetadata().remove(EntityDataTypes.PLAYER_HAS_DIED);
+            }
+        }
+    }
+
+    private static ItemStackRequestSlotData translateItemStackRequestSlotData(ItemStackRequestSlotData dest) {
+        return new ItemStackRequestSlotData(
+                dest.getContainer(),
+                dest.getSlot(),
+                dest.getStackNetworkId(),
+                Optional.ofNullable(dest.getContainerName())
+                        .orElse(new FullContainerName(dest.getContainer(), 0))
+        );
+    }
+
+    private static void removeNewEntityData(BedrockPacket p, int destination, BedrockCodec codec, EntityDataType<?>... types) {
+        if (destination < codec.getProtocolVersion()) {
+            if (p instanceof SetEntityDataPacket pk) {
+                for (val typ : types) {
+                    pk.getMetadata().remove(typ);
+                }
+            }
+            if (p instanceof AddEntityPacket pk) {
+                for (val typ : types) {
+                    pk.getMetadata().remove(typ);
+                }
+            }
+            if (p instanceof AddPlayerPacket pk) {
+                for (val typ : types) {
+                    pk.getMetadata().remove(typ);
+                }
+            }
+            if (p instanceof AddItemEntityPacket pk) {
+                for (val typ : types) {
+                    pk.getMetadata().remove(typ);
+                }
             }
         }
     }
@@ -260,16 +349,7 @@ public class Translate {
         var stringId = ItemTypeDictionary.getInstance().fromNumericId(source, oldStack.getDefinition().getRuntimeId());
         log.info(stringId);
         var newId = ItemTypeDictionary.getInstance().fromStringId(destination, stringId);
-        var newData = ItemData.builder()
-                .definition(oldStack.getDefinition())
-                .damage(oldStack.getDamage())
-                .count(oldStack.getCount())
-                .tag(oldStack.getTag())
-                .canPlace(oldStack.getCanPlace())
-                .canBreak(oldStack.getCanBreak())
-                .blockingTicks(oldStack.getBlockingTicks())
-                .usingNetId(oldStack.isUsingNetId())
-                .netId(oldStack.getNetId());
+        var newData = ItemData.builder().definition(oldStack.getDefinition()).damage(oldStack.getDamage()).count(oldStack.getCount()).tag(oldStack.getTag()).canPlace(oldStack.getCanPlace()).canBreak(oldStack.getCanBreak()).blockingTicks(oldStack.getBlockingTicks()).usingNetId(oldStack.isUsingNetId()).netId(oldStack.getNetId());
         if (oldStack.getBlockDefinition() != null) {
             int translated = translateBlockRuntimeId(source, destination, oldStack.getBlockDefinition().getRuntimeId());
             newData.blockDefinition(() -> translated);

@@ -7,16 +7,20 @@ import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 
 import java.security.KeyPair;
+import java.util.HashSet;
+import java.util.Set;
 
 public class OuranosPlayer {
-    private final BedrockClientSession upstream;
-    private final BedrockServerSession downstream;
+    public static Set<OuranosPlayer> ouranosPlayers = new HashSet<>();
+    public final BedrockClientSession upstream;
+    public final BedrockServerSession downstream;
     @Getter
     private final KeyPair keyPair = EncryptionUtils.createKeyPair();
 
     public OuranosPlayer(BedrockClientSession upstreamSession, BedrockServerSession downstreamSession) {
         this.upstream = upstreamSession;
         this.downstream = downstreamSession;
+        OuranosPlayer.ouranosPlayers.add(this);
     }
 
     public int getUpstreamProtocolId() {
@@ -36,12 +40,14 @@ public class OuranosPlayer {
     }
 
     public void disconnect(String reason, boolean hideReason) {
+        OuranosPlayer.ouranosPlayers.remove(this);
+
         if (this.upstream.isConnected()) {
             this.upstream.disconnect(reason, hideReason);
-            this.upstream.close(reason);
         }
         if (this.downstream.isConnected()) {
             this.downstream.disconnect(reason, hideReason);
+            this.downstream.close(reason);
         }
     }
 
