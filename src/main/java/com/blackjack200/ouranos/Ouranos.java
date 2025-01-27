@@ -54,6 +54,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -343,8 +344,6 @@ public class Ouranos {
             return;
         }
         OuranosPlayer.ouranosPlayers.forEach(player -> {
-            player.downstream.disconnect("Ouranos closed.");
-            player.downstream.getPeer().getChannel().eventLoop().shutdownGracefully();
             player.disconnect("Ouranos closed.");
         });
         if (force) {

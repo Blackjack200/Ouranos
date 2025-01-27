@@ -1,6 +1,7 @@
 package com.blackjack200.ouranos.network.convert;
 
 
+import com.blackjack200.ouranos.network.ProtocolInfo;
 import com.blackjack200.ouranos.network.data.AbstractMapping;
 import com.blackjack200.ouranos.utils.BinaryStream;
 import lombok.Getter;
@@ -12,10 +13,7 @@ import org.cloudburstmc.nbt.NbtUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
 
 @Log4j2
 public class RuntimeBlockMapping extends AbstractMapping {
@@ -29,6 +27,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
     private final Map<Integer, Map<Integer, NbtMap>> bedrockKnownStates = new LinkedHashMap<>(32);
     private final Map<Integer, Map<Integer, Integer>> hashToRuntimeId = new HashMap<>(32);
     private final Map<Integer, Map<Integer, Integer>> runtimeIdToHash = new HashMap<>(32);
+    private final Map<Integer, Integer> fallbackId = new HashMap<>(ProtocolInfo.getPacketCodecs().size());
 
     public RuntimeBlockMapping() {
         load("canonical_block_states.nbt", (protocolId, rawData) -> {
@@ -100,9 +99,14 @@ public class RuntimeBlockMapping extends AbstractMapping {
     }
 
     public int getFallback(int protocolId) {
+        if (this.fallbackId.containsKey(protocolId)) {
+            return this.fallbackId.get(protocolId);
+        }
         for (val v : this.bedrockKnownStates.get(protocolId).entrySet()) {
             if (v.getValue().get("name").equals("minecraft:info_update")) {
-                return this.toRuntimeId(protocolId, v.getKey());
+                Integer rtId = Optional.of(this.toRuntimeId(protocolId, v.getKey())).get();
+                this.fallbackId.put(protocolId, rtId);
+                return rtId;
             }
         }
         throw new RuntimeException("no fallback minecraft:info_update found.");

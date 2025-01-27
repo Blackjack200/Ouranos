@@ -1,6 +1,5 @@
 package com.blackjack200.ouranos.network.translate;
 
-import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -25,8 +24,6 @@ import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleBlockDefinition;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
@@ -42,7 +39,6 @@ import org.cloudburstmc.protocol.common.util.VarInts;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Log4j2
 public class Translate {
@@ -50,6 +46,10 @@ public class Translate {
     public static BedrockPacket translate(int source, int destination, OuranosPlayer player, BedrockPacket p) {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
+        }
+        if (p instanceof ClientCacheStatusPacket pk) {
+            //TODO fixme
+            pk.setSupported(false);
         }
 
         rewriteProtocol(source, destination, p);
@@ -277,6 +277,7 @@ public class Translate {
     }
 
     private static boolean rewriteChunkData(int source, int destination, ByteBuf from, ByteBuf to, int sections) {
+        val isNetwork = 1;
         for (var section = 0; section < sections; section++) {
             var version = from.readUnsignedByte();
             to.writeByte(version);
@@ -289,27 +290,36 @@ public class Translate {
                     var storageCount = from.readUnsignedByte();
                     to.writeByte(storageCount);
                     if (version == 9) {
-                        to.writeByte(from.readByte());
+                        to.writeByte(from.readUnsignedByte());//what ??? uint8(index + (c.range[0] >> 4))
                     }
+
                     for (var storage = 0; storage < storageCount; storage++) {
-                        var flags = from.readUnsignedByte();
-                        var bitsPerBlock = flags >> 1; // isRuntime = (flags & 0x1) != 0
-                        if (bitsPerBlock == 0) {
-                            continue;
+                        var blockSize = from.readUnsignedByte() >> 1;
+                        if (blockSize == 0x7f) {
+                            //no data
+                            log.debug("empty chunk?");
+                            return true;
                         }
-                        var blocksPerWord = Integer.SIZE / bitsPerBlock;
-                        if(blocksPerWord==0){
-                            continue;
+                        if (blockSize > 32) {
+                            throw new RuntimeException("cannot read paletted storage (size=" + blockSize + "): size too large");
                         }
-                        var nWords = ((16 * 16 * 16) + blocksPerWord - 1) / blocksPerWord;
 
-                        to.writeByte(flags);
-                        to.writeBytes(from, nWords * Integer.BYTES);
+                        to.writeByte((blockSize << 1) | isNetwork);
+                        val uint32Count = uint32s(blockSize);
+                        val byteCount = uint32Count * 4;
 
-                        var nPaletteEntries = VarInts.readInt(from);
-                        VarInts.writeInt(to, nPaletteEntries);
+                        to.writeBytes(from, byteCount);
 
-                        for (var i = 0; i < nPaletteEntries; i++) {
+                        var paletteCount = 1;
+                        if (blockSize != 0) {
+                            paletteCount = VarInts.readInt(from);
+                            if (paletteCount <= 0) {
+                                throw new RuntimeException("invalid palette entry count " + paletteCount);
+                            }
+                        }
+                        VarInts.writeInt(to, paletteCount);
+
+                        for (var i = 0; i < paletteCount; i++) {
                             int runtimeId = VarInts.readInt(from);
                             VarInts.writeInt(to, translateBlockRuntimeId(source, destination, runtimeId));
                         }
@@ -321,6 +331,18 @@ public class Translate {
             }
         }
         return true;
+    }
+
+    public static int uint32s(int p) {
+        var uint32Count = 0;
+        if (p != 0) {
+            val indicesPerUint32 = 32 / p;
+            uint32Count = 4096 / indicesPerUint32;
+        }
+        if (p == 3 || p == 5 || p == 6) {
+            uint32Count++;
+        }
+        return uint32Count;
     }
 
     public static int translateBlockRuntimeId(int source, int destination, int blockRuntimeId) {

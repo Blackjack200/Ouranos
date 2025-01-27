@@ -1,6 +1,7 @@
 package com.blackjack200.ouranos.network.session;
 
 import lombok.Getter;
+import lombok.SneakyThrows;
 import org.cloudburstmc.protocol.bedrock.BedrockClientSession;
 import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
@@ -39,8 +40,11 @@ public class OuranosPlayer {
         this.downstream.setPacketHandler(handler);
     }
 
+    @SneakyThrows
     public void disconnect(String reason, boolean hideReason) {
         OuranosPlayer.ouranosPlayers.remove(this);
+        this.downstream.disconnect(reason);
+        this.downstream.getPeer().getChannel().flush().closeFuture().get();
 
         if (this.upstream.isConnected()) {
             this.upstream.disconnect(reason, hideReason);
