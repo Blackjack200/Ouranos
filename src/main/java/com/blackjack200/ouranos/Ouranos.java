@@ -278,7 +278,7 @@ public class Ouranos {
                                     downstream.getPeer().getCodecHelper().setBlockDefinitions(registry);
 
                                     player.blockNetworkIdAreHashes = pk.isBlockNetworkIdsHashed();
-                                    List<NbtMap> states = RuntimeBlockMapping.getInstance().getBedrockKnownStates(upstreamProtocolId).values().stream().toList();
+                                    List<NbtMap> states = RuntimeBlockMapping.getInstance().getBedrockKnownStates(downstreamProtocolId).values().stream().toList();
                                     pk.setBlockPalette(new NbtList<>(NbtType.byClass(NbtMap.class), states));
                                     pk.setServerEngine("Ouranos");
                                     downstream.sendPacketImmediately(pk);

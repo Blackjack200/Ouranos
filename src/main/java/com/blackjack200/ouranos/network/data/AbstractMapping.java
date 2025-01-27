@@ -16,6 +16,9 @@ public class AbstractMapping {
             int protocolId = codec.getProtocolVersion();
             String name = "vanilla/v" + protocolId + "/" + file;
             if (!FileUtil.exist(name)) {
+                name = file;
+            }
+            if (!FileUtil.exist(name)) {
                 for (var i = exists.size() - 1; i >= 0; i--) {
                     var codecc = exists.get(i);
                     name = "vanilla/v" + codecc.getProtocolVersion() + "/" + file;
@@ -25,7 +28,9 @@ public class AbstractMapping {
                 }
             }
             var rawData = getClass().getClassLoader().getResourceAsStream(name);
+            log.info("Loading packet codec {} from {}", codec.getProtocolVersion(), file);
             handler.accept(protocolId, rawData);
+            log.info("Loaded packet codec {} from {}", codec.getProtocolVersion(), file);
         });
     }
 }

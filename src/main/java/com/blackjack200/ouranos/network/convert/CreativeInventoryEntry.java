@@ -25,7 +25,7 @@ public class CreativeInventoryEntry {
         if (this.name != null) {
             val blockName = BlockItemIdMap.getInstance().lookupBlockId(target, this.name);
             if (blockName != null) {
-                log.warn("Found block id {} for name {}", blockName, this.name);
+                //log.warn("Found block id {} for name {}", blockName, this.name);
                 if (this.damage != 0) {
                     throw new RuntimeException("Meta should not be specified for blockitems");
                 }
@@ -35,7 +35,7 @@ public class CreativeInventoryEntry {
                     if (blockRuntimeId == null) {
                         return null;
                     }
-                    log.warn("{} Found block id {} for blockid {}", target, blockRuntimeId, this.name);
+                    //log.warn("{} Found block id {} for blockid {}", target, blockRuntimeId, this.name);
                 }
             } else {
                 //log.warn("Found stateless block id {} for name {}", blockName, this.name);

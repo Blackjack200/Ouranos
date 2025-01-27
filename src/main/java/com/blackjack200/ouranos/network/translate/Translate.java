@@ -1,6 +1,10 @@
 package com.blackjack200.ouranos.network.translate;
 
+import com.blackjack200.ouranos.network.convert.ItemDowngrader;
+import com.blackjack200.ouranos.network.convert.ItemTranslator;
+import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
+import com.blackjack200.ouranos.network.data.BlockItemIdMap;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
@@ -24,6 +28,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
@@ -46,13 +51,74 @@ public class Translate {
     public static BedrockPacket translate(int source, int destination, OuranosPlayer player, BedrockPacket p) {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
-        }
-        if (p instanceof ClientCacheStatusPacket pk) {
-            //TODO fixme
+        } else if (p instanceof ClientCacheStatusPacket pk) {
+            //TODO forcibly disable client blob caches for security
             pk.setSupported(false);
-        }
-        if(p instanceof AvailableCommandsPacket pk){
+        } else if (p instanceof AvailableCommandsPacket pk) {
             pk.getCommands().clear();
+        } else if (p instanceof CreativeContentPacket pk) {
+            val newContents = new ArrayList<ItemData>(pk.getContents().length);
+            val barrierNamespaceId = "minecraft:barrier";
+            val barrier = ItemData.builder()
+                    .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance().fromStringId(destination, barrierNamespaceId), false))
+                    .count(1)
+                    .blockDefinition(() -> RuntimeBlockMapping.getInstance().getFallback(destination))
+                    .build();
+
+            for (var item : pk.getContents()) {
+                String stringId = item.getDefinition().getIdentifier();
+             /*   log.debug("Adding item {} src_dct_in={} dest_dct_in={} b_id={} b_in={} alias={} alias_in={} sim={} cmplx={}",
+                        stringId,
+                        ItemTypeDictionary.getInstance().fromStringId(source, stringId),
+                        ItemTypeDictionary.getInstance().fromStringId(destination, stringId),
+                        BlockItemIdMap.getInstance().lookupBlockId(source, stringId),
+                        ItemTypeDictionary.getInstance().fromStringId(destination, BlockItemIdMap.getInstance().lookupBlockId(source, stringId)),
+                        ItemTranslator.getInstance().getAlias(source, stringId),
+                        ItemTypeDictionary.getInstance().fromStringId(destination, ItemTranslator.getInstance().getAlias(source, stringId)),
+                        ItemDowngrader.getInstance().mapSimpleId(source, stringId),
+                        ItemDowngrader.getInstance().mapComplexId(source, stringId)
+                );*/
+                val cmplx = ItemDowngrader.getInstance().mapComplexId(source, stringId);
+                if (
+                        cmplx != null && ItemTypeDictionary.getInstance().fromStringId(destination, stringId) == null
+                ) {
+                    var xName = (String) cmplx[0];
+                    var xMeta = (int) cmplx[1];
+                    int rid = translateBlockRuntimeId(source, destination, item.getBlockDefinition().getRuntimeId());
+                    item = item.toBuilder()
+                            .damage(xMeta)
+                            .definition(new SimpleItemDefinition(xName, ItemTypeDictionary.getInstance().fromStringId(destination, xName), false))
+                            .blockDefinition(() -> rid)
+                            .build();
+                    if (ItemTypeDictionary.getInstance().fromStringId(destination, xName) != null) {
+                        newContents.add(item);
+                    }
+                } else if (
+                        ItemTypeDictionary.getInstance().fromStringId(destination, stringId) != null ||
+                                ItemTypeDictionary.getInstance().fromStringId(destination, BlockItemIdMap.getInstance().lookupBlockId(destination, stringId)) != null ||
+                                ItemTypeDictionary.getInstance().fromStringId(destination, ItemTranslator.getInstance().getAlias(destination, stringId)) != null
+                ) {
+                    val blockDef = item.getBlockDefinition();
+                    if (blockDef != null) {
+                        val translatedBlockRuntimeId = translateBlockRuntimeId(source, destination, blockDef.getRuntimeId());
+                        item = item.toBuilder().blockDefinition(() -> translatedBlockRuntimeId).build();
+                    }
+                    item = item.toBuilder().definition(new SimpleItemDefinition(stringId, ItemTypeDictionary.getInstance().fromStringId(destination, stringId), false)).build();
+                    newContents.add(item);
+                } else {
+                    try {
+                        val data = ItemTypeDictionary.getInstance().fromNumericId(source, item.getDefinition().getRuntimeId());
+                        val oldData = ItemTypeDictionary.getInstance().fromStringId(destination, stringId);
+
+                        item = item.toBuilder().definition(new SimpleItemDefinition(stringId, ItemTypeDictionary.getInstance().fromStringId(destination, stringId), false)).build();
+                        newContents.add(item);
+                    } catch (RuntimeException e) {
+                        // e.printStackTrace();
+                        newContents.add(barrier);
+                    }
+                }
+            }
+            pk.setContents(newContents.toArray(new ItemData[0]));
         }
 
         rewriteProtocol(source, destination, p);
@@ -83,25 +149,21 @@ public class Translate {
             if (p instanceof InventoryTransactionPacket pk) {
                 pk.setTriggerType(ItemUseTransaction.TriggerType.PLAYER_INPUT);
                 pk.setClientInteractPrediction(ItemUseTransaction.PredictedResult.SUCCESS);
-            }
-            if (p instanceof MobArmorEquipmentPacket pk) {
+            } else if (p instanceof MobArmorEquipmentPacket pk) {
                 pk.setBody(ItemData.AIR);
-            }
-            if (p instanceof PlayerAuthInputPacket pk) {
+            } else if (p instanceof PlayerAuthInputPacket pk) {
                 pk.setRawMoveVector(provider.createVector2f(0, 0));
                 var transaction = pk.getItemUseTransaction();
                 if (transaction != null) {
                     transaction.setTriggerType(ItemUseTransaction.TriggerType.PLAYER_INPUT);
                     transaction.setClientInteractPrediction(ItemUseTransaction.PredictedResult.SUCCESS);
                 }
-            }
-            if (p instanceof ItemStackRequestPacket pk) {
+            } else if (p instanceof ItemStackRequestPacket pk) {
                 val newRequests = new ArrayList<ItemStackRequest>(pk.getRequests().size());
                 for (val req : pk.getRequests()) {
                     val newActions = new ArrayList<ItemStackRequestAction>(pk.getRequests().size());
-                    var actions = req.getActions();
-                    for (int i = 0, iMax = actions.length; i < iMax; i++) {
-                        val action = actions[i];
+                    val actions = req.getActions();
+                    for (val action : actions) {
                         if (action instanceof TakeAction a) {
                             newActions.add(new TakeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
                         } else if (action instanceof ConsumeAction a) {
@@ -151,8 +213,7 @@ public class Translate {
             if (p instanceof LevelChunkPacket pk) {
                 //FIXME overworld?
                 pk.setDimension(0);
-            }
-            if (p instanceof PlayerListPacket pk) {
+            } else if (p instanceof PlayerListPacket pk) {
                 for (var e : pk.getEntries()) {
                     //FIXME context based value: subclient
                     e.setSubClient(false);
@@ -188,6 +249,7 @@ public class Translate {
         }
     }
 
+    @SuppressWarnings("deprecation")
     private static ItemStackRequestSlotData translateItemStackRequestSlotData(ItemStackRequestSlotData dest) {
         return new ItemStackRequestSlotData(
                 dest.getContainer(),
@@ -204,18 +266,15 @@ public class Translate {
                 for (val typ : types) {
                     pk.getMetadata().remove(typ);
                 }
-            }
-            if (p instanceof AddEntityPacket pk) {
+            } else if (p instanceof AddEntityPacket pk) {
                 for (val typ : types) {
                     pk.getMetadata().remove(typ);
                 }
-            }
-            if (p instanceof AddPlayerPacket pk) {
+            } else if (p instanceof AddPlayerPacket pk) {
                 for (val typ : types) {
                     pk.getMetadata().remove(typ);
                 }
-            }
-            if (p instanceof AddItemEntityPacket pk) {
+            } else if (p instanceof AddItemEntityPacket pk) {
                 for (val typ : types) {
                     pk.getMetadata().remove(typ);
                 }
@@ -246,14 +305,11 @@ public class Translate {
                     ReferenceCountUtil.release(from);
                 }
             }
-        }
-        if (p instanceof UpdateBlockPacket packet) {
+        } else if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
             var translated = translateBlockRuntimeId(source, destination, runtimeId);
             packet.setDefinition(() -> translated);
-            return;
-        }
-        if (p instanceof LevelEventPacket packet) {
+        } else if (p instanceof LevelEventPacket packet) {
             var type = packet.getType();
             if (type != ParticleType.TERRAIN && type != LevelEvent.PARTICLE_DESTROY_BLOCK && type != LevelEvent.PARTICLE_CRACK_BLOCK) {
                 return;
@@ -262,15 +318,12 @@ public class Translate {
             var high = data & 0xFFFF0000;
             var blockID = translateBlockRuntimeId(source, destination, data & 0xFFFF) & 0xFFFF;
             packet.setData(high | blockID);
-        }
-        if (p instanceof LevelSoundEventPacket pk) {
+        } else if (p instanceof LevelSoundEventPacket pk) {
             if (pk.getSound() == SoundEvent.PLACE || pk.getSound() == SoundEvent.BREAK) {
                 var runtimeId = pk.getExtraData();
                 pk.setExtraData(translateBlockRuntimeId(source, destination, runtimeId));
             }
-            return;
-        }
-        if (p instanceof AddEntityPacket pk) {
+        } else if (p instanceof AddEntityPacket pk) {
             if (pk.getIdentifier().equals("minecraft:falling_block")) {
                 var metaData = pk.getMetadata();
                 int runtimeId = metaData.get(EntityDataTypes.VARIANT);
@@ -324,7 +377,7 @@ public class Translate {
 
                         for (var i = 0; i < paletteCount; i++) {
                             int runtimeId = VarInts.readInt(from);
-                            VarInts.writeInt(to, runtimeId);
+                            VarInts.writeInt(to, translateBlockRuntimeId(source, destination, runtimeId));
                         }
                     }
                 }
