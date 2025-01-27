@@ -6,7 +6,10 @@ import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import com.blackjack200.ouranos.network.translate.Translate;
-import com.blackjack200.ouranos.utils.*;
+import com.blackjack200.ouranos.utils.ForgeryUtils;
+import com.blackjack200.ouranos.utils.HandshakeUtils;
+import com.blackjack200.ouranos.utils.UnknownBlockDefinitionRegistry;
+import com.blackjack200.ouranos.utils.YamlConfig;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -54,7 +57,6 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -74,9 +76,6 @@ public class Ouranos {
     @SneakyThrows
     private void start() {
         (new Thread(RuntimeBlockMapping::getInstance)).start();
-
-        // RuntimeBlockMapping.getInstance();
-        //CreativeInventory.getInstance();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         val bindAddress = this.config.getBind();
@@ -278,6 +277,7 @@ public class Ouranos {
                                     upstream.getPeer().getCodecHelper().setBlockDefinitions(registry);
                                     downstream.getPeer().getCodecHelper().setBlockDefinitions(registry);
 
+                                    player.blockNetworkIdAreHashes = pk.isBlockNetworkIdsHashed();
                                     List<NbtMap> states = RuntimeBlockMapping.getInstance().getBedrockKnownStates(upstreamProtocolId).values().stream().toList();
                                     pk.setBlockPalette(new NbtList<>(NbtType.byClass(NbtMap.class), states));
                                     pk.setServerEngine("Ouranos");

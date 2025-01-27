@@ -51,6 +51,9 @@ public class Translate {
             //TODO fixme
             pk.setSupported(false);
         }
+        if(p instanceof AvailableCommandsPacket pk){
+            pk.getCommands().clear();
+        }
 
         rewriteProtocol(source, destination, p);
         rewriteBlock(source, destination, p);
@@ -321,7 +324,7 @@ public class Translate {
 
                         for (var i = 0; i < paletteCount; i++) {
                             int runtimeId = VarInts.readInt(from);
-                            VarInts.writeInt(to, translateBlockRuntimeId(source, destination, runtimeId));
+                            VarInts.writeInt(to, runtimeId);
                         }
                     }
                 }

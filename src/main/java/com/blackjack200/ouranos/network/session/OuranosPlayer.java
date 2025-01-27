@@ -15,6 +15,7 @@ public class OuranosPlayer {
     public static Set<OuranosPlayer> ouranosPlayers = new HashSet<>();
     public final BedrockClientSession upstream;
     public final BedrockServerSession downstream;
+    public boolean blockNetworkIdAreHashes = false;
     @Getter
     private final KeyPair keyPair = EncryptionUtils.createKeyPair();
 

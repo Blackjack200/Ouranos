@@ -10,6 +10,16 @@ import java.net.InetSocketAddress;
 @Log4j2
 public class ServerConfig {
     private final Config conf;
+    private String motd = "Ouranos Proxy";
+    private String sub_motd = "Ouranos Proxy";
+
+    private String server_ipv4 = "0.0.0.0";
+    private short server_port_v4 = 19132;
+    private String server_ipv6 = "::0";
+    private short server_port_v6 = 19133;
+
+    private boolean online_mode = true;
+    private boolean encryption = true;
 
     public ServerConfig(Config conf) {
         this.conf = conf;
