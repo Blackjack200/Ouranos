@@ -43,15 +43,13 @@ public class OuranosPlayer {
     @SneakyThrows
     public void disconnect(String reason, boolean hideReason) {
         OuranosPlayer.ouranosPlayers.remove(this);
-        this.downstream.disconnect(reason);
-        this.downstream.getPeer().getChannel().flush().closeFuture().get();
-
-        if (this.upstream.isConnected()) {
-            this.upstream.disconnect(reason, hideReason);
-        }
         if (this.downstream.isConnected()) {
             this.downstream.disconnect(reason, hideReason);
+            this.downstream.getPeer().getChannel().flush().closeFuture().get();
             this.downstream.close(reason);
+        }
+        if (this.upstream.isConnected()) {
+            this.upstream.disconnect(reason, hideReason);
         }
     }
 
