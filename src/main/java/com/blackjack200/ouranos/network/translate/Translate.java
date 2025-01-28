@@ -49,6 +49,13 @@ import java.util.UUID;
 public class Translate {
 
     public static BedrockPacket translate(int source, int destination, OuranosPlayer player, BedrockPacket p) {
+        val barrierNamespaceId = "minecraft:barrier";
+        val barrier = ItemData.builder()
+                .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance().fromStringId(destination, barrierNamespaceId), false))
+                .count(1)
+                .blockDefinition(() -> RuntimeBlockMapping.getInstance().getFallback(destination))
+                .build();
+
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -56,17 +63,15 @@ public class Translate {
             pk.setSupported(false);
         } else if (p instanceof AvailableCommandsPacket pk) {
             pk.getCommands().clear();
-        } else if (p instanceof CreativeContentPacket pk) {
-            val newContents = new ArrayList<ItemData>(pk.getContents().length);
-            val barrierNamespaceId = "minecraft:barrier";
-            val barrier = ItemData.builder()
-                    .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance().fromStringId(destination, barrierNamespaceId), false))
-                    .count(1)
-                    .blockDefinition(() -> RuntimeBlockMapping.getInstance().getFallback(destination))
-                    .build();
+        } 
 
-            for (var item : pk.getContents()) {
-                String stringId = item.getDefinition().getIdentifier();
+        rewriteProtocol(source, destination, p);
+        rewriteBlock(source, destination, p);
+        return p;
+    }
+
+    private static ItemData translateItemData(int source, int destination, ItemData item, ItemData barrier) {
+        String stringId = item.getDefinition().getIdentifier();
              /*   log.debug("Adding item {} src_dct_in={} dest_dct_in={} b_id={} b_in={} alias={} alias_in={} sim={} cmplx={}",
                         stringId,
                         ItemTypeDictionary.getInstance().fromStringId(source, stringId),
@@ -78,52 +83,46 @@ public class Translate {
                         ItemDowngrader.getInstance().mapSimpleId(source, stringId),
                         ItemDowngrader.getInstance().mapComplexId(source, stringId)
                 );*/
-                val cmplx = ItemDowngrader.getInstance().mapComplexId(source, stringId);
-                if (
-                        cmplx != null && ItemTypeDictionary.getInstance().fromStringId(destination, stringId) == null
-                ) {
-                    var xName = (String) cmplx[0];
-                    var xMeta = (int) cmplx[1];
-                    int rid = translateBlockRuntimeId(source, destination, item.getBlockDefinition().getRuntimeId());
-                    item = item.toBuilder()
-                            .damage(xMeta)
-                            .definition(new SimpleItemDefinition(xName, ItemTypeDictionary.getInstance().fromStringId(destination, xName), false))
-                            .blockDefinition(() -> rid)
-                            .build();
-                    if (ItemTypeDictionary.getInstance().fromStringId(destination, xName) != null) {
-                        newContents.add(item);
-                    }
-                } else if (
-                        ItemTypeDictionary.getInstance().fromStringId(destination, stringId) != null ||
-                                ItemTypeDictionary.getInstance().fromStringId(destination, BlockItemIdMap.getInstance().lookupBlockId(destination, stringId)) != null ||
-                                ItemTypeDictionary.getInstance().fromStringId(destination, ItemTranslator.getInstance().getAlias(destination, stringId)) != null
-                ) {
-                    val blockDef = item.getBlockDefinition();
-                    if (blockDef != null) {
-                        val translatedBlockRuntimeId = translateBlockRuntimeId(source, destination, blockDef.getRuntimeId());
-                        item = item.toBuilder().blockDefinition(() -> translatedBlockRuntimeId).build();
-                    }
-                    item = item.toBuilder().definition(new SimpleItemDefinition(stringId, ItemTypeDictionary.getInstance().fromStringId(destination, stringId), false)).build();
-                    newContents.add(item);
-                } else {
-                    try {
-                        val data = ItemTypeDictionary.getInstance().fromNumericId(source, item.getDefinition().getRuntimeId());
-                        val oldData = ItemTypeDictionary.getInstance().fromStringId(destination, stringId);
-
-                        item = item.toBuilder().definition(new SimpleItemDefinition(stringId, ItemTypeDictionary.getInstance().fromStringId(destination, stringId), false)).build();
-                        newContents.add(item);
-                    } catch (RuntimeException e) {
-                        // e.printStackTrace();
-                        newContents.add(barrier);
-                    }
-                }
+        val cmplx = ItemDowngrader.getInstance().mapComplexId(source, stringId);
+        if (
+                cmplx != null && ItemTypeDictionary.getInstance().fromStringId(destination, stringId) == null
+        ) {
+            var xName = (String) cmplx[0];
+            var xMeta = (int) cmplx[1];
+            int rid = translateBlockRuntimeId(source, destination, item.getBlockDefinition().getRuntimeId());
+            item = item.toBuilder()
+                    .damage(xMeta)
+                    .definition(new SimpleItemDefinition(xName, ItemTypeDictionary.getInstance().fromStringId(destination, xName), false))
+                    .blockDefinition(() -> rid)
+                    .build();
+            if (ItemTypeDictionary.getInstance().fromStringId(destination, xName) != null) {
+                return item;
             }
-            pk.setContents(newContents.toArray(new ItemData[0]));
-        }
+        } else if (
+                ItemTypeDictionary.getInstance().fromStringId(destination, stringId) != null ||
+                        ItemTypeDictionary.getInstance().fromStringId(destination, BlockItemIdMap.getInstance().lookupBlockId(destination, stringId)) != null ||
+                        ItemTypeDictionary.getInstance().fromStringId(destination, ItemTranslator.getInstance().getAlias(destination, stringId)) != null
+        ) {
+            val blockDef = item.getBlockDefinition();
+            if (blockDef != null) {
+                val translatedBlockRuntimeId = translateBlockRuntimeId(source, destination, blockDef.getRuntimeId());
+                item = item.toBuilder().blockDefinition(() -> translatedBlockRuntimeId).build();
+            }
+            item = item.toBuilder().definition(new SimpleItemDefinition(stringId, ItemTypeDictionary.getInstance().fromStringId(destination, stringId), false)).build();
+            return item;
+        } else {
+            try {
+                val data = ItemTypeDictionary.getInstance().fromNumericId(source, item.getDefinition().getRuntimeId());
+                val oldData = ItemTypeDictionary.getInstance().fromStringId(destination, stringId);
 
-        rewriteProtocol(source, destination, p);
-        rewriteBlock(source, destination, p);
-        return p;
+                item = item.toBuilder().definition(new SimpleItemDefinition(stringId, ItemTypeDictionary.getInstance().fromStringId(destination, stringId), false)).build();
+                return item;
+            } catch (RuntimeException e) {
+                // e.printStackTrace();
+                return item;
+            }
+        }
+        return null;
     }
 
     private static void rewriteProtocol(int source, int destination, BedrockPacket p) {
