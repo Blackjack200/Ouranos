@@ -4,7 +4,7 @@ import com.blackjack200.ouranos.network.convert.ItemDowngrader;
 import com.blackjack200.ouranos.network.convert.ItemTranslator;
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
-import com.blackjack200.ouranos.network.data.BlockItemIdMap;
+import com.blackjack200.ouranos.network.data.bedrock.item.BlockItemIdMap;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;

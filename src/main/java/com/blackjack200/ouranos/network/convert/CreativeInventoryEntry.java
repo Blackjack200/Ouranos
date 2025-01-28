@@ -1,6 +1,6 @@
 package com.blackjack200.ouranos.network.convert;
 
-import com.blackjack200.ouranos.network.data.BlockItemIdMap;
+import com.blackjack200.ouranos.network.data.bedrock.item.BlockItemIdMap;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;

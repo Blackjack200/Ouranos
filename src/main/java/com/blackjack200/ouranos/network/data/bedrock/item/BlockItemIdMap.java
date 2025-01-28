@@ -1,6 +1,7 @@
-package com.blackjack200.ouranos.network.data;
+package com.blackjack200.ouranos.network.data.bedrock.item;
 
 import cn.hutool.core.map.MapUtil;
+import com.blackjack200.ouranos.network.data.AbstractMapping;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
