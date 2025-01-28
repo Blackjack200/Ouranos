@@ -1,5 +1,6 @@
 package com.blackjack200.ouranos.network.data.bedrock.item.upgrade;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -17,7 +18,7 @@ public final class ItemIdMetaUpgrader {
      *
      * @param idMetaUpgradeSchemas the array of ItemIdMetaUpgradeSchema objects
      */
-    public ItemIdMetaUpgrader(List<ItemIdMetaUpgradeSchema> idMetaUpgradeSchemas) {
+    public ItemIdMetaUpgrader(Collection<ItemIdMetaUpgradeSchema> idMetaUpgradeSchemas) {
         for (ItemIdMetaUpgradeSchema schema : idMetaUpgradeSchemas) {
             this.addSchema(schema);
         }

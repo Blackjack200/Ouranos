@@ -3,7 +3,7 @@ package com.blackjack200.ouranos.network.convert;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.map.MapUtil;
 import com.blackjack200.ouranos.network.data.AbstractMapping;
-import com.blackjack200.ouranos.network.data.bedrock.item.upgrade.LegacyItemIdToStringIdMap;
+import com.blackjack200.ouranos.network.data.LegacyItemIdToStringIdMap;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
@@ -14,12 +14,12 @@ import java.io.InputStreamReader;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class ItemDowngrader extends AbstractMapping {
+public class ItemDowngrader22 extends AbstractMapping {
     @Getter
-    private static final ItemDowngrader instance;
+    private static final ItemDowngrader22 instance;
 
     static {
-        instance = new ItemDowngrader();
+        instance = new ItemDowngrader22();
     }
 
     private final Map<Integer, Map<String, String>> simpleNewToOld = new LinkedHashMap<>();
@@ -29,7 +29,7 @@ public class ItemDowngrader extends AbstractMapping {
         return a[0] + a[1].toString();
     }
 
-    public ItemDowngrader() {
+    public ItemDowngrader22() {
         load("r16_to_current_item_map.json", (protocolId, rawData) -> {
             Map<String, Map<String, Object>> data = (new Gson()).fromJson(new InputStreamReader(rawData), new TypeToken<Map<String, Map<String, Object>>>() {
             }.getType());

@@ -1,5 +1,6 @@
 package com.blackjack200.ouranos.network.data.bedrock.item;
 
+import com.blackjack200.ouranos.network.data.bedrock.VersionInfo;
 import com.blackjack200.ouranos.network.data.bedrock.block.BlockStateData;
 import org.cloudburstmc.nbt.NbtMap;
 
@@ -53,7 +54,6 @@ public final class SavedItemData {
             result.put(TAG_TAG, this.tag);
         }
         result.putLong(VersionInfo.TAG_WORLD_DATA_VERSION, VersionInfo.WORLD_DATA_VERSION);
-
-        return result;
+        return result.build();
     }
 }

@@ -76,19 +76,19 @@ public class ItemIdMetaDowngrader {
         }
     }
 
-    public int[] downgrade(String id, int meta) {
+    public Object[] downgrade(String id, int meta) {
         var newId = id;
         var newMeta = meta;
 
         if (this.remappedMetas.containsKey(newId)) {
             var oldData = this.remappedMetas.get(newId);
             newId = (String) oldData[0];
-            newMeta = (Integer) oldData[1];
+            newMeta = Integer.parseInt((String) oldData[1]);
         } else if (this.renamedIds.containsKey(newId)) {
             newId = this.renamedIds.get(newId);
         }
 
-        return new int[]{Integer.parseInt(newId), newMeta};
+        return new Object[]{newId, newMeta};
     }
 }
 

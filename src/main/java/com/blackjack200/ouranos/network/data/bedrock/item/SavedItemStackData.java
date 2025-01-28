@@ -32,38 +32,4 @@ public final class SavedItemStackData {
         this.canPlaceOn = canPlaceOn;
         this.canDestroy = canDestroy;
     }
-
-    public CompoundTag toNbt() {
-        CompoundTag result = new CompoundTag();
-
-        result.setByte(TAG_COUNT, (byte) count);
-
-        if (slot != null) {
-            result.setByte(TAG_SLOT, (byte) slot.intValue());
-        }
-
-        if (wasPickedUp != null) {
-            result.setByte(TAG_WAS_PICKED_UP, (byte) (wasPickedUp ? 1 : 0));
-        }
-
-        if (!canPlaceOn.isEmpty()) {
-            ListTag canPlaceOnTag = new ListTag();
-            for (String s : canPlaceOn) {
-                canPlaceOnTag.add(new StringTag(s));
-            }
-            result.setTag(TAG_CAN_PLACE_ON, canPlaceOnTag);
-        }
-
-        if (!canDestroy.isEmpty()) {
-            ListTag canDestroyTag = new ListTag();
-            for (String s : canDestroy) {
-                canDestroyTag.add(new StringTag(s));
-            }
-            result.setTag(TAG_CAN_DESTROY, canDestroyTag);
-        }
-
-        result.merge(typeData.toNbt());
-
-        return result;
-    }
 }

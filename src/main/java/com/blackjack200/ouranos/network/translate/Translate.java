@@ -1,10 +1,9 @@
 package com.blackjack200.ouranos.network.translate;
 
-import com.blackjack200.ouranos.network.convert.ItemDowngrader;
-import com.blackjack200.ouranos.network.convert.ItemTranslator;
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
-import com.blackjack200.ouranos.network.data.bedrock.item.BlockItemIdMap;
+import com.blackjack200.ouranos.network.data.bedrock.GlobalItemDataHandlers;
+import com.blackjack200.ouranos.network.data.bedrock.item.downgrade.ItemIdMetaDowngrader;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
@@ -28,6 +27,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
 import org.cloudburstmc.protocol.bedrock.data.ParticleType;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
+import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
@@ -63,67 +63,35 @@ public class Translate {
             pk.setSupported(false);
         } else if (p instanceof AvailableCommandsPacket pk) {
             pk.getCommands().clear();
-        } 
+        } else if (p instanceof CreativeContentPacket pk) {
+            val newContents = new ArrayList<ItemData>();
+            for (val x : pk.getContents()) {
+                var stringId = x.getDefinition().getIdentifier();
+                var downgrader = new ItemIdMetaDowngrader(ItemTypeDictionary.getInstance(), destination, GlobalItemDataHandlers.getSchemaId(destination));
+                var downgraded = downgrader.downgrade(stringId, x.getDamage());
+                log.debug("downgrade {}:{} to {}:{}", stringId, x.getDamage(), downgraded[0], downgraded[1]);
+                //Integer runtimeId = Optional.ofNullable(ItemTypeDictionary.getInstance().fromStringId(destination, stringId)).orElse(x.getDefinition().getRuntimeId());
+                newContents.add(x.toBuilder()
+                        .definition(new SimpleItemDefinition((String) downgraded[0], x.getDefinition().getRuntimeId(), false))
+                        .damage((int) downgraded[1])
+                                .blockDefinition(new BlockDefinition() {
+                                    @Override
+                                    public int getRuntimeId() {
+                                        return 10437;
+                                    }
+                                })
+                        .build()
+                );
+            }
+//            pk.setContents(newContents.toArray(new ItemData[0]));
+   //         pk.setContents(newContents.toArray(new ItemData[0]));
+        }
 
         rewriteProtocol(source, destination, p);
         rewriteBlock(source, destination, p);
         return p;
     }
 
-    private static ItemData translateItemData(int source, int destination, ItemData item, ItemData barrier) {
-        String stringId = item.getDefinition().getIdentifier();
-             /*   log.debug("Adding item {} src_dct_in={} dest_dct_in={} b_id={} b_in={} alias={} alias_in={} sim={} cmplx={}",
-                        stringId,
-                        ItemTypeDictionary.getInstance().fromStringId(source, stringId),
-                        ItemTypeDictionary.getInstance().fromStringId(destination, stringId),
-                        BlockItemIdMap.getInstance().lookupBlockId(source, stringId),
-                        ItemTypeDictionary.getInstance().fromStringId(destination, BlockItemIdMap.getInstance().lookupBlockId(source, stringId)),
-                        ItemTranslator.getInstance().getAlias(source, stringId),
-                        ItemTypeDictionary.getInstance().fromStringId(destination, ItemTranslator.getInstance().getAlias(source, stringId)),
-                        ItemDowngrader.getInstance().mapSimpleId(source, stringId),
-                        ItemDowngrader.getInstance().mapComplexId(source, stringId)
-                );*/
-        val cmplx = ItemDowngrader.getInstance().mapComplexId(source, stringId);
-        if (
-                cmplx != null && ItemTypeDictionary.getInstance().fromStringId(destination, stringId) == null
-        ) {
-            var xName = (String) cmplx[0];
-            var xMeta = (int) cmplx[1];
-            int rid = translateBlockRuntimeId(source, destination, item.getBlockDefinition().getRuntimeId());
-            item = item.toBuilder()
-                    .damage(xMeta)
-                    .definition(new SimpleItemDefinition(xName, ItemTypeDictionary.getInstance().fromStringId(destination, xName), false))
-                    .blockDefinition(() -> rid)
-                    .build();
-            if (ItemTypeDictionary.getInstance().fromStringId(destination, xName) != null) {
-                return item;
-            }
-        } else if (
-                ItemTypeDictionary.getInstance().fromStringId(destination, stringId) != null ||
-                        ItemTypeDictionary.getInstance().fromStringId(destination, BlockItemIdMap.getInstance().lookupBlockId(destination, stringId)) != null ||
-                        ItemTypeDictionary.getInstance().fromStringId(destination, ItemTranslator.getInstance().getAlias(destination, stringId)) != null
-        ) {
-            val blockDef = item.getBlockDefinition();
-            if (blockDef != null) {
-                val translatedBlockRuntimeId = translateBlockRuntimeId(source, destination, blockDef.getRuntimeId());
-                item = item.toBuilder().blockDefinition(() -> translatedBlockRuntimeId).build();
-            }
-            item = item.toBuilder().definition(new SimpleItemDefinition(stringId, ItemTypeDictionary.getInstance().fromStringId(destination, stringId), false)).build();
-            return item;
-        } else {
-            try {
-                val data = ItemTypeDictionary.getInstance().fromNumericId(source, item.getDefinition().getRuntimeId());
-                val oldData = ItemTypeDictionary.getInstance().fromStringId(destination, stringId);
-
-                item = item.toBuilder().definition(new SimpleItemDefinition(stringId, ItemTypeDictionary.getInstance().fromStringId(destination, stringId), false)).build();
-                return item;
-            } catch (RuntimeException e) {
-                // e.printStackTrace();
-                return item;
-            }
-        }
-        return null;
-    }
 
     private static void rewriteProtocol(int source, int destination, BedrockPacket p) {
         val provider = new ImmutableVectorProvider();

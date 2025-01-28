@@ -3,13 +3,11 @@ package com.blackjack200.ouranos;
 import com.blackjack200.ouranos.network.ProtocolInfo;
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
+import com.blackjack200.ouranos.network.data.bedrock.GlobalItemDataHandlers;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import com.blackjack200.ouranos.network.translate.Translate;
-import com.blackjack200.ouranos.utils.ForgeryUtils;
-import com.blackjack200.ouranos.utils.HandshakeUtils;
-import com.blackjack200.ouranos.utils.UnknownBlockDefinitionRegistry;
-import com.blackjack200.ouranos.utils.YamlConfig;
+import com.blackjack200.ouranos.utils.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -41,6 +39,7 @@ import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
+import org.cloudburstmc.protocol.common.DefinitionRegistry;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.cloudburstmc.protocol.common.SimpleDefinitionRegistry;
 import org.jose4j.json.JsonUtil;
@@ -78,6 +77,7 @@ public class Ouranos {
     @SneakyThrows
     private void start() {
         // RuntimeBlockMapping.init();
+        GlobalItemDataHandlers.getUpgrader();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         val bindAddress = this.config.getBind();
