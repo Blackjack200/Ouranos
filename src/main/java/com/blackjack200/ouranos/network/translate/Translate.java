@@ -53,7 +53,7 @@ public class Translate {
         val barrier = ItemData.builder()
                 .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance().fromStringId(destination, barrierNamespaceId), false))
                 .count(1)
-                .blockDefinition(() -> RuntimeBlockMapping.getInstance().getFallback(destination))
+                .blockDefinition(() -> RuntimeBlockMapping.getInstance(destination).getFallback())
                 .build();
 
         if (p instanceof ResourcePackStackPacket pk) {
@@ -401,12 +401,12 @@ public class Translate {
     }
 
     public static int translateBlockRuntimeId(int source, int destination, int blockRuntimeId) {
-        val internalStateId = RuntimeBlockMapping.getInstance().fromRuntimeId(source, blockRuntimeId);
-        int fallback = RuntimeBlockMapping.getInstance().getFallback(destination);
+        val internalStateId = RuntimeBlockMapping.getInstance(source).fromRuntimeId(blockRuntimeId);
+        int fallback = RuntimeBlockMapping.getInstance(destination).getFallback();
         if (internalStateId == null) {
             return fallback;
         }
-        val converted = RuntimeBlockMapping.getInstance().toRuntimeId(destination, internalStateId);
+        val converted = RuntimeBlockMapping.getInstance(destination).toRuntimeId(internalStateId);
         if (converted == null) {
             return fallback;
         }

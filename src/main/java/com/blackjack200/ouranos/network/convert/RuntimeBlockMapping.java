@@ -3,7 +3,6 @@ package com.blackjack200.ouranos.network.convert;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
 import com.blackjack200.ouranos.network.data.AbstractMapping;
-import com.blackjack200.ouranos.utils.BinaryStream;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
@@ -13,30 +12,25 @@ import org.cloudburstmc.nbt.NbtUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.*;
 
 @Log4j2
 public class RuntimeBlockMapping extends AbstractMapping {
-    @Getter
-    private static final RuntimeBlockMapping instance;
+    public static class Entry {
 
-    static {
-        instance = new RuntimeBlockMapping();
-    }
+        @Getter
+        private final Map<Integer, NbtMap> bedrockKnownStates = new LinkedHashMap<>(15000);
+        private final Map<Integer, Integer> hashToRuntimeId = new HashMap<>(15000);
+        private final Map<Integer, Integer> runtimeIdToHash = new HashMap<>(15000);
+        private Integer fallbackId;
 
-    private final Map<Integer, Map<Integer, NbtMap>> bedrockKnownStates = new LinkedHashMap<>(32);
-    private final Map<Integer, Map<Integer, Integer>> hashToRuntimeId = new HashMap<>(32);
-    private final Map<Integer, Map<Integer, Integer>> runtimeIdToHash = new HashMap<>(32);
-    private final Map<Integer, Integer> fallbackId = new HashMap<>(ProtocolInfo.getPacketCodecs().size());
-
-    public RuntimeBlockMapping() {
-        load("canonical_block_states.nbt", (protocolId, rawData) -> {
-            val map = new HashMap<Integer, NbtMap>(20000);
+        public Entry(int protocolId, URL url) {
             val states = new LinkedList<NbtMap>();
             try {
-                val reader = new BinaryStream(rawData.readAllBytes());
+                InputStream reader = url.openStream();
                 val nbtReader = NbtUtils.createNetworkReader(reader);
-                while (!reader.feof()) {
+                while (reader.available() > 0) {
                     NbtMap blockState = (NbtMap) nbtReader.readTag();
                     var nbt = BlockStateUpdaters.updateBlockState(blockState, BlockStateUpdaters.LATEST_VERSION);
                     nbt = NbtMap.builder()
@@ -44,71 +38,90 @@ public class RuntimeBlockMapping extends AbstractMapping {
                             .putCompound("states", nbt.getCompound("states"))
                             .build();
                     var hashCode = nbt.hashCode();
-                    map.put(hashCode, nbt);
+                    this.bedrockKnownStates.put(hashCode, nbt);
                     states.add(nbt);
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            this.bedrockKnownStates.put(protocolId, map);
-            this.hashToRuntimeId.put(protocolId, new HashMap<>(20000));
-            this.runtimeIdToHash.put(protocolId, new HashMap<>(20000));
 
             for (int i = 0; i < states.size(); i++) {
                 val state = states.get(i);
-                this.hashToRuntimeId.get(protocolId).put(state.hashCode(), i);
-                this.runtimeIdToHash.get(protocolId).put(i, state.hashCode());
+                this.hashToRuntimeId.put(state.hashCode(), i);
+                this.runtimeIdToHash.put(i, state.hashCode());
             }
-        });
-        log.debug("Loaded runtime block mappings");
-    }
+            for (val v : this.bedrockKnownStates.entrySet()) {
+                if (v.getValue().get("name").equals("minecraft:info_update")) {
+                    this.fallbackId = Optional.of(this.toRuntimeId(v.getKey())).get();
+                    break;
+                }
+            }
+            if (this.fallbackId == null) {
+                throw new RuntimeException("no fallback minecraft:info_update found.");
+            }
 
-    public Integer toRuntimeId(int protocolId, int hash) {
-        return this.hashToRuntimeId.get(protocolId).get(hash);
-    }
-
-    public Integer fromRuntimeId(int protocolId, int runtimeId) {
-        return this.runtimeIdToHash.get(protocolId).get(runtimeId);
-    }
-
-    public Integer fromNbt(String name, InputStream input) {
-        try {
-            var reader = NbtUtils.createReaderLE(input);
-            var tg = (NbtMap) reader.readTag();
-            return toInternalId(name, tg);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            log.debug("Loaded runtime block mapping for protocol {}.", protocolId);
         }
-    }
 
-    public Integer toInternalId(String name, NbtMap tg) {
-        tg = NbtMap.builder()
-                .putString("name", name)
-                .putCompound("states", tg.getCompound("states"))
-                .build();
-        var nbt = BlockStateUpdaters.updateBlockState(tg, BlockStateUpdaters.LATEST_VERSION);
-        var tag = NbtMap.builder()
-                .putString("name", nbt.getString("name"))
-                .putCompound("states", nbt.getCompound("states"))
-                .build();
-        return tag.hashCode();
-    }
-
-    public Map<Integer, NbtMap> getBedrockKnownStates(int protocolId) {
-        return this.bedrockKnownStates.get(protocolId);
-    }
-
-    public int getFallback(int protocolId) {
-        if (this.fallbackId.containsKey(protocolId)) {
-            return this.fallbackId.get(protocolId);
+        public Integer toRuntimeId(int hash) {
+            return this.hashToRuntimeId.get(hash);
         }
-        for (val v : this.bedrockKnownStates.get(protocolId).entrySet()) {
-            if (v.getValue().get("name").equals("minecraft:info_update")) {
-                Integer rtId = Optional.of(this.toRuntimeId(protocolId, v.getKey())).get();
-                this.fallbackId.put(protocolId, rtId);
-                return rtId;
+
+        public Integer fromRuntimeId(int runtimeId) {
+            return this.runtimeIdToHash.get(runtimeId);
+        }
+
+        public Integer fromNbt(String name, InputStream input) {
+            try {
+                var reader = NbtUtils.createReaderLE(input);
+                var tg = (NbtMap) reader.readTag();
+                return toInternalId(name, tg);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
-        throw new RuntimeException("no fallback minecraft:info_update found.");
+
+        public Integer toInternalId(String name, NbtMap tg) {
+            tg = NbtMap.builder()
+                    .putString("name", name)
+                    .putCompound("states", tg.getCompound("states"))
+                    .build();
+            var nbt = BlockStateUpdaters.updateBlockState(tg, BlockStateUpdaters.LATEST_VERSION);
+            var tag = NbtMap.builder()
+                    .putString("name", nbt.getString("name"))
+                    .putCompound("states", nbt.getCompound("states"))
+                    .build();
+            return tag.hashCode();
+        }
+
+        public int getFallback() {
+            return this.fallbackId;
+        }
+    }
+
+    private static RuntimeBlockMapping instance;
+
+    public synchronized static void init() {
+        if (instance == null) {
+            instance = new RuntimeBlockMapping();
+        }
+    }
+
+    private static final Map<Integer, Entry> mappings = new HashMap<>(ProtocolInfo.getPacketCodecs().size());
+    private static final Map<Integer, URL> files = new HashMap<>(ProtocolInfo.getPacketCodecs().size());
+
+    private RuntimeBlockMapping() {
+        loadFile("canonical_block_states.nbt", files::put);
+    }
+
+    public static Entry getInstance(int protocolId) {
+        init();
+        if (!mappings.containsKey(protocolId)) {
+            val entry = new Entry(protocolId, files.get(protocolId));
+            synchronized (mappings) {
+                mappings.put(protocolId, entry);
+            }
+        }
+        return Objects.requireNonNull(mappings.get(protocolId), "Runtime block mapping for protocol " + protocolId + " not found.");
     }
 }

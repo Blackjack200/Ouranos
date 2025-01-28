@@ -31,7 +31,7 @@ public class CreativeInventoryEntry {
                 }
                 if (this.block_states != null) {
                     val x = Base64.getDecoder().wrap(new ByteArrayInputStream(this.block_states.getBytes()));
-                    val blockRuntimeId = RuntimeBlockMapping.getInstance().toRuntimeId(target, RuntimeBlockMapping.getInstance().fromNbt(this.name, x));
+                    val blockRuntimeId = RuntimeBlockMapping.getInstance(target).toRuntimeId(RuntimeBlockMapping.getInstance(target).fromNbt(this.name, x));
                     if (blockRuntimeId == null) {
                         return null;
                     }

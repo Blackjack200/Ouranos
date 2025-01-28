@@ -30,6 +30,8 @@ import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
+import org.cloudburstmc.protocol.bedrock.data.ExperimentData;
+import org.cloudburstmc.protocol.bedrock.data.NetworkPermissions;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
@@ -75,7 +77,7 @@ public class Ouranos {
 
     @SneakyThrows
     private void start() {
-        (new Thread(RuntimeBlockMapping::getInstance)).start();
+        // RuntimeBlockMapping.init();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         val bindAddress = this.config.getBind();
@@ -159,13 +161,27 @@ public class Ouranos {
 
         while (this.running.get() && !this.bossGroup.isShutdown()) {
             if (scanner.hasNextLine()) {
-                String input = scanner.nextLine();
-                if ("stop".equalsIgnoreCase(input)) {
-                    log.info("Shutting down...");
-                    this.shutdown(false);
-                    break;
-                } else {
-                    log.error("Unknown command: {}", input);
+                String input = scanner.nextLine().toLowerCase().trim();
+                if (input.length() == 0) {
+                    continue;
+                }
+                switch (input.toLowerCase()) {
+                    case "stop":
+                    case "exit":
+                        log.info("Shutting down...");
+                        this.shutdown(false);
+                        break;
+                    case "gc":
+                        log.info("Trigger gc...");
+                        val runtime = Runtime.getRuntime();
+                        val usedMemory = runtime.totalMemory() - runtime.freeMemory();
+                        log.info("Memory used: {} MB", Math.round((usedMemory / 1024d / 1024d)));
+                        System.gc();
+                        val freedMemory = usedMemory - (runtime.totalMemory() - runtime.freeMemory());
+                        log.info("Memory freed: {} MB", Math.round((freedMemory / 1024d / 1024d)));
+                        break;
+                    default:
+                        log.error("Unknown command: {}", input);
                 }
             }
         }
@@ -278,9 +294,17 @@ public class Ouranos {
                                     downstream.getPeer().getCodecHelper().setBlockDefinitions(registry);
 
                                     player.blockNetworkIdAreHashes = pk.isBlockNetworkIdsHashed();
-                                    List<NbtMap> states = RuntimeBlockMapping.getInstance().getBedrockKnownStates(downstreamProtocolId).values().stream().toList();
+                                    List<NbtMap> states = RuntimeBlockMapping.getInstance(downstreamProtocolId).getBedrockKnownStates().values().stream().toList();
                                     pk.setBlockPalette(new NbtList<>(NbtType.byClass(NbtMap.class), states));
                                     pk.setServerEngine("Ouranos");
+                                    pk.setNetworkPermissions(new NetworkPermissions(false));
+                                    pk.setEduFeaturesEnabled(true);
+                                    pk.getExperiments().add(new ExperimentData("next_major_update", true));
+                                    pk.getExperiments().add(new ExperimentData("data_driven_items", true));
+                                    pk.getExperiments().add(new ExperimentData("upcoming_creator_features", true));
+                                    pk.getExperiments().add(new ExperimentData("experimental_molang_features", true));
+                                    pk.getExperiments().add(new ExperimentData("recipe_unlocking", true));
+
                                     downstream.sendPacketImmediately(pk);
                                     return PacketSignal.HANDLED;
                                 }
