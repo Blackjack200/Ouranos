@@ -1,7 +1,6 @@
 package com.blackjack200.ouranos.network.data.bedrock.item.upgrade;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -30,10 +29,10 @@ public final class ItemIdMetaUpgrader {
      * @param schema the ItemIdMetaUpgradeSchema to add
      */
     public void addSchema(ItemIdMetaUpgradeSchema schema) {
-        if (this.idMetaUpgradeSchemas.containsKey(schema.getSchemaId())) {
-            throw new IllegalArgumentException("Already have a schema with priority " + schema.getSchemaId());
+        if (this.idMetaUpgradeSchemas.containsKey(schema.schemaId())) {
+            throw new IllegalArgumentException("Already have a schema with priority " + schema.schemaId());
         }
-        this.idMetaUpgradeSchemas.put(schema.getSchemaId(), schema);
+        this.idMetaUpgradeSchemas.put(schema.schemaId(), schema);
     }
 
     /**

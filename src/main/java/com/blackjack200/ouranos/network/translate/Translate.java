@@ -3,7 +3,6 @@ package com.blackjack200.ouranos.network.translate;
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
 import com.blackjack200.ouranos.network.data.bedrock.GlobalItemDataHandlers;
-import com.blackjack200.ouranos.network.data.bedrock.item.downgrade.ItemIdMetaDowngrader;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
@@ -67,24 +66,24 @@ public class Translate {
             val newContents = new ArrayList<ItemData>();
             for (val x : pk.getContents()) {
                 var stringId = x.getDefinition().getIdentifier();
-                var downgrader = new ItemIdMetaDowngrader(ItemTypeDictionary.getInstance(), destination, GlobalItemDataHandlers.getSchemaId(destination));
+                var downgrader = GlobalItemDataHandlers.getItemIdMetaDowngrader(destination);
                 var downgraded = downgrader.downgrade(stringId, x.getDamage());
                 log.debug("downgrade {}:{} to {}:{}", stringId, x.getDamage(), downgraded[0], downgraded[1]);
                 //Integer runtimeId = Optional.ofNullable(ItemTypeDictionary.getInstance().fromStringId(destination, stringId)).orElse(x.getDefinition().getRuntimeId());
                 newContents.add(x.toBuilder()
                         .definition(new SimpleItemDefinition((String) downgraded[0], x.getDefinition().getRuntimeId(), false))
                         .damage((int) downgraded[1])
-                                .blockDefinition(new BlockDefinition() {
-                                    @Override
-                                    public int getRuntimeId() {
-                                        return 10437;
-                                    }
-                                })
+                        .blockDefinition(new BlockDefinition() {
+                            @Override
+                            public int getRuntimeId() {
+                                return 10437;
+                            }
+                        })
                         .build()
                 );
             }
-//            pk.setContents(newContents.toArray(new ItemData[0]));
-   //         pk.setContents(newContents.toArray(new ItemData[0]));
+            pk.setContents(pk.getContents());
+            //         pk.setContents(newContents.toArray(new ItemData[0]));
         }
 
         rewriteProtocol(source, destination, p);

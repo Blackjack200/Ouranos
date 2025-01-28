@@ -2,8 +2,6 @@ package com.blackjack200.ouranos;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
-import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
-import com.blackjack200.ouranos.network.data.bedrock.GlobalItemDataHandlers;
 import com.blackjack200.ouranos.network.session.AuthData;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import com.blackjack200.ouranos.network.translate.Translate;
@@ -18,9 +16,6 @@ import io.netty.util.ResourceLeakDetector;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
-import org.cloudburstmc.nbt.NbtList;
-import org.cloudburstmc.nbt.NbtMap;
-import org.cloudburstmc.nbt.NbtType;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockClientSession;
@@ -39,9 +34,7 @@ import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
-import org.cloudburstmc.protocol.common.DefinitionRegistry;
 import org.cloudburstmc.protocol.common.PacketSignal;
-import org.cloudburstmc.protocol.common.SimpleDefinitionRegistry;
 import org.jose4j.json.JsonUtil;
 import org.jose4j.json.internal.json_simple.JSONObject;
 import org.jose4j.jws.JsonWebSignature;
@@ -76,8 +69,6 @@ public class Ouranos {
 
     @SneakyThrows
     private void start() {
-        // RuntimeBlockMapping.init();
-        GlobalItemDataHandlers.getUpgrader();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         val bindAddress = this.config.getBind();
@@ -281,21 +272,15 @@ public class Ouranos {
                                     return PacketSignal.HANDLED;
                                 }
                                 if (packet instanceof StartGamePacket pk) {
-                                    val newRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder().addAll(pk.getItemDefinitions()).build();
-                                    upstream.getPeer().getCodecHelper().setItemDefinitions(newRegistry);
-
+                                    upstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamProtocolId));
+                                    downstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamProtocolId));
                                     List<ItemDefinition> def = ItemTypeDictionary.getInstance().getEntries(upstreamProtocolId).entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
-                                    val oldRegistry = SimpleDefinitionRegistry.<ItemDefinition>builder().addAll(def).build();
-                                    downstream.getPeer().getCodecHelper().setItemDefinitions(oldRegistry);
                                     pk.setItemDefinitions(def);
 
-                                    val registry = new UnknownBlockDefinitionRegistry();
-                                    upstream.getPeer().getCodecHelper().setBlockDefinitions(registry);
-                                    downstream.getPeer().getCodecHelper().setBlockDefinitions(registry);
+                                    upstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(upstreamProtocolId));
+                                    downstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(downstreamProtocolId));
 
                                     player.blockNetworkIdAreHashes = pk.isBlockNetworkIdsHashed();
-                                    List<NbtMap> states = RuntimeBlockMapping.getInstance(downstreamProtocolId).getBedrockKnownStates().values().stream().toList();
-                                    pk.setBlockPalette(new NbtList<>(NbtType.byClass(NbtMap.class), states));
                                     pk.setServerEngine("Ouranos");
                                     pk.setNetworkPermissions(new NetworkPermissions(false));
                                     pk.setEduFeaturesEnabled(true);

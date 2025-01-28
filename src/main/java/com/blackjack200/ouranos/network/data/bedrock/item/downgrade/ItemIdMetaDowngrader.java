@@ -7,12 +7,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ItemIdMetaDowngrader {
-
-    private Map<String, String> renamedIds = new HashMap<>();
-    private Map<String, Object[]> remappedMetas = new HashMap<>();
+    private final Map<String, String> renamedIds = new HashMap<>();
+    private final Map<String, Object[]> remappedMetas = new HashMap<>();
 
     public ItemIdMetaDowngrader(ItemTypeDictionary dictionary, int protocolId, int schemaId) {
-        var upgrader = GlobalItemDataHandlers.getUpgrader().getIdMetaUpgrader();
+        var upgrader = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader();
 
         var networkIds = new HashMap<>();
         for (var entry : upgrader.getSchemas().entrySet()) {
@@ -23,7 +22,7 @@ public class ItemIdMetaDowngrader {
                 continue;
             }
 
-            for (var renamedIdEntry : schema.getRenamedIds().entrySet()) {
+            for (var renamedIdEntry : schema.renamedIds().entrySet()) {
                 String oldId = renamedIdEntry.getKey();
                 String newStringId = renamedIdEntry.getValue();
 
@@ -39,7 +38,7 @@ public class ItemIdMetaDowngrader {
                 }
             }
 
-            for (var remappedMetasEntry : schema.getRemappedMetas().entrySet()) {
+            for (var remappedMetasEntry : schema.remappedMetas().entrySet()) {
                 String oldId = remappedMetasEntry.getKey();
                 var metaToNewId = remappedMetasEntry.getValue();
 

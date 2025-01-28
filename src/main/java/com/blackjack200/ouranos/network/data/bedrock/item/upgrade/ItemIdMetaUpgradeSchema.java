@@ -8,14 +8,8 @@ import java.util.Map;
  * Class representing the schema for upgrading item IDs and metadata.
  * This schema includes renamed item IDs and remapped metadata.
  */
-public final class ItemIdMetaUpgradeSchema {
-    @Getter
-    private final Map<String, String> renamedIds;
-    @Getter
-    private final Map<String, Map<Integer, String>> remappedMetas;
-    @Getter
-    private final int schemaId;
-
+public record ItemIdMetaUpgradeSchema(@Getter Map<String, String> renamedIds,
+                                      @Getter Map<String, Map<Integer, String>> remappedMetas, @Getter int schemaId) {
     /**
      * Constructor to initialize the schema with renamed IDs, remapped metas, and schema ID.
      *
@@ -23,12 +17,7 @@ public final class ItemIdMetaUpgradeSchema {
      * @param remappedMetas a map of remapped metadata for item IDs
      * @param schemaId      the schema ID
      */
-    public ItemIdMetaUpgradeSchema(Map<String, String> renamedIds,
-                                   Map<String, Map<Integer, String>> remappedMetas,
-                                   int schemaId) {
-        this.renamedIds = renamedIds;
-        this.remappedMetas = remappedMetas;
-        this.schemaId = schemaId;
+    public ItemIdMetaUpgradeSchema {
     }
 
     /**
