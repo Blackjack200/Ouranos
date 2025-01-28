@@ -2,6 +2,8 @@ package com.blackjack200.ouranos.utils;
 
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
+import lombok.val;
+import org.allaymc.updater.block.BlockStateUpdaters;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 
@@ -33,14 +35,37 @@ public class HashUtils {
             return -2; // This is special case
         }
 
-        var states = new TreeMap<>(propertyValues);
+        var states = new TreeMap<>(propertyValues.getCompound("states", propertyValues));
 
-        var tag = NbtMap.builder()
-                .putString("name", identifier)
-                .putCompound("states", NbtMap.fromMap(states))
-                .build();
+        var mappedFullState = BlockStateUpdaters.updateBlockState(NbtMap.builder()
+                        .putString("name", identifier)
+                        .putCompound("states", NbtMap.fromMap(states))
+                        .build()
+                , BlockStateUpdaters.LATEST_VERSION);
+        return fnv1a_32_nbt(mappedFullState);
+    }
 
-        return fnv1a_32_nbt(tag);
+    /**
+     * Compute block state hash from the given identifier and property values.
+     *
+     * @param identifier     the identifier.
+     * @param propertyValues the property values.
+     * @return the hash.
+     */
+    public int computeBlockStateHash(NbtMap propertyValues) {
+        val identifier = propertyValues.getString("name");
+        if (identifier.equals("minecraft:unknown")) {
+            return -2; // This is special case
+        }
+
+        var states = new TreeMap<>(propertyValues.getCompound("states", propertyValues));
+
+        var mappedFullState = BlockStateUpdaters.updateBlockState(NbtMap.builder()
+                        .putString("name", identifier)
+                        .putCompound("states", NbtMap.fromMap(states))
+                        .build()
+                , BlockStateUpdaters.LATEST_VERSION);
+        return fnv1a_32_nbt(mappedFullState);
     }
 
     /**

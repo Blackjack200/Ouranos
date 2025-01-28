@@ -3,6 +3,7 @@ package com.blackjack200.ouranos.network.convert;
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
 import com.blackjack200.ouranos.network.data.AbstractMapping;
+import com.blackjack200.ouranos.utils.HashUtils;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
@@ -37,7 +38,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
                             .putString("name", nbt.getString("name"))
                             .putCompound("states", nbt.getCompound("states"))
                             .build();
-                    var hashCode = nbt.hashCode();
+                    var hashCode = HashUtils.computeBlockStateHash(nbt.getString("name"), nbt);
                     this.bedrockKnownStates.put(hashCode, nbt);
                     states.add(nbt);
                 }
@@ -47,8 +48,9 @@ public class RuntimeBlockMapping extends AbstractMapping {
 
             for (int i = 0; i < states.size(); i++) {
                 val state = states.get(i);
-                this.hashToRuntimeId.put(state.hashCode(), i);
-                this.runtimeIdToHash.put(i, state.hashCode());
+                val stateHash = HashUtils.computeBlockStateHash(state);
+                this.hashToRuntimeId.put(stateHash, i);
+                this.runtimeIdToHash.put(i, stateHash);
             }
             for (val v : this.bedrockKnownStates.entrySet()) {
                 if (v.getValue().get("name").equals("minecraft:info_update")) {
@@ -75,23 +77,10 @@ public class RuntimeBlockMapping extends AbstractMapping {
             try {
                 var reader = NbtUtils.createReaderLE(input);
                 var tg = (NbtMap) reader.readTag();
-                return toInternalId(name, tg);
+                return HashUtils.computeBlockStateHash(name, tg);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        }
-
-        public Integer toInternalId(String name, NbtMap tg) {
-            tg = NbtMap.builder()
-                    .putString("name", name)
-                    .putCompound("states", tg.getCompound("states"))
-                    .build();
-            var nbt = BlockStateUpdaters.updateBlockState(tg, BlockStateUpdaters.LATEST_VERSION);
-            var tag = NbtMap.builder()
-                    .putString("name", nbt.getString("name"))
-                    .putCompound("states", nbt.getCompound("states"))
-                    .build();
-            return tag.hashCode();
         }
 
         public int getFallback() {
