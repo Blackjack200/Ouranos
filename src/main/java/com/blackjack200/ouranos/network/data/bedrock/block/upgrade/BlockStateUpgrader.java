@@ -1,6 +1,11 @@
 package com.blackjack200.ouranos.network.data.bedrock.block.upgrade;
 
-import java.util.*;
+import com.blackjack200.ouranos.network.data.bedrock.block.BlockStateData;
+import org.cloudburstmc.nbt.NbtMap;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public final class BlockStateUpgrader {
     /**
@@ -11,6 +16,7 @@ public final class BlockStateUpgrader {
 
     /**
      * Constructor that accepts a list of BlockStateUpgradeSchema objects.
+     *
      * @param upgradeSchemas List of upgrade schemas
      */
     public BlockStateUpgrader(List<BlockStateUpgradeSchema> upgradeSchemas) {
@@ -21,6 +27,7 @@ public final class BlockStateUpgrader {
 
     /**
      * Adds a schema to the upgrader.
+     *
      * @param schema BlockStateUpgradeSchema
      */
     public void addSchema(BlockStateUpgradeSchema schema) {
@@ -44,6 +51,7 @@ public final class BlockStateUpgrader {
 
     /**
      * Applies all relevant schemas to a given BlockStateData.
+     *
      * @param blockStateData BlockStateData
      * @return New BlockStateData
      */
@@ -71,7 +79,8 @@ public final class BlockStateUpgrader {
 
     /**
      * Applies a schema to BlockStateData.
-     * @param schema BlockStateUpgradeSchema
+     *
+     * @param schema         BlockStateUpgradeSchema
      * @param blockStateData BlockStateData
      * @return BlockStateData
      */
@@ -82,7 +91,7 @@ public final class BlockStateUpgrader {
         }
 
         String oldName = blockStateData.getName();
-        Map<String, Tag> states = blockStateData.getStates();
+        NbtMap states = blockStateData.getStates();
         String newName = null;
 
         if (schema.getRenamedIds().containsKey(oldName)) {
@@ -104,7 +113,7 @@ public final class BlockStateUpgrader {
 
     private BlockStateData applyStateRemapped(BlockStateUpgradeSchema schema, BlockStateData blockStateData) {
         String oldName = blockStateData.getName();
-        Map<String, Tag> oldState = blockStateData.getStates();
+        NbtMap oldState = blockStateData.getStates();
 
         if (schema.getRemappedStates().containsKey(oldName)) {
             for (BlockStateUpgradeSchemaBlockRemap remap : schema.getRemappedStates().get(oldName)) {
@@ -112,14 +121,14 @@ public final class BlockStateUpgrader {
                     continue;
                 }
                 // Match old state properties
-                for (Map.Entry<String, Tag> entry : remap.getOldState().entrySet()) {
+                for (var entry : remap.getOldState().entrySet()) {
                     if (!oldState.containsKey(entry.getKey()) || !oldState.get(entry.getKey()).equals(entry.getValue())) {
                         continue;
                     }
                 }
 
-                String newName = remap.getNewName() != null ? remap.getNewName() : oldName;
-                Map<String, Tag> newState = new HashMap<>(remap.getNewState());
+                String newName = remap.getNewName() != null ? remap.getNewName().toString() : oldName;
+                NbtMap newState = NbtMap.fromMap(remap.getNewState());
 
                 // Copy additional state properties
                 for (String stateName : remap.getCopiedState()) {
@@ -137,14 +146,15 @@ public final class BlockStateUpgrader {
 
     /**
      * Applies added properties to the states.
-     * @param schema BlockStateUpgradeSchema
+     *
+     * @param schema  BlockStateUpgradeSchema
      * @param oldName Old block state name
-     * @param states Current states
+     * @param states  Current states
      * @return Updated states
      */
-    private Map<String, Tag> applyPropertyAdded(BlockStateUpgradeSchema schema, String oldName, Map<String, Tag> states) {
+    private NbtMap applyPropertyAdded(BlockStateUpgradeSchema schema, String oldName, NbtMap states) {
         if (schema.getAddedProperties().containsKey(oldName)) {
-            for (Map.Entry<String, Tag> entry : schema.getAddedProperties().get(oldName).entrySet()) {
+            for (var entry : schema.getAddedProperties().get(oldName).entrySet()) {
                 states.putIfAbsent(entry.getKey(), entry.getValue());
             }
         }
@@ -153,12 +163,13 @@ public final class BlockStateUpgrader {
 
     /**
      * Applies removed properties to the states.
-     * @param schema BlockStateUpgradeSchema
+     *
+     * @param schema  BlockStateUpgradeSchema
      * @param oldName Old block state name
-     * @param states Current states
+     * @param states  Current states
      * @return Updated states
      */
-    private Map<String, Tag> applyPropertyRemoved(BlockStateUpgradeSchema schema, String oldName, Map<String, Tag> states) {
+    private NbtMap applyPropertyRemoved(BlockStateUpgradeSchema schema, String oldName, NbtMap states) {
         if (schema.getRemovedProperties().containsKey(oldName)) {
             for (String property : schema.getRemovedProperties().get(oldName)) {
                 states.remove(property);
@@ -169,15 +180,16 @@ public final class BlockStateUpgrader {
 
     /**
      * Applies renamed or changed property values.
-     * @param schema BlockStateUpgradeSchema
+     *
+     * @param schema  BlockStateUpgradeSchema
      * @param oldName Old block state name
-     * @param states Current states
+     * @param states  Current states
      * @return Updated states
      */
-    private Map<String, Tag> applyPropertyRenamedOrValueChanged(BlockStateUpgradeSchema schema, String oldName, Map<String, Tag> states) {
+    private NbtMap applyPropertyRenamedOrValueChanged(BlockStateUpgradeSchema schema, String oldName, NbtMap states) {
         if (schema.getRenamedProperties().containsKey(oldName)) {
             for (Map.Entry<String, String> entry : schema.getRenamedProperties().get(oldName).entrySet()) {
-                Tag oldValue = states.get(entry.getKey());
+                var oldValue = states.get(entry.getKey());
                 if (oldValue != null) {
                     states.remove(entry.getKey());
                     states.put(entry.getValue(), oldValue);
@@ -189,19 +201,20 @@ public final class BlockStateUpgrader {
 
     /**
      * Applies changed property values.
-     * @param schema BlockStateUpgradeSchema
+     *
+     * @param schema  BlockStateUpgradeSchema
      * @param oldName Old block state name
-     * @param states Current states
+     * @param states  Current states
      * @return Updated states
      */
-    private Map<String, Tag> applyPropertyValueChanged(BlockStateUpgradeSchema schema, String oldName, Map<String, Tag> states) {
+    private NbtMap applyPropertyValueChanged(BlockStateUpgradeSchema schema, String oldName, NbtMap states) {
         if (schema.getRemappedPropertyValues().containsKey(oldName)) {
-            for (Map.Entry<String, List<ValueRemap>> entry : schema.getRemappedPropertyValues().get(oldName).entrySet()) {
-                Tag oldValue = states.get(entry.getKey());
+            for (var entry : schema.getRemappedPropertyValues().get(oldName).entrySet()) {
+                var oldValue = states.get(entry.getKey());
                 if (oldValue != null) {
-                    for (ValueRemap remap : entry.getValue()) {
-                        if (oldValue.equals(remap.getOld())) {
-                            states.put(entry.getKey(), remap.getNew());
+                    for (var remap : entry.getValue()) {
+                        if (oldValue.equals(remap.getOldTag())) {
+                            states.put(entry.getKey(), remap.getNewTag());
                         }
                     }
                 }

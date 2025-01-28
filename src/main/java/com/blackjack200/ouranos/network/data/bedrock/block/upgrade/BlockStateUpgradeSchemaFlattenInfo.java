@@ -71,8 +71,7 @@ public final class BlockStateUpgradeSchemaFlattenInfo {
                 this.flattenedProperty.equals(that.flattenedProperty) &&
                 this.suffix.equals(that.suffix) &&
                 this.flattenedValueRemaps.equals(that.flattenedValueRemaps) &&
-                (this.flattenedPropertyType == null ? that.flattenedPropertyType == null :
-                        this.flattenedPropertyType.equals(that.flattenedPropertyType));
+                (Objects.equals(this.flattenedPropertyType, that.flattenedPropertyType));
     }
 
     @Override

@@ -14,7 +14,7 @@ public class ItemIdMetaDowngrader {
     public ItemIdMetaDowngrader(ItemTypeDictionary dictionary, int protocolId, int schemaId) {
         var upgrader = GlobalItemDataHandlers.getUpgrader().getIdMetaUpgrader();
 
-        Map<String, String> networkIds = new HashMap<>();
+        var networkIds = new HashMap<>();
         for (var entry : upgrader.getSchemas().entrySet()) {
             int id = entry.getKey();
             var schema = entry.getValue();
@@ -53,7 +53,7 @@ public class ItemIdMetaDowngrader {
                     try {
                         dictionary.fromStringId(protocolId, oldId);
                         for (var metaEntry : metaToNewId.entrySet()) {
-                            String oldMeta = metaEntry.getKey().to;
+                            String oldMeta = metaEntry.getKey().toString();
                             String newStringId = metaEntry.getValue();
                             networkIds.put(newStringId, new String[]{oldId, oldMeta});
                         }
@@ -65,7 +65,7 @@ public class ItemIdMetaDowngrader {
         }
 
         for (var networkIdEntry : networkIds.entrySet()) {
-            String newStringId = networkIdEntry.getKey();
+            String newStringId = networkIdEntry.getKey().toString();
             Object oldId = networkIdEntry.getValue();
 
             if (oldId instanceof String[]) {

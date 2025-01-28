@@ -1,5 +1,8 @@
 package com.blackjack200.ouranos.network.data.bedrock.block.upgrade;
 
+import com.blackjack200.ouranos.network.data.bedrock.block.BlockStateData;
+import com.blackjack200.ouranos.network.data.bedrock.item.upgrade.BlockStateDeserializeException;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -75,7 +78,7 @@ public class BlockIdMetaUpgrader {
                 int meta = legacyStateMapReader.getUnsignedVarInt();
 
                 int offset = legacyStateMapReader.getOffset();
-                NbtMap state = nbtReader.read(legacyStateMapReader.getBuffer(), offset).mustGetNbtMap();
+                NbtMap state = nbtReader.read(legacyStateMapReader.getBuffer(), offset).mustgetCompoundTag();
                 legacyStateMapReader.setOffset(offset);
                 mappingTable.computeIfAbsent(id, k -> new HashMap<>()).put(meta, blockStateUpgrader.upgrade(BlockStateData.fromNbt(state)));
             }

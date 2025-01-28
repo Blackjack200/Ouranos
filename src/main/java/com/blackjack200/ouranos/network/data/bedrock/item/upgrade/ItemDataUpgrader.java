@@ -1,10 +1,15 @@
 package com.blackjack200.ouranos.network.data.bedrock.item.upgrade;
 
+import com.blackjack200.ouranos.network.data.bedrock.block.BlockStateData;
 import com.blackjack200.ouranos.network.data.bedrock.block.upgrade.BlockDataUpgrader;
 import com.blackjack200.ouranos.network.data.bedrock.item.BlockItemIdMap;
+import com.blackjack200.ouranos.network.data.bedrock.item.SavedItemData;
+import com.blackjack200.ouranos.network.data.bedrock.item.SavedItemStackData;
 import lombok.Getter;
 import lombok.val;
 import org.cloudburstmc.nbt.NbtList;
+import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.nbt.NbtType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,9 +52,9 @@ public class ItemDataUpgrader {
             }
         }
 
-        String[] upgraded = idMetaUpgrader.upgrade(rawNameId, meta);
-        String newNameId = upgraded[0];
-        int newMeta = Integer.parseInt(upgraded[1]);
+        var upgraded = idMetaUpgrader.upgrade(rawNameId, meta);
+        String newNameId = upgraded[0].toString();
+        int newMeta = (Integer) upgraded[1];
 
         return new SavedItemStackData(new SavedItemData(newNameId, newMeta, blockStateData, nbt), count, null, null, new String[]{}, new String[]{});
     }
@@ -62,67 +67,87 @@ public class ItemDataUpgrader {
         return upgradeItemTypeDataString(rawNameId, meta, count, nbt);
     }
 
-    private SavedItemData upgradeItemTypeNbt(org.cloudburstmc.nbt.NbtMap tag) throws RuntimeException {
-        String rawNameId;
-        ShortTag nameIdTag = tag.getTag(SavedItemData.TAG_NAME);
-        if (nameIdTag != null) {
-            rawNameId = nameIdTag.getValue();
+    private SavedItemData upgradeItemTypeNbt(NbtMap tag) throws RuntimeException {
+        var rawNameId = "";
+
+        var nameIdTag = tag.get(SavedItemData.TAG_NAME);
+        if (nameIdTag instanceof String tg) {
+            // Bedrock 1.6+
+            rawNameId = tg;
         } else {
-            ShortTag idTag = tag.getTag(TAG_LEGACY_ID);
-            if (idTag != null) {
-                if (idTag.getValue() == 0) {
-                    return null; // Air case
+            var idTag = tag.get(TAG_LEGACY_ID);
+            if (idTag instanceof Short tg) {
+                // Bedrock <= 1.5, PM <= 1.12
+                if (tg == 0) {
+                    // 0 is a special case for air, which is not a valid item ID
+                    // this isn't supposed to be saved, but this appears in some places due to bugs in older versions
+                    return null;
                 }
-                rawNameId = legacyIntToStringIdMap.legacyToString(idTag.getValue());
+                rawNameId = legacyIntToStringIdMap.legacyToString(tg);
                 if (rawNameId == null) {
-                    throw new RuntimeException("Legacy item ID " + idTag.getValue() + " doesn't map to any modern string ID");
+                    throw new SavedDataLoadingException("Legacy item ID " + tg + " doesn't map to any modern string ID");
                 }
+            } else if (idTag instanceof String tg) {
+                // PC item save format - best we can do here is hope the string IDs match
+                rawNameId = tg;
             } else {
-                throw new RuntimeException("Item stack data should have either a name ID or a legacy ID");
+                throw new SavedDataLoadingException("Item stack data should have either a name ID or a legacy ID");
             }
         }
 
-        int meta = tag.getShort(SavedItemData.TAG_DAMAGE, 0);
-        NbtMap blockStateNbt = tag.getNbtMap(SavedItemData.TAG_BLOCK);
-        BlockStateData blockStateData = null;
+        var meta = tag.getShort(SavedItemData.TAG_DAMAGE, (short) 0);
+
+        var blockStateNbt = tag.getCompound(SavedItemData.TAG_BLOCK);
+        var blockStateData = (BlockStateData) null;
         if (blockStateNbt != null) {
             try {
                 blockStateData = blockDataUpgrader.upgradeBlockStateNbt(blockStateNbt);
             } catch (BlockStateDeserializeException e) {
-                throw new RuntimeException("Failed to deserialize blockstate for blockitem: " + e.getMessage(), e);
+                throw new SavedDataLoadingException("Failed to deserialize blockstate for blockitem: " + e.getMessage(), 0, e);
             }
         } else {
-            String r12BlockId = r12ItemIdToBlockIdMap.itemIdToBlockId(rawNameId);
+            var r12BlockId = r12ItemIdToBlockIdMap.itemIdToBlockId(rawNameId);
             if (r12BlockId != null) {
+                // this is a legacy blockitem represented by ID + meta
                 try {
                     blockStateData = blockDataUpgrader.upgradeStringIdMeta(r12BlockId, meta);
                 } catch (BlockStateDeserializeException e) {
-                    throw new RuntimeException("Failed to deserialize blockstate for legacy blockitem: " + e.getMessage(), e);
+                    throw new SavedDataLoadingException("Failed to deserialize blockstate for legacy blockitem: " + e.getMessage(), 0, e);
                 }
             }
         }
 
-        String[] upgraded = idMetaUpgrader.upgrade(rawNameId, meta);
-        String newNameId = upgraded[0];
-        int newMeta = Integer.parseInt(upgraded[1]);
-
-        // Handling block state and item data upgrades
+        // probably a standard item
         if (blockStateData == null) {
-            String blockId = blockItemIdMap.lookupBlockId(newNameId);
+            blockStateData = null;
+        }
+
+        // Upgrade the ID and meta data
+        var newNameId = idMetaUpgrader.upgrade(rawNameId, meta)[0];
+        var newMeta = idMetaUpgrader.upgrade(rawNameId, meta)[1];
+
+        // Dirty hack to load old skulls from disk (before Mojang makes something with a non-0 default state)
+        if (blockStateData == null) {
+            var blockId = blockItemIdMap.lookupBlockId(newNameId);
             if (blockId != null) {
-                BlockStateDictionary blockStateDictionary = TypeConverter.getInstance().getBlockTranslator().getBlockStateDictionary();
-                NetworkRuntimeId networkRuntimeId = blockStateDictionary.lookupStateIdFromIdMeta(blockId, 0);
+                var blockStateDictionary = TypeConverter.getInstance().getBlockTranslator().getBlockStateDictionary();
+                var networkRuntimeId = blockStateDictionary.lookupStateIdFromIdMeta(blockId, 0);
+
                 if (networkRuntimeId == null) {
-                    throw new RuntimeException("Failed to find blockstate for blockitem " + newNameId);
+                    throw new SavedDataLoadingException("Failed to find blockstate for blockitem " + newNameId);
                 }
+
                 blockStateData = blockStateDictionary.generateDataFromStateId(networkRuntimeId);
             }
         }
 
-        return new SavedItemData(newNameId, newMeta, blockStateData, tag.getNbtMap(SavedItemData.TAG_TAG));
+        // TODO: this won't account for spawn eggs from before 1.16.100 - perhaps we're lucky and they just left the meta in there anyway?
+        // TODO: read version from VersionInfo.TAG_WORLD_DATA_VERSION - we may need it to fix up old items
+
+        return new SavedItemData(newNameId, newMeta, blockStateData, tag.getCompoundTag(SavedItemData.TAG_TAG));
     }
 
-    public SavedItemStackData upgradeItemStackNbt(org.cloudburstmc.nbt.NbtMap tag) throws RuntimeException {
+    public SavedItemStackData upgradeItemStackNbt(NbtMap tag) throws RuntimeException {
         SavedItemData savedItemData = upgradeItemTypeNbt(tag);
         if (savedItemData == null) {
             return null; // Air case
@@ -130,13 +155,13 @@ public class ItemDataUpgrader {
 
         try {
             int count = Binary.unsignByte(tag.getByte(SavedItemStackData.TAG_COUNT));
-            ByteTag slotTag = tag.getTag(SavedItemStackData.TAG_SLOT);
+            byte slotTag = tag.getTag(SavedItemStackData.TAG_SLOT);
             Byte slot = (slotTag != null) ? Binary.unsignByte(slotTag.getValue()) : null;
-            ByteTag wasPickedUpTag = tag.getTag(SavedItemStackData.TAG_WAS_PICKED_UP);
+            byte wasPickedUpTag = tag.getTag(SavedItemStackData.TAG_WAS_PICKED_UP);
             Byte wasPickedUp = (wasPickedUpTag != null) ? wasPickedUpTag.getValue() : null;
 
-            ListTag canPlaceOnList = tag.getListTag(SavedItemStackData.TAG_CAN_PLACE_ON);
-            ListTag canDestroyList = tag.getListTag(SavedItemStackData.TAG_CAN_DESTROY);
+            List<String> canPlaceOnList = tag.getList(SavedItemStackData.TAG_CAN_PLACE_ON, NbtType.STRING);
+            List<String> canDestroyList = tag.getList(SavedItemStackData.TAG_CAN_DESTROY, NbtType.STRING);
 
             return new SavedItemStackData(
                     savedItemData,

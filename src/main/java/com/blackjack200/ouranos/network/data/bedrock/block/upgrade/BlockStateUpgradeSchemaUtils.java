@@ -1,10 +1,14 @@
 package com.blackjack200.ouranos.network.data.bedrock.block.upgrade;
 
+import cn.hutool.core.map.MapUtil;
 import com.blackjack200.ouranos.network.data.bedrock.block.upgrade.model.BlockStateUpgradeSchemaModel;
+import com.blackjack200.ouranos.network.data.bedrock.block.upgrade.model.BlockStateUpgradeSchemaModelFlattenInfo;
 import com.blackjack200.ouranos.network.data.bedrock.block.upgrade.model.BlockStateUpgradeSchemaModelTag;
 import com.google.gson.Gson;
+import org.cloudburstmc.nbt.NbtMap;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public final class BlockStateUpgradeSchemaUtils {
 
@@ -14,14 +18,14 @@ public final class BlockStateUpgradeSchemaUtils {
         List<String> lines = new ArrayList<>();
 
         lines.add("Renames:");
-        for (String rename : schema.renamedIds) {
+        for (var rename : schema.renamedIds.values()) {
             lines.add("- " + rename);
         }
 
         lines.add("Added properties:");
-        for (Map.Entry<String, Map<String, Tag>> entry : schema.addedProperties.entrySet()) {
+        for (var entry : schema.addedProperties.entrySet()) {
             String blockName = entry.getKey();
-            for (Map.Entry<String, Tag> tagEntry : entry.getValue().entrySet()) {
+            for (var tagEntry : entry.getValue().entrySet()) {
                 lines.add("- " + blockName + " has " + tagEntry.getKey() + " added: " + tagEntry.getValue());
             }
         }
@@ -35,7 +39,7 @@ public final class BlockStateUpgradeSchemaUtils {
         }
 
         lines.add("Renamed properties:");
-        for (Map.Entry<String, Map<String, String>> entry : schema.renamedProperties.entrySet()) {
+        for (var entry : schema.renamedProperties.entrySet()) {
             String blockName = entry.getKey();
             for (Map.Entry<String, String> tagEntry : entry.getValue().entrySet()) {
                 lines.add("- " + blockName + " has " + tagEntry.getKey() + " renamed to " + tagEntry.getValue());
@@ -45,7 +49,7 @@ public final class BlockStateUpgradeSchemaUtils {
         lines.add("Remapped property values:");
         for (Map.Entry<String, Map<String, List<BlockStateUpgradeSchemaValueRemap>>> entry : schema.remappedPropertyValues.entrySet()) {
             String blockName = entry.getKey();
-            for (Map.Entry<String, List<BlockStateUpgradeSchemaValueRemap>> remapEntry : entry.getValue().entrySet()) {
+            for (var remapEntry : entry.getValue().entrySet()) {
                 for (BlockStateUpgradeSchemaValueRemap remap : remapEntry.getValue()) {
                     lines.add("- " + blockName + " has " + remapEntry.getKey() + " value changed from " + remap.old + " to " + remap.new);
                 }
@@ -55,16 +59,16 @@ public final class BlockStateUpgradeSchemaUtils {
         return String.join("\n", lines);
     }
 
-    public static BlockStateUpgradeSchemaModelTag tagToJsonModel(Tag tag) {
+    public static BlockStateUpgradeSchemaModelTag tagToJsonModel(Object t) {
         BlockStateUpgradeSchemaModelTag model = new BlockStateUpgradeSchemaModelTag();
-        if (tag instanceof IntTag) {
-            model.setInt(((IntTag) tag).getValue());
-        } else if (tag instanceof StringTag) {
-            model.setString(((StringTag) tag).getValue());
-        } else if (tag instanceof ByteTag) {
-            model.setByte(((ByteTag) tag).getValue());
+        if (t instanceof Integer tag) {
+            model.setIntValue(tag);
+        } else if (t instanceof String tag) {
+            model.setStringValue(tag);
+        } else if (t instanceof Byte tag) {
+            model.setByteValue((tag));
         } else {
-            throw new IllegalArgumentException("Unexpected value type " + tag.getClass().getName());
+            throw new IllegalArgumentException("Unexpected value type " + t.getClass().getName());
         }
 
         return model;
@@ -79,7 +83,7 @@ public final class BlockStateUpgradeSchemaUtils {
                 model.getMaxVersionRevision(),
                 schemaId
         );
-        result = model.renamedIds != null ? model.renamedIds : new HashMap<>();
+        result.renamedIds = model.renamedIds != null ? model.renamedIds : new HashMap<>();
         result.renamedProperties = model.renamedProperties != null ? model.renamedProperties : new HashMap<>();
         result.removedProperties = model.removedProperties != null ? model.removedProperties : new HashMap<>();
 
@@ -87,24 +91,24 @@ public final class BlockStateUpgradeSchemaUtils {
         for (var entry : model.addedProperties.entrySet()) {
             String blockName = entry.getKey();
             var properties = entry.getValue();
-            var processedProperties = new HashMap<>();
+            var processedProperties = NbtMap.builder();
             for (var property : properties.entrySet()) {
                 processedProperties.put(property.getKey(), jsonModelToTag(property.getValue()));
             }
-            result.addedProperties.put(blockName, processedProperties);
+            result.addedProperties.put(blockName, processedProperties.build());
         }
 
         // Remapped Values Index
         Map<String, List<BlockStateUpgradeSchemaValueRemap>> remappedValuesIndex = new HashMap<>();
-        for (Map.Entry<String, List<BlockStateUpgradeSchemaValueRemap>> entry : model.remappedPropertyValuesIndex.entrySet()) {
-            for (BlockStateUpgradeSchemaValueRemap oldNew : entry.getValue()) {
+        for (var entry : model.remappedPropertyValuesIndex.entrySet()) {
+            for (var oldNew : entry.getValue()) {
                 remappedValuesIndex.computeIfAbsent(entry.getKey(), k -> new ArrayList<>())
                         .add(new BlockStateUpgradeSchemaValueRemap(jsonModelToTag(oldNew.old), jsonModelToTag(oldNew.newTag)));
             }
         }
 
         // Remapped Property Values Mapping
-        for (Map.Entry<String, Map<String, String>> entry : model.remappedPropertyValues.entrySet()) {
+        for (var entry : model.remappedPropertyValues.entrySet()) {
             String blockName = entry.getKey();
             Map<String, String> properties = entry.getValue();
             for (Map.Entry<String, String> property : properties.entrySet()) {
@@ -123,13 +127,13 @@ public final class BlockStateUpgradeSchemaUtils {
         }
 
         // Remapped States
-        for (Map.Entry<String, List<BlockStateUpgradeSchemaBlockRemap>> entry : model.remappedStates.entrySet()) {
+        for (var entry : model.remappedStates.entrySet()) {
             String oldBlockName = entry.getKey();
-            for (BlockStateUpgradeSchemaBlockRemap remap : entry.getValue()) {
+            for (var remap : entry.getValue()) {
                 String remapName = remap.newName != null ? remap.newName : jsonModelToFlattenRule(remap.newFlattenedName).toString();
                 result.remappedStates.putIfAbsent(oldBlockName, new ArrayList<>());
                 result.remappedStates.get(oldBlockName).add(new BlockStateUpgradeSchemaBlockRemap(
-                        remap.oldState.stream().map(BlockStateUpgradeSchemaModelTag::toString).collect(Collectors.toList()),
+                        remap.oldState.map(BlockStateUpgradeSchemaModelTag::toString).collect(Collectors.toList()),
                         remapName,
                         remap.newState.stream().map(BlockStateUpgradeSchemaModelTag::toString).collect(Collectors.toList()),
                         remap.copiedState != null ? remap.copiedState : new ArrayList<>()
@@ -164,7 +168,7 @@ public final class BlockStateUpgradeSchemaUtils {
         result.removedProperties = schema.removedProperties;
 
         // Adding Added Properties to JSON model
-        for (Map.Entry<String, var> entry : schema.addedProperties.entrySet()) {
+        for (var entry : schema.addedProperties.entrySet()) {
             result.addedProperties.put(entry.getKey(), entry.getValue());
         }
 

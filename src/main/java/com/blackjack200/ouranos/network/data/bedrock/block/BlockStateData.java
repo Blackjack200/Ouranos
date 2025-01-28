@@ -1,5 +1,6 @@
 package com.blackjack200.ouranos.network.data.bedrock.block;
-import java.util.Map;
+
+import org.cloudburstmc.nbt.NbtMap;
 
 public final class BlockStateData {
 
@@ -14,18 +15,18 @@ public final class BlockStateData {
     public static final String TAG_VERSION = "version";
 
     private final String name;
-    private final Map<String, Tag> states;
+    private final NbtMap states;
     private final int version;
 
     // Constructor
-    public BlockStateData(String name, Map<String, Tag> states, int version) {
+    public BlockStateData(String name, NbtMap states, int version) {
         this.name = name;
         this.states = states;
         this.version = version;
     }
 
     // Static method to return the current block state data with the latest version
-    public static BlockStateData current(String name, Map<String, Tag> states) {
+    public static BlockStateData current(String name, NbtMap states) {
         return new BlockStateData(name, states, CURRENT_VERSION);
     }
 
@@ -34,7 +35,7 @@ public final class BlockStateData {
         return name;
     }
 
-    public Map<String, Tag> getStates() {
+    public NbtMap getStates() {
         return states;
     }
 
@@ -56,10 +57,10 @@ public final class BlockStateData {
     }
 
     // Deserialize from NBT (assuming NBT structure has similar methods to the ones in the PHP version)
-    public static BlockStateData fromNbt(CompoundTag nbt) throws BlockStateDeserializeException {
+    public static BlockStateData fromNbt(NbtMap nbt) throws BlockStateDeserializeException {
         try {
             String name = nbt.getString(TAG_NAME);
-            CompoundTag statesTag = nbt.getCompoundTag(TAG_STATES);
+            NbtMap statesTag = nbt.getCompound(TAG_STATES);
             if (statesTag == null) {
                 throw new BlockStateDeserializeException("Missing tag \"" + TAG_STATES + "\"");
             }
@@ -68,7 +69,7 @@ public final class BlockStateData {
             // TODO: read version from VersionInfo::TAG_WORLD_DATA_VERSION for older blockstate versions
 
             // Deserialize additional keys and check for unexpected ones
-            Map<String, Tag> allKeys = nbt.getValue();
+            NbtMap allKeys = nbt.getValue();
             allKeys.remove(TAG_NAME);
             allKeys.remove(TAG_STATES);
             allKeys.remove(TAG_VERSION);
@@ -85,21 +86,19 @@ public final class BlockStateData {
     }
 
     // Convert to vanilla NBT representation
-    public CompoundTag toVanillaNbt() {
-        CompoundTag statesTag = new CompoundTag();
-        for (Map.Entry<String, Tag> entry : states.entrySet()) {
-            statesTag.setTag(entry.getKey(), entry.getValue());
-        }
-        return new CompoundTag()
-                .setString(TAG_NAME, name)
-                .setInt(TAG_VERSION, version)
-                .setTag(TAG_STATES, statesTag);
+    public NbtMap toVanillaNbt() {
+        var statesTag = NbtMap.builder();
+        statesTag.putAll(states);
+        return NbtMap.builder()
+                .putString(TAG_NAME, name)
+                .putInt(TAG_VERSION, version)
+                .putCompound(TAG_STATES, statesTag.build()).build();
     }
 
     // Convert to NBT representation with extra PM-specific metadata for bug fixes
-    public CompoundTag toNbt() {
-        return toVanillaNbt()
-                .setLong(VersionInfo.TAG_WORLD_DATA_VERSION, VersionInfo.WORLD_DATA_VERSION);
+    public NbtMap toNbt() {
+        return toVanillaNbt().toBuilder()
+                .putLong(TAG_WORLD_DATA_VERSION, WORLD_DATA_VERSION);
     }
 
     // Check equality with another BlockStateData instance
@@ -107,8 +106,8 @@ public final class BlockStateData {
         if (!this.name.equals(that.name) || this.states.size() != that.states.size()) {
             return false;
         }
-        for (Map.Entry<String, Tag> entry : this.states.entrySet()) {
-            Tag thatTag = that.states.get(entry.getKey());
+        for (var entry : this.states.entrySet()) {
+            var thatTag = that.states.get(entry.getKey());
             if (thatTag == null || !thatTag.equals(entry.getValue())) {
                 return false;
             }

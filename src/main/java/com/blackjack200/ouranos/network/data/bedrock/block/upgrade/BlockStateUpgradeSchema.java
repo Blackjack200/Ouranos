@@ -2,6 +2,7 @@ package com.blackjack200.ouranos.network.data.bedrock.block.upgrade;
 
 import lombok.Data;
 import lombok.Getter;
+import org.cloudburstmc.nbt.NbtMap;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -14,28 +15,33 @@ public final class BlockStateUpgradeSchema {
     // Getters for maps/lists (optional, depending on use case)
     // Maps for renamed, added, removed, renamed properties
     @Getter
-    public  Map<String, String> renamedIds = new HashMap<>();
+    public Map<String, String> renamedIds = new HashMap<>();
     @Getter
-    public  Map<String, Map<String, Tag>> addedProperties = new HashMap<>();
+    public Map<String, NbtMap> addedProperties = new HashMap<>();
     @Getter
-    public  Map<String, List<String>> removedProperties = new HashMap<>();
+    public Map<String, List<String>> removedProperties = new HashMap<>();
     @Getter
-    public  Map<String, Map<String, String>> renamedProperties = new HashMap<>();
-    public  Map<String, Map<String, List<BlockStateUpgradeSchemaValueRemap>>> remappedPropertyValues = new HashMap<>();
-    public  Map<String, BlockStateUpgradeSchemaFlattenInfo> flattenedProperties = new HashMap<>();
+    public Map<String, Map<String, String>> renamedProperties = new HashMap<>();
     @Getter
-    public  Map<String, List<BlockStateUpgradeSchemaBlockRemap>> remappedStates = new HashMap<>();
+    public Map<String, Map<String, List<BlockStateUpgradeSchemaValueRemap>>> remappedPropertyValues = new HashMap<>();
+    @Getter
+    public Map<String, BlockStateUpgradeSchemaFlattenInfo> flattenedProperties = new HashMap<>();
+    @Getter
+    public Map<String, List<BlockStateUpgradeSchemaBlockRemap>> remappedStates = new HashMap<>();
 
     // Deprecated: Mojang-defined, use getSchemaId() for internal version management
     @Getter
-    public  int versionId;
-
-    public  int maxVersionMajor;
-    public  int maxVersionMinor;
-    public  int maxVersionPatch;
-    public  int maxVersionRevision;
+    public int versionId;
     @Getter
-    public  int schemaId;
+    public int maxVersionMajor;
+    @Getter
+    public int maxVersionMinor;
+    @Getter
+    public int maxVersionPatch;
+    @Getter
+    public int maxVersionRevision;
+    @Getter
+    public int schemaId;
 
     /**
      * Constructor.
@@ -66,7 +72,7 @@ public final class BlockStateUpgradeSchema {
      */
     public boolean isEmpty() {
         // Check all the lists/maps for emptiness
-        for (Map<?, ?> map : Arrays.asList(renamedIds, addedProperties, removedProperties,
+        for (var map : Arrays.asList(renamedIds, addedProperties, removedProperties,
                 renamedProperties, remappedPropertyValues, flattenedProperties, remappedStates)) {
             if (!map.isEmpty()) {
                 return false;
@@ -74,13 +80,4 @@ public final class BlockStateUpgradeSchema {
         }
         return true;
     }
-
-    public Map<String, Map<String, List<ValueRempp>>> getRemappedPropertyValues() {
-        return remappedPropertyValues;
-    }
-
-    public Map<String, FlattenInfo> getFlattenedProperties() {
-        return flattenedProperties;
-    }
-
 }

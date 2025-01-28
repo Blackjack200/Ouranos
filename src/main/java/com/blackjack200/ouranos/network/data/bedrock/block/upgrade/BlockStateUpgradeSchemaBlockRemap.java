@@ -1,14 +1,16 @@
 package com.blackjack200.ouranos.network.data.bedrock.block.upgrade;
 
+import org.cloudburstmc.nbt.NbtMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 public final class BlockStateUpgradeSchemaBlockRemap {
 
-    private final Map<String, Tag> oldState;
+    private final NbtMap oldState;
+    private final NbtMap newState;
     private final Object newName; // Can be either String or BlockStateUpgradeSchemaFlattenInfo
-    private final Map<String, NbtM> newState;
     private final List<String> copiedState;
 
     /**
@@ -20,9 +22,9 @@ public final class BlockStateUpgradeSchemaBlockRemap {
      * @param copiedState A list of strings.
      */
     public BlockStateUpgradeSchemaBlockRemap(
-            Map<String, Tag> oldState,
+            NbtMap oldState,
             Object newName,  // Can either be String or BlockStateUpgradeSchemaFlattenInfo
-            Map<String, Tag> newState,
+            NbtMap newState,
             List<String> copiedState
     ) {
         this.oldState = oldState;
@@ -31,7 +33,7 @@ public final class BlockStateUpgradeSchemaBlockRemap {
         this.copiedState = copiedState;
     }
 
-    public Map<String, Tag> getOldState() {
+    public NbtMap getOldState() {
         return oldState;
     }
 
@@ -39,7 +41,7 @@ public final class BlockStateUpgradeSchemaBlockRemap {
         return newName;
     }
 
-    public Map<String, Tag> getNewState() {
+    public NbtMap getNewState() {
         return newState;
     }
 
@@ -77,20 +79,20 @@ public final class BlockStateUpgradeSchemaBlockRemap {
         }
 
         // Check oldState equality
-        for (Map.Entry<String, Tag> entry : this.oldState.entrySet()) {
+        for (var entry : this.oldState.entrySet()) {
             String propertyName = entry.getKey();
-            Tag propertyValue = entry.getValue();
-            Tag thatPropertyValue = that.oldState.get(propertyName);
+            var propertyValue = entry.getValue();
+            var thatPropertyValue = that.oldState.get(propertyName);
             if (thatPropertyValue == null || !thatPropertyValue.equals(propertyValue)) {
                 return false;
             }
         }
 
         // Check newState equality
-        for (Map.Entry<String, Tag> entry : this.newState.entrySet()) {
+        for (var entry : this.newState.entrySet()) {
             String propertyName = entry.getKey();
-            Tag propertyValue = entry.getValue();
-            Tag thatPropertyValue = that.newState.get(propertyName);
+            var propertyValue = entry.getValue();
+            var thatPropertyValue = that.newState.get(propertyName);
             if (thatPropertyValue == null || !thatPropertyValue.equals(propertyValue)) {
                 return false;
             }

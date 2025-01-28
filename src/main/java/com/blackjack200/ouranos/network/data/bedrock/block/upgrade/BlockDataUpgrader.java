@@ -1,5 +1,8 @@
 package com.blackjack200.ouranos.network.data.bedrock.block.upgrade;
 
+import com.blackjack200.ouranos.network.data.bedrock.block.BlockStateData;
+import com.blackjack200.ouranos.network.data.bedrock.item.upgrade.BlockStateDeserializeException;
+
 public class BlockDataUpgrader {
     private BlockIdMetaUpgrader blockIdMetaUpgrader;
     private BlockStateUpgrader blockStateUpgrader;
@@ -21,7 +24,7 @@ public class BlockDataUpgrader {
      */
     public BlockStateData upgradeBlockStateNbt(org.cloudburstmc.nbt.NbtMap tag) throws BlockStateDeserializeException {
         BlockStateData blockStateData;
-        if (tag.getTag("name") != null && tag.getTag("val") != null) {
+        if (tag.getString("name") != null && tag.get("val") != null) {
             // Legacy (pre-1.13) blockstate - upgrade it to a version we understand
             String id = tag.getString("name");
             short data = tag.getShort("val");
