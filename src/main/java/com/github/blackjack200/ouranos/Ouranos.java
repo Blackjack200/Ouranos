@@ -5,7 +5,6 @@ import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.AuthData;
 import com.github.blackjack200.ouranos.network.session.OuranosPlayer;
 import com.github.blackjack200.ouranos.network.session.Translate;
-import com.blackjack200.ouranos.utils.*;
 import com.github.blackjack200.ouranos.utils.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
@@ -287,7 +286,7 @@ public class Ouranos {
                                     upstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamProtocolId));
                                     downstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(downstreamProtocolId));
 
-                                    List<ItemDefinition> def = ItemTypeDictionary.getInstance().getEntries(downstreamProtocolId).entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
+                                    List<ItemDefinition> def = ItemTypeDictionary.getInstance(downstreamProtocolId).getEntries().entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
                                     pk.setItemDefinitions(def);
                                     //pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND));
 

@@ -1,8 +1,8 @@
 package com.github.blackjack200.ouranos.network.convert;
 
 
-import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.data.AbstractMapping;
+import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.utils.HashUtils;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -28,7 +28,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
         private Integer fallbackId;
 
         @SneakyThrows
-        public Entry(int protocolId, URL canonicalStates) {
+        public Entry(URL canonicalStates) {
             val states = new LinkedList<NbtMap>();
             try {
                 InputStream reader = canonicalStates.openStream();
@@ -108,7 +108,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
     public static Entry getInstance(int protocolId) {
         init();
         if (!mappings.containsKey(protocolId)) {
-            val entry = new Entry(protocolId, files.get(protocolId));
+            val entry = new Entry(files.get(protocolId));
             synchronized (mappings) {
                 mappings.put(protocolId, entry);
             }

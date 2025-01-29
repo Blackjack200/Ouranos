@@ -10,7 +10,7 @@ public class ItemIdMetaDowngrader {
     private final Map<String, String> renamedIds = new HashMap<>();
     private final Map<String, Object[]> remappedMetas = new HashMap<>();
 
-    public ItemIdMetaDowngrader(ItemTypeDictionary dictionary, int protocolId, int schemaId) {
+    public ItemIdMetaDowngrader(ItemTypeDictionary.InnerEntry dictionary, int schemaId) {
         var upgrader = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader();
 
         var networkIds = new HashMap<>();
@@ -30,7 +30,7 @@ public class ItemIdMetaDowngrader {
                     networkIds.put(newStringId, networkIds.get(oldId));
                 } else {
                     try {
-                        dictionary.fromStringId(protocolId, oldId);
+                        dictionary.fromStringId(oldId);
                         networkIds.put(newStringId, oldId);
                     } catch (IllegalArgumentException e) {
                         // ignore
@@ -50,7 +50,7 @@ public class ItemIdMetaDowngrader {
                     }
                 } else {
                     try {
-                        dictionary.fromStringId(protocolId, oldId);
+                        dictionary.fromStringId(oldId);
                         for (var metaEntry : metaToNewId.entrySet()) {
                             String oldMeta = metaEntry.getKey().toString();
                             String newStringId = metaEntry.getValue();

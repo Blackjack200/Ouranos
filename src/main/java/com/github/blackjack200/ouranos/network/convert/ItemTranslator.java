@@ -26,7 +26,7 @@ public final class ItemTranslator extends AbstractMapping {
         private final Map<Integer, int[]> complexNetToCoreMapping = new HashMap<>();
 
         private Entry(int protocol, Map<String, Integer> simpleMappings, Map<String, int[]> complexMappings) {
-            for (var entry : ItemTypeDictionary.getInstance().getEntries(protocol).entrySet()) {
+            for (var entry : ItemTypeDictionary.getInstance(protocol).getEntries().entrySet()) {
                 String stringId = entry.getKey();
                 int netId = entry.getValue().runtime_id();
 

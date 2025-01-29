@@ -1,7 +1,6 @@
 package com.github.blackjack200.ouranos.data.bedrock;
 
 import com.github.blackjack200.ouranos.Ouranos;
-import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.data.LegacyItemIdToStringIdMap;
 import com.github.blackjack200.ouranos.data.bedrock.item.BlockItemIdMap;
 import com.github.blackjack200.ouranos.data.bedrock.item.downgrade.ItemIdMetaDowngrader;
@@ -9,6 +8,7 @@ import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.ItemDataUpgrade
 import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.ItemIdMetaUpgradeSchemaUtils;
 import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.ItemIdMetaUpgrader;
 import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.R12ItemIdToBlockIdMap;
+import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import lombok.SneakyThrows;
 
 import java.util.HashMap;
@@ -54,7 +54,7 @@ public final class GlobalItemDataHandlers {
 
     public static ItemIdMetaDowngrader getItemIdMetaDowngrader(int protocolId) {
         if (!downgrader.containsKey(protocolId)) {
-            downgrader.put(protocolId, new ItemIdMetaDowngrader(ItemTypeDictionary.getInstance(), protocolId, getSchemaId(protocolId)));
+            downgrader.put(protocolId, new ItemIdMetaDowngrader(ItemTypeDictionary.getInstance(protocolId), getSchemaId(protocolId)));
         }
         return downgrader.get(protocolId);
     }

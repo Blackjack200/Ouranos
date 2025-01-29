@@ -49,7 +49,7 @@ public class Translate {
     public static BedrockPacket translate(int source, int destination, OuranosPlayer player, BedrockPacket p) {
         val barrierNamespaceId = "minecraft:barrier";
         val barrier = ItemData.builder()
-                .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance().fromStringId(destination, barrierNamespaceId), false))
+                .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance(destination).fromStringId(barrierNamespaceId), false))
                 .count(1)
                 .blockDefinition(() -> RuntimeBlockMapping.getInstance(destination).getFallback())
                 .build();

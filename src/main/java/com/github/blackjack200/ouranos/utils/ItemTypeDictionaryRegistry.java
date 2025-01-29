@@ -14,12 +14,12 @@ public class ItemTypeDictionaryRegistry implements DefinitionRegistry<ItemDefini
 
     @Override
     public ItemDefinition getDefinition(int runtimeId) {
-        var x = ItemTypeDictionary.getInstance().fromNumericId(protocol, runtimeId);
+        var x = ItemTypeDictionary.getInstance(protocol).fromNumericId(runtimeId);
         return new SimpleItemDefinition(x, runtimeId, false);
     }
 
     @Override
     public boolean isRegistered(ItemDefinition definition) {
-        return ItemTypeDictionary.getInstance().fromStringId(protocol, definition.getIdentifier()) != null;
+        return ItemTypeDictionary.getInstance(protocol).fromStringId(definition.getIdentifier()) != null;
     }
 }
