@@ -23,7 +23,7 @@ public final class GlobalItemDataHandlers {
     public static ItemDataUpgrader getUpgrader() {
         if (itemDataUpgrader == null) {
             itemDataUpgrader = new ItemDataUpgrader(
-                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas(Ouranos.class.getClassLoader().getResource("upgrade_item/id_meta_upgrade_schema").getPath(), getSchemaId(589)).values()),
+                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas(Ouranos.class.getClassLoader().getResource("upgrade_item/id_meta_upgrade_schema").getPath(), 1 << 30).values()),
                     LegacyItemIdToStringIdMap.getInstance(),
                     R12ItemIdToBlockIdMap.getInstance(),
                     BlockItemIdMap.getInstance()

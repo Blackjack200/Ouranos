@@ -69,6 +69,8 @@ public class Translate {
                         //contents.set(i, item.toBuilder().blockDefinition(translateBlockDefinition(source, destination, item.getBlockDefinition())).build());
                         //contents.set(i, translateItemData(source, destination, item));
                         contents.set(i, TypeConverter.translateItemData(source, destination, item).toBuilder().usingNetId(true).netId(i).build());
+                    } else if (!item.isNull()) {
+                        contents.set(i, barrier);
                     }
                 } catch (ItemTranslator.Entry.TypeConversionException | NullPointerException e) {
                     log.error(e);
@@ -81,20 +83,25 @@ public class Translate {
         } else if (p instanceof CreativeContentPacket pk) {
             //return CreativeInventory.getInstance().getPacket(destination);
             val contents = new ArrayList<ItemData>();
-            var j = 0;
+            var j = -1;
             for (val i : pk.getContents()) {
                 try {
+                    j++;
                     val item = translateItemData(source, destination, i);
                     if (item != null) {
                         contents.add(TypeConverter.translateItemData(source, destination, item).toBuilder().usingNetId(true).netId(j).build());
                         //contents.add(item.toBuilder().build());
-                        j++;
+                    } else {
+                        contents.add(barrier);
                     }
 
                 } catch (ItemTranslator.Entry.TypeConversionException | NullPointerException e) {
                     log.error(e);
                     log.trace(e);
                     contents.add(barrier);
+                }
+                if (j > 300) {
+                    break;
                 }
             }
             pk.setContents(contents.toArray(new ItemData[0]));

@@ -4,10 +4,12 @@ import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.data.bedrock.item.BlockItemIdMap;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import lombok.experimental.UtilityClass;
+import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 
+@Log4j2
 @UtilityClass
 public class TypeConverter {
 
@@ -54,6 +56,9 @@ public class TypeConverter {
         var newStringId = new_[0].toString();
         var newMeta = (Integer) new_[1];
         ItemTypeInfo typInfo = ItemTypeDictionary.getInstance(output).getEntries().get(newStringId);
+        if (typInfo == null) {
+            log.error("Unmapped blockstate returned by blockstate serializer: {}", savedItemData);
+        }
         builder.definition(new SimpleItemDefinition(newStringId, typInfo.runtime_id(), typInfo.component_based()));
         builder.damage(newMeta);
         var block = savedItemData.block();
