@@ -21,7 +21,7 @@ import org.cloudburstmc.protocol.bedrock.BedrockClientSession;
 import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
-import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
+import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.ExperimentData;
 import org.cloudburstmc.protocol.bedrock.data.NetworkPermissions;
@@ -56,7 +56,7 @@ public class Ouranos {
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(true);
 
-    public static final BedrockCodec REMOTE_CODEC = Bedrock_v594.CODEC;
+    public static final BedrockCodec REMOTE_CODEC = Bedrock_v766.CODEC;
     public static final BedrockCodec REMOTE_CODEC_2 = Bedrock_v589.CODEC;
     private NioEventLoopGroup bossGroup;
     private NioEventLoopGroup workerGroup;

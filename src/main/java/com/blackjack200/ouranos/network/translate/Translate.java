@@ -395,7 +395,7 @@ public class Translate {
             return () -> fallback;
         }
         val newState = RuntimeBlockMapping.getInstance(destination).getBedrockKnownStates().get(internalStateId);
-        log.debug("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, newState, definition.getRuntimeId(), fallback);
+        log.debug("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, newState, definition.getRuntimeId(), converted);
         return () -> converted;
     }
 }
