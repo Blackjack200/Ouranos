@@ -250,8 +250,8 @@ public class Translate {
     }
 
     private static ItemData translateItemData(int source, int destination, ItemData x) {
-        var og = ItemTranslator.getInstance().fromNetworkId(source, x.getDefinition().getRuntimeId(), x.getDamage());
-        var dest = ItemTranslator.getInstance().toNetworkId(destination, og[0], og[1]);
+        var og = ItemTranslator.getInstance(source).fromNetworkId(x.getDefinition().getRuntimeId(), x.getDamage());
+        var dest = ItemTranslator.getInstance(destination).toNetworkId(og[0], og[1]);
         return x.toBuilder().definition(new SimpleItemDefinition(x.getDefinition().getIdentifier(), dest[0], x.getDefinition().isComponentBased())).damage(dest[1]).build();
     }
 

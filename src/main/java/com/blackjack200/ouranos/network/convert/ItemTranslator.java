@@ -1,157 +1,175 @@
 package com.blackjack200.ouranos.network.convert;
 
-import cn.hutool.core.convert.Convert;
+import com.blackjack200.ouranos.Ouranos;
 import com.blackjack200.ouranos.data.AbstractMapping;
 import com.blackjack200.ouranos.data.LegacyItemIdToStringIdMap;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import lombok.Getter;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import lombok.extern.log4j.Log4j2;
-import lombok.val;
 
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 
 @Log4j2
-public class ItemTranslator extends AbstractMapping {
-    @Getter
-    private static final ItemTranslator instance;
+public final class ItemTranslator extends AbstractMapping {
+    public final static class Entry {
+        private static ItemTranslator instance;
 
-    static {
-        instance = new ItemTranslator();
-    }
+        private final Map<Integer, Integer> simpleCoreToNetMapping = new HashMap<>();
+        private final Map<Integer, Integer> simpleNetToCoreMapping = new HashMap<>();
 
-    private final Map<Integer, Map<String, String>> alias = new HashMap<>();
-    private final Map<Integer, Map<Integer, Integer>> simpleCoreToNetMap = new LinkedHashMap<>();
-    private final Map<Integer, Map<Integer, Integer>> simpleNetToCoreMap = new LinkedHashMap<>();
-    private final Map<Integer, Map<Integer, Map<Integer, Integer>>> complexCoreToNetMap = new LinkedHashMap<>();
-    private final Map<Integer, Map<Integer, int[]>> complexNetToCoreMap = new LinkedHashMap<>();
+        private final Map<Integer, Map<Integer, Integer>> complexCoreToNetMapping = new HashMap<>();
+        private final Map<Integer, int[]> complexNetToCoreMapping = new HashMap<>();
 
-    public ItemTranslator() {
-        load("r16_to_current_item_map.json", (protocolId, rawData) -> {
-            Map<String, Map<String, Object>> data = (new Gson()).fromJson(new InputStreamReader(rawData), new TypeToken<Map<String, Map<String, Object>>>() {
-            }.getType());
+        private Entry(int protocol, Map<String, Integer> simpleMappings, Map<String, int[]> complexMappings) {
+            for (var entry : ItemTypeDictionary.getInstance().getEntries(protocol).entrySet()) {
+                String stringId = entry.getKey();
+                int netId = entry.getValue().runtime_id();
 
-            LegacyItemIdToStringIdMap stringIdMap = LegacyItemIdToStringIdMap.getInstance();
-            alias.put(protocolId, new LinkedHashMap<>());
-            var aliasMap = this.alias.get(protocolId);
-            simpleCoreToNetMap.put(protocolId, new LinkedHashMap<>());
-            simpleNetToCoreMap.put(protocolId, new LinkedHashMap<>());
-            complexCoreToNetMap.put(protocolId, new LinkedHashMap<>());
-            complexNetToCoreMap.put(protocolId, new LinkedHashMap<>());
+                if (complexMappings.containsKey(stringId)) {
+                    int[] mapping = complexMappings.get(stringId);
+                    int id = mapping[0];
+                    int meta = mapping[1];
 
-            val simpleMapping = new LinkedHashMap<String, Integer>();
-
-            Convert.toMap(String.class, String.class, data.get("simple")).forEach((oldId, newId) -> {
-                //log.info("p={} old={} new={}", protocolId, oldId, newId);
-                var intId = stringIdMap.fromString(protocolId, oldId);
-                if (intId == null) {
-                    //new item without a fixed legacy ID - we can't handle this right now
-                    return;
+                    complexCoreToNetMapping.computeIfAbsent(id, k -> new HashMap<>()).put(meta, netId);
+                    complexNetToCoreMapping.put(netId, new int[]{id, meta});
+                } else if (simpleMappings.containsKey(stringId)) {
+                    int internalId = simpleMappings.get(stringId);
+                    simpleCoreToNetMapping.put(internalId, netId);
+                    simpleNetToCoreMapping.put(netId, internalId);
                 }
-                simpleMapping.put(newId, intId);
-                aliasMap.put(oldId, newId);
-            });
-
-            stringIdMap.getStringToIntMap(protocolId).forEach((stringId, intId) -> {
-                if (simpleMapping.containsKey(stringId)) {
-                    throw new RuntimeException("Old ID " + stringId + " collides with new ID");
-                }
-                simpleMapping.put(stringId, intId);
-            });
-
-            val complexMapping = new LinkedHashMap<String, int[]>();
-            data.get("complex").forEach((oldId, obj) -> {
-                Map<String, String> map = Convert.toMap(String.class, String.class, obj);
-                var intId = stringIdMap.fromString(protocolId, oldId);
-                if (intId == null) {
-                    //new item without a fixed legacy ID - we can't handle this right now
-                    return;
-                }
-                map.forEach((meta, newId) -> {
-                    int intMeta = Integer.parseInt(meta);
-                    complexMapping.put(newId, new int[]{intId, intMeta});
-              //      log.debug("p={} old={} cmplx={}", protocolId, oldId, complexMapping.get(newId));
-                });
-            });
-
-
-            ItemTypeDictionary.getInstance().getEntries(protocolId).forEach((stringId, d) -> {
-                int netId = d.runtime_id();
-                if (complexMapping.containsKey(stringId)) {
-                    int[] dd = complexMapping.get(stringId);
-                    this.complexCoreToNetMap.get(protocolId).putIfAbsent(dd[0], new LinkedHashMap<>());
-                    this.complexCoreToNetMap.get(protocolId).get(dd[0]).put(dd[1], netId);
-
-                    this.complexNetToCoreMap.get(protocolId).put(netId, dd);
-                } else if (simpleMapping.containsKey(stringId)) {
-                    this.simpleCoreToNetMap.get(protocolId).put(simpleMapping.get(stringId), netId);
-                    this.simpleNetToCoreMap.get(protocolId).put(netId, simpleMapping.get(stringId));
-                }
-            });
-        });
-    }
-
-    public int[] toNetworkIdQuiet(int protocolId, int internalId, int internalMeta) {
-        if (internalMeta == -1) {
-            internalMeta = 0x7fff;
-        }
-        val simple = this.simpleCoreToNetMap.get(protocolId);
-        val complex = this.complexCoreToNetMap.get(protocolId);
-        if (complex.containsKey(internalId) && complex.get(internalId).containsKey(internalMeta)) {
-            return new int[]{complex.get(internalId).get(internalMeta), 0};
-        }
-        if (simple.containsKey(internalId)) {
-            return new int[]{simple.get(internalId), internalMeta};
-        }
-        return null;
-    }
-
-    public int[] toNetworkId(int protocolId, int internalId, int internalMeta) {
-        return Objects.requireNonNull(this.toNetworkIdQuiet(protocolId, internalId, internalMeta));
-    }
-
-    public int[] fromNetworkId(int protocolId, int networkId, int networkMeta) {
-        val simple = this.simpleNetToCoreMap.get(protocolId);
-        val complex = this.complexNetToCoreMap.get(protocolId);
-        if (complex.containsKey(networkId)) {
-            if (networkMeta != 0) {
-                throw new RuntimeException("Unexpected non-zero network meta on complex item mapping");
             }
-            return complex.get(networkId);
         }
-        if (simple.containsKey(networkId)) {
-            return new int[]{simple.get(networkId), networkMeta};
+
+        public Optional<int[]> toNetworkIdQuiet(int internalId, int internalMeta) {
+            if (internalMeta == -1) {
+                internalMeta = 0x7FFF;
+            }
+
+            if (complexCoreToNetMapping.containsKey(internalId) && complexCoreToNetMapping.get(internalId).containsKey(internalMeta)) {
+                return Optional.of(new int[]{complexCoreToNetMapping.get(internalId).get(internalMeta), 0});
+            }
+
+            if (simpleCoreToNetMapping.containsKey(internalId)) {
+                return Optional.of(new int[]{simpleCoreToNetMapping.get(internalId), internalMeta});
+            }
+
+            return Optional.empty();
         }
-        throw new RuntimeException("Unmapped network ID/metadata combination " + networkId + ":" + networkMeta);
+
+        public int[] toNetworkId(int internalId, int internalMeta) {
+            return toNetworkIdQuiet(internalId, internalMeta)
+                    .orElseThrow(() -> new IllegalArgumentException("Unmapped ID/metadata combination " + internalId + ":" + internalMeta));
+        }
+
+        public int[] fromNetworkId(int networkId, int networkMeta) throws TypeConversionException {
+            if (complexNetToCoreMapping.containsKey(networkId)) {
+                if (networkMeta != 0) {
+                    throw new TypeConversionException("Unexpected non-zero network meta on complex item mapping");
+                }
+                return complexNetToCoreMapping.get(networkId);
+            }
+
+            if (simpleNetToCoreMapping.containsKey(networkId)) {
+                return new int[]{simpleNetToCoreMapping.get(networkId), networkMeta};
+            }
+
+            throw new TypeConversionException("Unmapped network ID/metadata combination " + networkId + ":" + networkMeta);
+        }
+
+        public int[] fromNetworkIdWithWildcardHandling(int networkId, int networkMeta) throws TypeConversionException {
+            if (networkMeta != 0x7FFF) {
+                return fromNetworkId(networkId, networkMeta);
+            }
+
+            int[] result = fromNetworkId(networkId, 0);
+            int id = result[0];
+            int meta = result[1];
+            return new int[]{id, complexNetToCoreMapping.containsKey(networkId) ? meta : -1};
+        }
+
+        public static class TypeConversionException extends RuntimeException {
+            public TypeConversionException(String message) {
+                super(message);
+            }
+        }
     }
 
-    public boolean isComplex(int protocolId, int networkId, int networkMeta) {
-        val simple = this.simpleNetToCoreMap.get(protocolId);
-        val complex = this.complexNetToCoreMap.get(protocolId);
-        if (complex.containsKey(networkId)) {
-            return true;
+    private static ItemTranslator.Entry make(int protocol, InputStream stream) {
+        var gson = new Gson();
+
+        JsonObject json;
+        try {
+            json = gson.fromJson(new InputStreamReader(stream), JsonObject.class);
+        } catch (JsonSyntaxException e) {
+            throw new RuntimeException("Invalid item table format", e);
         }
-        return false;
-    }
 
-    public int[] fromNetworkIdNotNull(int protocolId, int networkId, int networkMeta) {
-        return Objects.requireNonNull(this.fromNetworkId(protocolId, networkId, networkMeta));
-    }
-
-    public int[] fromNetworkIdWithWildcardHandling(int protocolId, int networkId, int networkMeta) {
-        if (networkMeta != 0x7fff) {
-            return this.fromNetworkId(protocolId, networkId, networkMeta);
+        if (!json.has("simple") || !json.has("complex")) {
+            throw new RuntimeException("Invalid item table format");
         }
-        val isComplex = isComplex(protocolId, networkId, networkMeta);
-        int[] data = this.fromNetworkIdNotNull(protocolId, networkId, networkMeta);
-        return new int[]{data[0], isComplex ? data[1] : -1};
+
+        var legacyStringToIntMap = LegacyItemIdToStringIdMap.getInstance();
+
+        Map<String, Integer> simpleMappings = new HashMap<>();
+        var simpleJson = json.getAsJsonObject("simple");
+
+        for (var entry : simpleJson.entrySet()) {
+            String oldId = entry.getKey();
+            String newId = entry.getValue().getAsString();
+            Integer intId = legacyStringToIntMap.fromString(protocol, oldId);
+            if (intId == null) {
+                continue;
+            }
+            simpleMappings.put(newId, intId);
+        }
+
+        for (var entry : legacyStringToIntMap.getStringToIntMap(protocol).entrySet()) {
+            String stringId = entry.getKey();
+            if (simpleMappings.containsKey(stringId)) {
+                throw new IllegalStateException("Old ID " + stringId + " collides with new ID");
+            }
+            simpleMappings.put(stringId, entry.getValue());
+        }
+
+        Map<String, int[]> complexMappings = new HashMap<>();
+        var complexJson = json.getAsJsonObject("complex");
+
+        for (var entry : complexJson.entrySet()) {
+            var oldId = entry.getKey();
+            var metaMap = entry.getValue().getAsJsonObject();
+            for (var metaEntry : metaMap.entrySet()) {
+                int meta = Integer.parseInt(metaEntry.getKey());
+                var newId = metaEntry.getValue().getAsString();
+
+                var intId = legacyStringToIntMap.fromString(protocol, oldId);
+                if (intId == null) {
+                    continue;
+                }
+                if (complexMappings.containsKey(newId)) {
+                    int[] existing = complexMappings.get(newId);
+                    if (existing[0] == intId && existing[1] <= meta) {
+                        continue;
+                    }
+                }
+                complexMappings.put(newId, new int[]{intId, meta});
+            }
+        }
+
+        return new ItemTranslator.Entry(protocol, simpleMappings, complexMappings);
     }
 
-    public String getAlias(int protocol, String id) {
-        return this.alias.get(protocol).getOrDefault(id, id);
+
+    private static final Map<Integer, Entry> entries = new HashMap<>();
+
+    public static Entry getInstance(int protocol) {
+        if (!entries.containsKey(protocol)) {
+            entries.put(protocol, make(protocol, Ouranos.class.getClassLoader().getResourceAsStream(lookupAvailableFile("r16_to_current_item_map.json", protocol))));
+        }
+        return entries.get(protocol);
     }
 }
