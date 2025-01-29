@@ -74,7 +74,7 @@ public class ItemTranslator extends AbstractMapping {
                 map.forEach((meta, newId) -> {
                     int intMeta = Integer.parseInt(meta);
                     complexMapping.put(newId, new int[]{intId, intMeta});
-                    log.debug("p={} old={} cmplx={}", protocolId, oldId, complexMapping.get(newId));
+              //      log.debug("p={} old={} cmplx={}", protocolId, oldId, complexMapping.get(newId));
                 });
             });
 

@@ -2,7 +2,6 @@ package com.blackjack200.ouranos.network.translate;
 
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
-import com.blackjack200.ouranos.network.data.bedrock.GlobalItemDataHandlers;
 import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
@@ -41,6 +40,7 @@ import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -60,30 +60,31 @@ public class Translate {
         } else if (p instanceof ClientCacheStatusPacket pk) {
             //TODO forcibly disable client blob caches for security
             pk.setSupported(false);
-        } else if (p instanceof AvailableCommandsPacket pk) {
-            pk.getCommands().clear();
-        } else if (p instanceof CreativeContentPacket pk) {
-            val newContents = new ArrayList<ItemData>();
-            for (val x : pk.getContents()) {
-                var stringId = x.getDefinition().getIdentifier();
-                var downgrader = GlobalItemDataHandlers.getItemIdMetaDowngrader(destination);
-                var downgraded = downgrader.downgrade(stringId, x.getDamage());
-                log.debug("downgrade {}:{} to {}:{}", stringId, x.getDamage(), downgraded[0], downgraded[1]);
-                //Integer runtimeId = Optional.ofNullable(ItemTypeDictionary.getInstance().fromStringId(destination, stringId)).orElse(x.getDefinition().getRuntimeId());
-                newContents.add(x.toBuilder()
-                        .definition(new SimpleItemDefinition((String) downgraded[0], x.getDefinition().getRuntimeId(), false))
-                        .damage((int) downgraded[1])
-                        .blockDefinition(new BlockDefinition() {
-                            @Override
-                            public int getRuntimeId() {
-                                return 10437;
-                            }
-                        })
-                        .build()
-                );
+        } else if (p instanceof InventoryContentPacket pk) {
+            val contents = new ArrayList<>(pk.getContents());
+            for (int i = 0; i < contents.size(); i++) {
+                var item = contents.get(i);
+                if (item.getBlockDefinition() != null) {
+                    contents.set(i, item.toBuilder().blockDefinition(translateBlockDefinition(source, destination, item.getBlockDefinition())).build());
+                }
             }
-            pk.setContents(pk.getContents());
-            //         pk.setContents(newContents.toArray(new ItemData[0]));
+            pk.setContents(contents);
+            return pk;
+        } else if (p instanceof CreativeContentPacket pk) {
+            val contents = new ArrayList<>(List.of(pk.getContents()));
+            for (int i = 0; i < contents.size(); i++) {
+                var item = contents.get(i);
+                if (item.getBlockDefinition() != null) {
+                    contents.set(i, item.toBuilder().blockDefinition(translateBlockDefinition(source, destination, item.getBlockDefinition())).build());
+                }
+            }
+            pk.setContents(contents.toArray(ItemData[]::new));
+            return pk;
+        } else if (p instanceof MobEquipmentPacket pk) {
+            if (pk.getItem().getBlockDefinition() != null) {
+                pk.setItem(pk.getItem().toBuilder().blockDefinition(translateBlockDefinition(source, destination, pk.getItem().getBlockDefinition())).build());
+            }
+            return pk;
         }
 
         rewriteProtocol(source, destination, p);
@@ -378,5 +379,23 @@ public class Translate {
             return fallback;
         }
         return converted;
+    }
+
+    public static BlockDefinition translateBlockDefinition(int source, int destination, BlockDefinition definition) {
+        val internalStateId = RuntimeBlockMapping.getInstance(source).fromRuntimeId(definition.getRuntimeId());
+        val oldState = RuntimeBlockMapping.getInstance(source).getBedrockKnownStates().get(internalStateId);
+        int fallback = RuntimeBlockMapping.getInstance(destination).getFallback();
+        if (internalStateId == null) {
+            log.error("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, "minecraft:info_update", definition.getRuntimeId(), fallback);
+            return () -> fallback;
+        }
+        val converted = RuntimeBlockMapping.getInstance(destination).toRuntimeId(internalStateId);
+        if (converted == null) {
+            log.error("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, "minecraft:info_update", definition.getRuntimeId(), fallback);
+            return () -> fallback;
+        }
+        val newState = RuntimeBlockMapping.getInstance(destination).getBedrockKnownStates().get(internalStateId);
+        log.debug("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, newState, definition.getRuntimeId(), fallback);
+        return () -> converted;
     }
 }

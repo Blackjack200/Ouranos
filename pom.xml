@@ -109,6 +109,10 @@
             <artifactId>nimbus-jose-jwt</artifactId>
             <version>9.37.2</version>
         </dependency>
-
+        <dependency>
+            <groupId>net.minecrell</groupId>
+            <artifactId>terminalconsoleappender</artifactId>
+            <version>1.3.0</version>
+        </dependency>
     </dependencies>
 </project>

@@ -5,6 +5,7 @@ import com.blackjack200.ouranos.network.ProtocolInfo;
 import com.blackjack200.ouranos.network.data.AbstractMapping;
 import com.blackjack200.ouranos.utils.HashUtils;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.allaymc.updater.block.BlockStateUpdaters;
@@ -26,10 +27,11 @@ public class RuntimeBlockMapping extends AbstractMapping {
         private final Map<Integer, Integer> runtimeIdToHash = new HashMap<>(15000);
         private Integer fallbackId;
 
-        public Entry(int protocolId, URL url) {
+        @SneakyThrows
+        public Entry(int protocolId, URL canonicalStates) {
             val states = new LinkedList<NbtMap>();
             try {
-                InputStream reader = url.openStream();
+                InputStream reader = canonicalStates.openStream();
                 val nbtReader = NbtUtils.createNetworkReader(reader);
                 while (reader.available() > 0) {
                     NbtMap blockState = (NbtMap) nbtReader.readTag();
@@ -62,7 +64,7 @@ public class RuntimeBlockMapping extends AbstractMapping {
                 throw new RuntimeException("no fallback minecraft:info_update found.");
             }
 
-            log.debug("Loaded runtime block mapping for protocol {}.", protocolId);
+            // log.debug("Loaded runtime block mapping for protocol {}.", protocolId);
         }
 
         public Integer toRuntimeId(int hash) {
