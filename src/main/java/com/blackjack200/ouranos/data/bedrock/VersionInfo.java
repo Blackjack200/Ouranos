@@ -1,4 +1,4 @@
-package com.blackjack200.ouranos.network.data.bedrock;
+package com.blackjack200.ouranos.data.bedrock;
 
 public class VersionInfo {
     /**

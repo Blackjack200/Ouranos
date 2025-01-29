@@ -1,8 +1,8 @@
-package com.blackjack200.ouranos.network.translate;
+package com.blackjack200.ouranos.network.session;
 
+import com.blackjack200.ouranos.network.convert.ItemTranslator;
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
-import com.blackjack200.ouranos.network.session.OuranosPlayer;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
@@ -40,7 +40,6 @@ import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -64,25 +63,48 @@ public class Translate {
             val contents = new ArrayList<>(pk.getContents());
             for (int i = 0; i < contents.size(); i++) {
                 var item = contents.get(i);
-                if (item.getBlockDefinition() != null) {
-                    contents.set(i, item.toBuilder().blockDefinition(translateBlockDefinition(source, destination, item.getBlockDefinition())).build());
+                try {
+                    if (item.getBlockDefinition() != null) {
+                        //contents.set(i, item.toBuilder().blockDefinition(translateBlockDefinition(source, destination, item.getBlockDefinition())).build());
+                        contents.set(i, translateItemData(source, destination, item));
+                    }
+                } catch (NullPointerException e) {
+                    log.error(e);
+                    contents.set(i, barrier);
                 }
             }
             pk.setContents(contents);
             return pk;
         } else if (p instanceof CreativeContentPacket pk) {
-            val contents = new ArrayList<>(List.of(pk.getContents()));
-            for (int i = 0; i < contents.size(); i++) {
-                var item = contents.get(i);
-                if (item.getBlockDefinition() != null) {
-                    contents.set(i, item.toBuilder().blockDefinition(translateBlockDefinition(source, destination, item.getBlockDefinition())).build());
+            //return CreativeInventory.getInstance().getPacket(destination);
+            val contents = new ArrayList<ItemData>();
+            var j = 0;
+            for (val i : pk.getContents()) {
+                try {
+                    val item = translateItemData(source, destination, i);
+                    if (item != null) {
+                        contents.add(item.toBuilder().build());
+                        j++;
+                    }
+
+                } catch (NullPointerException e) {
+                    log.error(e);
+                    contents.add(barrier);
+                }
+                if (j > 5) {
+                    break;
                 }
             }
-            pk.setContents(contents.toArray(ItemData[]::new));
+            pk.setContents(contents.toArray(new ItemData[0]));
             return pk;
         } else if (p instanceof MobEquipmentPacket pk) {
             if (pk.getItem().getBlockDefinition() != null) {
-                pk.setItem(pk.getItem().toBuilder().blockDefinition(translateBlockDefinition(source, destination, pk.getItem().getBlockDefinition())).build());
+                try {
+                    pk.setItem(pk.getItem().toBuilder().blockDefinition(translateBlockDefinition(source, destination, pk.getItem().getBlockDefinition())).build());
+                } catch (NullPointerException e) {
+                    log.error(e);
+                    pk.setItem(barrier);
+                }
             }
             return pk;
         }
@@ -225,6 +247,12 @@ public class Translate {
                 Optional.ofNullable(dest.getContainerName())
                         .orElse(new FullContainerName(dest.getContainer(), 0))
         );
+    }
+
+    private static ItemData translateItemData(int source, int destination, ItemData x) {
+        var og = ItemTranslator.getInstance().fromNetworkId(source, x.getDefinition().getRuntimeId(), x.getDamage());
+        var dest = ItemTranslator.getInstance().toNetworkId(destination, og[0], og[1]);
+        return x.toBuilder().definition(new SimpleItemDefinition(x.getDefinition().getIdentifier(), dest[0], x.getDefinition().isComponentBased())).damage(dest[1]).build();
     }
 
     private static void removeNewEntityData(BedrockPacket p, int destination, BedrockCodec codec, EntityDataType<?>... types) {

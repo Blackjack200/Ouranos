@@ -1,7 +1,7 @@
-package com.blackjack200.ouranos.network.data.bedrock.item.downgrade;
+package com.blackjack200.ouranos.data.bedrock.item.downgrade;
 
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
-import com.blackjack200.ouranos.network.data.bedrock.GlobalItemDataHandlers;
+import com.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -2,7 +2,7 @@ package com.blackjack200.ouranos.network.convert;
 
 
 import com.blackjack200.ouranos.network.ProtocolInfo;
-import com.blackjack200.ouranos.network.data.AbstractMapping;
+import com.blackjack200.ouranos.data.AbstractMapping;
 import com.blackjack200.ouranos.utils.HashUtils;
 import lombok.Getter;
 import lombok.SneakyThrows;

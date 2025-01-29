@@ -1,6 +1,6 @@
-package com.blackjack200.ouranos.network.data.bedrock.item.upgrade;
+package com.blackjack200.ouranos.data.bedrock.item.upgrade;
 
-import com.blackjack200.ouranos.network.data.bedrock.item.upgrade.model.ItemIdMetaUpgradeSchemaModel;
+import com.blackjack200.ouranos.data.bedrock.item.upgrade.model.ItemIdMetaUpgradeSchemaModel;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;

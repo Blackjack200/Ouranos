@@ -1,4 +1,4 @@
-package com.blackjack200.ouranos.network.data.bedrock.item.upgrade;
+package com.blackjack200.ouranos.data.bedrock.item.upgrade;
 
 import lombok.Getter;
 

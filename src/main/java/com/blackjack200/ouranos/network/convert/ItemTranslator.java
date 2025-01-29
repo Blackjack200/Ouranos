@@ -1,8 +1,8 @@
 package com.blackjack200.ouranos.network.convert;
 
 import cn.hutool.core.convert.Convert;
-import com.blackjack200.ouranos.network.data.AbstractMapping;
-import com.blackjack200.ouranos.network.data.LegacyItemIdToStringIdMap;
+import com.blackjack200.ouranos.data.AbstractMapping;
+import com.blackjack200.ouranos.data.LegacyItemIdToStringIdMap;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;

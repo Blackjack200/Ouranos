@@ -1,4 +1,4 @@
-package com.blackjack200.ouranos.network.data;
+package com.blackjack200.ouranos.data;
 
 import lombok.Getter;
 

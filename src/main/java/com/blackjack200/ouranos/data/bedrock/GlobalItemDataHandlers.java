@@ -1,14 +1,14 @@
-package com.blackjack200.ouranos.network.data.bedrock;
+package com.blackjack200.ouranos.data.bedrock;
 
 import com.blackjack200.ouranos.Ouranos;
 import com.blackjack200.ouranos.network.convert.ItemTypeDictionary;
-import com.blackjack200.ouranos.network.data.LegacyItemIdToStringIdMap;
-import com.blackjack200.ouranos.network.data.bedrock.item.BlockItemIdMap;
-import com.blackjack200.ouranos.network.data.bedrock.item.downgrade.ItemIdMetaDowngrader;
-import com.blackjack200.ouranos.network.data.bedrock.item.upgrade.ItemDataUpgrader;
-import com.blackjack200.ouranos.network.data.bedrock.item.upgrade.ItemIdMetaUpgradeSchemaUtils;
-import com.blackjack200.ouranos.network.data.bedrock.item.upgrade.ItemIdMetaUpgrader;
-import com.blackjack200.ouranos.network.data.bedrock.item.upgrade.R12ItemIdToBlockIdMap;
+import com.blackjack200.ouranos.data.LegacyItemIdToStringIdMap;
+import com.blackjack200.ouranos.data.bedrock.item.BlockItemIdMap;
+import com.blackjack200.ouranos.data.bedrock.item.downgrade.ItemIdMetaDowngrader;
+import com.blackjack200.ouranos.data.bedrock.item.upgrade.ItemDataUpgrader;
+import com.blackjack200.ouranos.data.bedrock.item.upgrade.ItemIdMetaUpgradeSchemaUtils;
+import com.blackjack200.ouranos.data.bedrock.item.upgrade.ItemIdMetaUpgrader;
+import com.blackjack200.ouranos.data.bedrock.item.upgrade.R12ItemIdToBlockIdMap;
 import lombok.SneakyThrows;
 
 import java.util.HashMap;
@@ -23,7 +23,7 @@ public final class GlobalItemDataHandlers {
     public static ItemDataUpgrader getUpgrader() {
         if (itemDataUpgrader == null) {
             itemDataUpgrader = new ItemDataUpgrader(
-                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas(Ouranos.class.getClassLoader().getResource("upgrade_item/id_meta_upgrade_schema").getPath(), Integer.MAX_VALUE).values()),
+                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas(Ouranos.class.getClassLoader().getResource("upgrade_item/id_meta_upgrade_schema").getPath(), getSchemaId(589)).values()),
                     LegacyItemIdToStringIdMap.getInstance(),
                     R12ItemIdToBlockIdMap.getInstance(),
                     BlockItemIdMap.getInstance()
