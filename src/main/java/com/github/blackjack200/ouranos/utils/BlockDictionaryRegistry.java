@@ -1,6 +1,6 @@
 package com.github.blackjack200.ouranos.utils;
 
-import com.github.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
+import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import lombok.val;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleBlockDefinition;
@@ -15,19 +15,18 @@ public class BlockDictionaryRegistry implements DefinitionRegistry<BlockDefiniti
 
     @Override
     public BlockDefinition getDefinition(int runtimeId) {
-        val entry = RuntimeBlockMapping.getInstance(this.protocol);
-        val hash = entry.fromRuntimeId(runtimeId);
-        val states = entry.getBedrockKnownStates().get(hash);
+        val entry = BlockStateDictionary.getInstance(this.protocol);
+        val hash = entry.toStateHash(runtimeId);
+        val states = entry.lookupStateFromStateHash(hash);
         if (states == null) {
             return entry::getFallback;
         }
-        return new SimpleBlockDefinition(states.getString("name"), runtimeId, states.getCompound("state"));
+        return new SimpleBlockDefinition(states.name(), runtimeId, states.stateData());
     }
 
     @Override
     public boolean isRegistered(BlockDefinition blockDefinition) {
-        var id = RuntimeBlockMapping.getInstance(this.protocol).fromRuntimeId(blockDefinition.getRuntimeId());
-
+        var id = BlockStateDictionary.getInstance(this.protocol).toStateHash(blockDefinition.getRuntimeId());
         return id != null;
     }
 }

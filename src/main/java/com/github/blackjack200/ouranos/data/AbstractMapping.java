@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.data;
 
 import cn.hutool.core.io.FileUtil;
+import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import lombok.extern.log4j.Log4j2;
 
@@ -10,15 +11,18 @@ import java.util.function.BiConsumer;
 
 @Log4j2
 public class AbstractMapping {
-    protected void load(String file, BiConsumer<Integer, InputStream> handler) {
-
+    protected static void load(String file, BiConsumer<Integer, InputStream> handler) {
         ProtocolInfo.getPacketCodecs().forEach((codec) -> {
             int protocolId = codec.getProtocolVersion();
             String name = lookupAvailableFile(file, protocolId);
-            var rawData = getClass().getClassLoader().getResourceAsStream(name);
+            var rawData = open(name);
             //log.info("Loading packet codec {} from {}", codec.getProtocolVersion(), file);
             handler.accept(protocolId, rawData);
         });
+    }
+
+    protected static InputStream open(String file) {
+        return Ouranos.class.getClassLoader().getResourceAsStream(file);
     }
 
     protected static String lookupAvailableFile(String file, int protocolId) {
@@ -39,7 +43,7 @@ public class AbstractMapping {
         return name;
     }
 
-    protected void loadFile(String file, BiConsumer<Integer, URL> handler) {
+    protected static void loadFile(String file, BiConsumer<Integer, URL> handler) {
         var exists = ProtocolInfo.getPacketCodecs().stream().filter(id -> FileUtil.exist("vanilla/v" + id.getProtocolVersion() + "/" + file)).toList();
 
         ProtocolInfo.getPacketCodecs().forEach((codec) -> {
@@ -57,7 +61,7 @@ public class AbstractMapping {
                     }
                 }
             }
-            var url = getClass().getClassLoader().getResource(name);
+            var url = Ouranos.class.getClassLoader().getResource(name);
             //log.info("Loading packet codec {} from {}", codec.getProtocolVersion(), file);
             handler.accept(protocolId, url);
             // log.info("Loaded packet codec {} from {}", codec.getProtocolVersion(), file);

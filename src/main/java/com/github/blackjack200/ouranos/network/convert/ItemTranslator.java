@@ -163,12 +163,11 @@ public final class ItemTranslator extends AbstractMapping {
         return new ItemTranslator.Entry(protocol, simpleMappings, complexMappings);
     }
 
-
     private static final Map<Integer, Entry> entries = new HashMap<>();
 
     public static Entry getInstance(int protocol) {
         if (!entries.containsKey(protocol)) {
-            entries.put(protocol, make(protocol, Ouranos.class.getClassLoader().getResourceAsStream(lookupAvailableFile("r16_to_current_item_map.json", protocol))));
+            entries.put(protocol, make(protocol, open(lookupAvailableFile("r16_to_current_item_map.json", protocol))));
         }
         return entries.get(protocol);
     }

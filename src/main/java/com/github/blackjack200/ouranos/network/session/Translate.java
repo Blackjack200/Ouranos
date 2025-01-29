@@ -1,8 +1,9 @@
 package com.github.blackjack200.ouranos.network.session;
 
+import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ItemTranslator;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
-import com.github.blackjack200.ouranos.network.convert.RuntimeBlockMapping;
+import com.github.blackjack200.ouranos.network.convert.TypeConverter;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
@@ -51,7 +52,7 @@ public class Translate {
         val barrier = ItemData.builder()
                 .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance(destination).fromStringId(barrierNamespaceId), false))
                 .count(1)
-                .blockDefinition(() -> RuntimeBlockMapping.getInstance(destination).getFallback())
+                .blockDefinition(() -> BlockStateDictionary.getInstance(destination).getFallback())
                 .build();
 
         if (p instanceof ResourcePackStackPacket pk) {
@@ -66,10 +67,12 @@ public class Translate {
                 try {
                     if (item.getBlockDefinition() != null) {
                         //contents.set(i, item.toBuilder().blockDefinition(translateBlockDefinition(source, destination, item.getBlockDefinition())).build());
-                        contents.set(i, translateItemData(source, destination, item));
+                        //contents.set(i, translateItemData(source, destination, item));
+                        contents.set(i, TypeConverter.translateItemData(source, destination, item).toBuilder().usingNetId(true).netId(i).build());
                     }
-                } catch (NullPointerException e) {
+                } catch (ItemTranslator.Entry.TypeConversionException | NullPointerException e) {
                     log.error(e);
+                    log.trace(e);
                     contents.set(i, barrier);
                 }
             }
@@ -83,16 +86,15 @@ public class Translate {
                 try {
                     val item = translateItemData(source, destination, i);
                     if (item != null) {
-                        contents.add(item.toBuilder().build());
+                        contents.add(TypeConverter.translateItemData(source, destination, item).toBuilder().usingNetId(true).netId(j).build());
+                        //contents.add(item.toBuilder().build());
                         j++;
                     }
 
-                } catch (NullPointerException e) {
+                } catch (ItemTranslator.Entry.TypeConversionException | NullPointerException e) {
                     log.error(e);
+                    log.trace(e);
                     contents.add(barrier);
-                }
-                if (j > 5) {
-                    break;
                 }
             }
             pk.setContents(contents.toArray(new ItemData[0]));
@@ -397,12 +399,12 @@ public class Translate {
     }
 
     public static int translateBlockRuntimeId(int source, int destination, int blockRuntimeId) {
-        val internalStateId = RuntimeBlockMapping.getInstance(source).fromRuntimeId(blockRuntimeId);
-        int fallback = RuntimeBlockMapping.getInstance(destination).getFallback();
+        val internalStateId = BlockStateDictionary.getInstance(source).toStateHash(blockRuntimeId);
+        int fallback = BlockStateDictionary.getInstance(destination).getFallback();
         if (internalStateId == null) {
             return fallback;
         }
-        val converted = RuntimeBlockMapping.getInstance(destination).toRuntimeId(internalStateId);
+        val converted = BlockStateDictionary.getInstance(destination).toRuntimeId(internalStateId);
         if (converted == null) {
             return fallback;
         }
@@ -410,19 +412,20 @@ public class Translate {
     }
 
     public static BlockDefinition translateBlockDefinition(int source, int destination, BlockDefinition definition) {
-        val internalStateId = RuntimeBlockMapping.getInstance(source).fromRuntimeId(definition.getRuntimeId());
-        val oldState = RuntimeBlockMapping.getInstance(source).getBedrockKnownStates().get(internalStateId);
-        int fallback = RuntimeBlockMapping.getInstance(destination).getFallback();
-        if (internalStateId == null) {
-            log.error("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, "minecraft:info_update", definition.getRuntimeId(), fallback);
+        int fallback = BlockStateDictionary.getInstance(destination).getFallback();
+        val stateHash = BlockStateDictionary.getInstance(source).toStateHash(definition.getRuntimeId());
+        if (stateHash == null) {
+            log.error("translateBlockDefinition: protocol: {}->{}, id={}->{}", source, destination, definition.getRuntimeId(), fallback);
             return () -> fallback;
         }
-        val converted = RuntimeBlockMapping.getInstance(destination).toRuntimeId(internalStateId);
+
+        val oldState = BlockStateDictionary.getInstance(source).lookupStateFromStateHash(stateHash);
+        val converted = BlockStateDictionary.getInstance(destination).toRuntimeId(stateHash);
         if (converted == null) {
             log.error("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, "minecraft:info_update", definition.getRuntimeId(), fallback);
             return () -> fallback;
         }
-        val newState = RuntimeBlockMapping.getInstance(destination).getBedrockKnownStates().get(internalStateId);
+        val newState = BlockStateDictionary.getInstance(destination).lookupStateFromStateHash(stateHash);
         log.debug("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, newState, definition.getRuntimeId(), converted);
         return () -> converted;
     }

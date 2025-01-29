@@ -1,6 +1,5 @@
 package com.github.blackjack200.ouranos.network.convert;
 
-import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.data.AbstractMapping;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -22,7 +21,7 @@ public final class ItemTypeDictionary extends AbstractMapping {
     }
 
     public static InnerEntry getInstance(int protocolId) {
-        return entries.computeIfAbsent(protocolId, (protocol) -> new InnerEntry(Ouranos.class.getClassLoader().getResourceAsStream(lookupAvailableFile("required_item_list.json", protocol))));
+        return entries.computeIfAbsent(protocolId, (protocol) -> new InnerEntry(open(lookupAvailableFile("required_item_list.json", protocol))));
     }
 
     public static class InnerEntry {
@@ -41,7 +40,7 @@ public final class ItemTypeDictionary extends AbstractMapping {
             });
         }
 
-        public String fromNumericId(int itemId) {
+        public String fromIntId(int itemId) {
             return runtimeIdToString.get(itemId);
         }
 

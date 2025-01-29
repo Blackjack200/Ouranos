@@ -14,7 +14,7 @@ public class ItemTypeDictionaryRegistry implements DefinitionRegistry<ItemDefini
 
     @Override
     public ItemDefinition getDefinition(int runtimeId) {
-        var x = ItemTypeDictionary.getInstance(protocol).fromNumericId(runtimeId);
+        var x = ItemTypeDictionary.getInstance(protocol).fromIntId(runtimeId);
         return new SimpleItemDefinition(x, runtimeId, false);
     }
 
