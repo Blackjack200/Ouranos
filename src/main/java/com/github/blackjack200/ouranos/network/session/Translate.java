@@ -86,27 +86,13 @@ public class Translate {
             }
             pk.setContents(contents);
             return pk;
+        } else if (p instanceof CraftingDataPacket pk){
+            pk.getPotionMixData().clear();
+            pk.getMaterialReducers().clear();
+            pk.getCraftingData().clear();
+            pk.getContainerMixData().clear();
         } else if (p instanceof CreativeContentPacket pk) {
-            //return CreativeInventory.getInstance().getPacket(destination);
-            val contents = new ArrayList<ItemData>();
-            var j = -1;
-            for (val i : pk.getContents()) {
-                j++;
-                val item = TypeConverter.translateItemData(source, destination, i);
-                if (j <= 396) {
-                    continue;
-                }
-                if (item != null && ItemTypeDictionary.getInstance(destination).fromIntId(item.getDefinition().getRuntimeId()) != null) {
-                    // BlockItemIdMap.getInstance().
-                    contents.add(item.toBuilder().usingNetId(true).netId(j).build());
-                    //contents.add(item.toBuilder().build());
-                    log.info("{} encoding {}", j, item);
-                } else {
-                    contents.add(barrier);
-                }
-            }
-            pk.setContents(contents.toArray(new ItemData[0]));
-            //pk.setContents(contents.toArray(new ItemData[0]));
+            pk.setContents(new ItemData[0]);
             return pk;
         } else if (p instanceof MobEquipmentPacket pk) {
             if (pk.getItem().getBlockDefinition() != null) {
