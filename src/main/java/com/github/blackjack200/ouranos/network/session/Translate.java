@@ -1,7 +1,6 @@
 package com.github.blackjack200.ouranos.network.session;
 
 import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
-import com.github.blackjack200.ouranos.network.convert.ItemTranslator;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.convert.TypeConverter;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -66,8 +65,6 @@ public class Translate {
                 var item = contents.get(i);
                 try {
                     if (item.getBlockDefinition() != null) {
-                        //contents.set(i, item.toBuilder().blockDefinition(translateBlockDefinition(source, destination, item.getBlockDefinition())).build());
-                        //contents.set(i, translateItemData(source, destination, item));
                         ItemData data = TypeConverter.translateItemData(source, destination, item);
                         if (data != null) {
                             contents.set(i, data);
@@ -77,22 +74,29 @@ public class Translate {
                     } else if (!item.isNull()) {
                         contents.set(i, barrier);
                     }
-                } catch (ItemTranslator.Entry.TypeConversionException | NullPointerException e) {
-                    log.error(e);
-                    log.trace(e);
+                } catch (NullPointerException e) {
                     e.printStackTrace();
                     contents.set(i, barrier);
                 }
             }
             pk.setContents(contents);
             return pk;
-        } else if (p instanceof CraftingDataPacket pk){
+        } else if (p instanceof CraftingDataPacket pk) {
             pk.getPotionMixData().clear();
             pk.getMaterialReducers().clear();
             pk.getCraftingData().clear();
             pk.getContainerMixData().clear();
         } else if (p instanceof CreativeContentPacket pk) {
-            pk.setContents(new ItemData[0]);
+            val contents = new ArrayList<ItemData>();
+            var j = -1;
+            for (val i : pk.getContents()) {
+                j++;
+                val item = TypeConverter.translateItemData(source, destination, i);
+                if (item != null && ItemTypeDictionary.getInstance(destination).fromIntId(item.getDefinition().getRuntimeId()) != null) {
+                    contents.add(item.toBuilder().usingNetId(true).netId(j).build());
+                }
+            }
+            pk.setContents(contents.toArray(new ItemData[0]));
             return pk;
         } else if (p instanceof MobEquipmentPacket pk) {
             if (pk.getItem().getBlockDefinition() != null) {
