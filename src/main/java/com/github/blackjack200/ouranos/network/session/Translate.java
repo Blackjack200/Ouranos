@@ -87,7 +87,7 @@ public class Translate {
             for (val i : pk.getContents()) {
                 try {
                     j++;
-                    val item = translateItemData(source, destination, i);
+                    val item = TypeConverter.translateItemData(source, destination, i);
                     if (item != null) {
                         contents.add(TypeConverter.translateItemData(source, destination, item).toBuilder().usingNetId(true).netId(j).build());
                         //contents.add(item.toBuilder().build());
@@ -256,12 +256,6 @@ public class Translate {
                 Optional.ofNullable(dest.getContainerName())
                         .orElse(new FullContainerName(dest.getContainer(), 0))
         );
-    }
-
-    private static ItemData translateItemData(int source, int destination, ItemData x) {
-        var og = ItemTranslator.getInstance(source).fromNetworkId(x.getDefinition().getRuntimeId(), x.getDamage());
-        var dest = ItemTranslator.getInstance(destination).toNetworkId(og[0], og[1]);
-        return x.toBuilder().definition(new SimpleItemDefinition(x.getDefinition().getIdentifier(), dest[0], x.getDefinition().isComponentBased())).damage(dest[1]).build();
     }
 
     private static void removeNewEntityData(BedrockPacket p, int destination, BedrockCodec codec, EntityDataType<?>... types) {

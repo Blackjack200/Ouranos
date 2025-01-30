@@ -17,9 +17,11 @@ public class TypeConverter {
         var stringId = ItemTypeDictionary.getInstance(protocolId).fromIntId(networkId);
         var isBlockItem = BlockItemIdMap.getInstance().lookupBlockId(protocolId, stringId) != null;
         BlockStateDictionary.Dictionary.BlockEntry blockStateData = null;
-        if (isBlockItem && networkBlockRuntimeId != null) {
+        if (isBlockItem) {
             var mapping = BlockStateDictionary.getInstance(protocolId);
             blockStateData = mapping.lookupStateFromStateHash(mapping.toStateHash(networkBlockRuntimeId));
+        } else if (networkBlockRuntimeId != null) {
+            throw new RuntimeException("Item " + stringId + " is not a blockitem, but runtime ID $networkBlockRuntimeId was provided");
         }
 
         var d = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(stringId, networkMeta);
