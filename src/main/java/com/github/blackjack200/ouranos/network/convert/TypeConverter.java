@@ -10,14 +10,12 @@ import lombok.val;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
-import org.cloudburstmc.protocol.common.util.Preconditions;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 @Log4j2
 @UtilityClass
 public class TypeConverter {
     public ItemData translateItemData(int input, int output, ItemData itemData) {
-        Preconditions.checkArgument(input >= output, "Input version must be greater than output version");
         if (itemData.isNull() || !itemData.isValid()) {
             return itemData;
         }

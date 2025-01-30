@@ -36,6 +36,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequestSlotData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.*;
+import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryActionData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 
@@ -47,13 +48,6 @@ import java.util.UUID;
 public class Translate {
 
     public static BedrockPacket translate(int input, int output, OuranosPlayer player, BedrockPacket p) {
-        val barrierNamespaceId = "minecraft:barrier";
-        val barrier = ItemData.builder()
-                .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance(output).fromStringId(barrierNamespaceId), false))
-                .count(1)
-                .blockDefinition(() -> BlockStateDictionary.getInstance(output).getFallback())
-                .build();
-
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -62,21 +56,11 @@ public class Translate {
         } else if (p instanceof InventoryContentPacket pk) {
             val contents = new ArrayList<>(pk.getContents());
             for (int i = 0; i < contents.size(); i++) {
-                var item = contents.get(i);
-                try {
-                    if (item.getBlockDefinition() != null) {
-                        ItemData data = TypeConverter.translateItemData(input, output, item);
-                        if (data != null) {
-                            contents.set(i, data);
-                        } else {
-                            contents.set(i, barrier);
-                        }
-                    } else if (!item.isNull()) {
-                        contents.set(i, barrier);
-                    }
-                } catch (NullPointerException e) {
-                    e.printStackTrace();
-                    contents.set(i, barrier);
+                var item = TypeConverter.translateItemData(input, output, contents.get(i));
+                if (item != null) {
+                    contents.set(i, item);
+                } else {
+                    contents.set(i, ItemData.AIR);
                 }
             }
             pk.setContents(contents);
@@ -92,27 +76,25 @@ public class Translate {
             for (val i : pk.getContents()) {
                 j++;
                 val item = TypeConverter.translateItemData(input, output, i);
-                if (item != null && ItemTypeDictionary.getInstance(output).fromIntId(item.getDefinition().getRuntimeId()) != null) {
+                if (item != null) {
                     contents.add(item.toBuilder().usingNetId(true).netId(j).build());
                 }
             }
             pk.setContents(contents.toArray(new ItemData[0]));
             return pk;
-        } else if (p instanceof MobEquipmentPacket pk) {
-            if (pk.getItem().getBlockDefinition() != null) {
-                try {
-                    pk.setItem(pk.getItem().toBuilder().blockDefinition(TypeConverter.translateBlockDefinition(input, output, pk.getItem().getBlockDefinition())).build());
-                } catch (NullPointerException e) {
-                    log.error(e);
-                    pk.setItem(barrier);
-                }
+        } else if (p instanceof AddItemEntityPacket pk) {
+            pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
+        } else if (p instanceof InventorySlotPacket pk) {
+            pk.setItem(TypeConverter.translateItemData(input, output, pk.getItem()));
+            if (pk.getStorageItem() != null) {
+                pk.setStorageItem(TypeConverter.translateItemData(input, output, pk.getStorageItem()));
             }
-            return pk;
         }
 
         rewriteProtocol(input, output, player, p);
         rewriteChunk(input, output, player, p);
         rewriteBlock(input, output, player, p);
+
         return p;
     }
 
@@ -140,8 +122,29 @@ public class Translate {
             if (p instanceof InventoryTransactionPacket pk) {
                 pk.setTriggerType(ItemUseTransaction.TriggerType.PLAYER_INPUT);
                 pk.setClientInteractPrediction(ItemUseTransaction.PredictedResult.SUCCESS);
+                var newActions = new ArrayList<InventoryActionData>(pk.getActions().size());
+                for (var action : pk.getActions()) {
+                    newActions.add(new InventoryActionData(action.getSource(), action.getSlot(), TypeConverter.translateItemData(input, output, action.getFromItem()), TypeConverter.translateItemData(input, output, action.getToItem()), action.getStackNetworkId()));
+                }
+                pk.getActions().clear();
+                pk.getActions().addAll(newActions);
+                switch (pk.getTransactionType()) {
+                    case ITEM_USE:
+                        pk.setBlockDefinition(TypeConverter.translateBlockDefinition(input, output, pk.getBlockDefinition()));
+                        break;
+                    case ITEM_USE_ON_ENTITY:
+                    case ITEM_RELEASE:
+                        pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
+                        break;
+                }
+            } else if (p instanceof MobEquipmentPacket pk) {
+                pk.setItem(TypeConverter.translateItemData(input, output, pk.getItem()));
             } else if (p instanceof MobArmorEquipmentPacket pk) {
-                pk.setBody(ItemData.AIR);
+                pk.setBody(TypeConverter.translateItemData(input, output, pk.getBody()));
+                pk.setChestplate(TypeConverter.translateItemData(input, output, pk.getChestplate()));
+                pk.setHelmet(TypeConverter.translateItemData(input, output, pk.getHelmet()));
+                pk.setBoots(TypeConverter.translateItemData(input, output, pk.getBoots()));
+                pk.setLeggings(TypeConverter.translateItemData(input, output, pk.getLeggings()));
             } else if (p instanceof PlayerAuthInputPacket pk) {
                 pk.setRawMoveVector(provider.createVector2f(0, 0));
                 var transaction = pk.getItemUseTransaction();
@@ -288,7 +291,8 @@ public class Translate {
             var blockID = TypeConverter.translateBlockRuntimeId(input, output, data & 0xFFFF) & 0xFFFF;
             packet.setData(high | blockID);
         } else if (p instanceof LevelSoundEventPacket pk) {
-            if (pk.getSound() == SoundEvent.PLACE || pk.getSound() == SoundEvent.BREAK) {
+            var sound = pk.getSound();
+            if (sound == SoundEvent.PLACE || sound == SoundEvent.HIT || sound == SoundEvent.ITEM_USE_ON || sound == SoundEvent.LAND || sound == SoundEvent.BREAK) {
                 var runtimeId = pk.getExtraData();
                 pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
             }
@@ -297,6 +301,7 @@ public class Translate {
                 var metaData = pk.getMetadata();
                 int runtimeId = metaData.get(EntityDataTypes.VARIANT);
                 metaData.put(EntityDataTypes.VARIANT, TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
+                pk.setMetadata(metaData);
             }
         } else if (p instanceof UpdateSubChunkBlocksPacket pk) {
             var newExtraBlocks = new ArrayList<BlockChangeEntry>(pk.getExtraBlocks().size());
