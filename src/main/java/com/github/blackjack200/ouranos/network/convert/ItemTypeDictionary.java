@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.network.convert;
 
 import com.github.blackjack200.ouranos.data.AbstractMapping;
+import com.github.blackjack200.ouranos.data.ItemTypeInfo;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
