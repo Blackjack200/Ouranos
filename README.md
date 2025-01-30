@@ -2,10 +2,10 @@
 
 **Status:** Work In Progress (WIP)
 
-Ouranos is a proxy for Minecraft Bedrock Edition that allows players using lower client versions to connect to higher server versions. It serves as a bridge to ensure compatibility between different Minecraft versions, enabling seamless connections across versions that wouldn't normally be able to interact.
+Ouranos is a proxy for Minecraft Bedrock Edition that allows players using lower client versions to connect to higher server versions.
 
 **Known Issues:**
-- **CreativeContentsPacket crash**: Currently, there is an issue with the `CreativeContentsPacket` that causes the client to crash. We are working on a fix.
+- **CreativeContentPacket crash**: Currently, there is an issue with the `CreativeContentPacket` that causes the client to crash. We are working on a fix.
 - **Other potential compatibility issues**: As this project is still a work in progress, there may be other bugs or limitations. Please report any issues on our GitHub page.
 
 **Installation:**
