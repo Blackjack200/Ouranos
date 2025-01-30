@@ -100,9 +100,6 @@ public class Translate {
                     log.trace(e);
                     contents.add(barrier);
                 }
-                if (j > 300) {
-                    break;
-                }
             }
             pk.setContents(contents.toArray(new ItemData[0]));
             return pk;
@@ -400,12 +397,13 @@ public class Translate {
     }
 
     public static int translateBlockRuntimeId(int source, int destination, int blockRuntimeId) {
-        val internalStateId = BlockStateDictionary.getInstance(source).toStateHash(blockRuntimeId);
+        val stateHash = BlockStateDictionary.getInstance(source).toStateHash(blockRuntimeId);
         int fallback = BlockStateDictionary.getInstance(destination).getFallback();
-        if (internalStateId == null) {
-            return fallback;
+        if (stateHash == null) {
+            log.error("unknown block runtime id {}", blockRuntimeId);
+            return blockRuntimeId;
         }
-        val converted = BlockStateDictionary.getInstance(destination).toRuntimeId(internalStateId);
+        val converted = BlockStateDictionary.getInstance(destination).toRuntimeId(stateHash);
         if (converted == null) {
             return fallback;
         }
@@ -423,6 +421,7 @@ public class Translate {
         val oldState = BlockStateDictionary.getInstance(source).lookupStateFromStateHash(stateHash);
         val converted = BlockStateDictionary.getInstance(destination).toRuntimeId(stateHash);
         if (converted == null) {
+            log.error(oldState.name());
             log.error("translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", source, destination, oldState, "minecraft:info_update", definition.getRuntimeId(), fallback);
             return () -> fallback;
         }
