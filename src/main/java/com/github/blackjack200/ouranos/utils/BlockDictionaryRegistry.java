@@ -21,7 +21,7 @@ public class BlockDictionaryRegistry implements DefinitionRegistry<BlockDefiniti
         if (states == null) {
             return entry::getFallback;
         }
-        return new SimpleBlockDefinition(states.name(), runtimeId, states.stateData());
+        return new SimpleBlockDefinition(states.name(), runtimeId, states.stateData().getCompound("states"));
     }
 
     @Override

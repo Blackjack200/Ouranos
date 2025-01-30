@@ -6,6 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
 import lombok.SneakyThrows;
+import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.allaymc.updater.block.BlockStateUpdaters;
 import org.cloudburstmc.nbt.NbtMap;
@@ -14,13 +15,13 @@ import org.cloudburstmc.nbt.NbtUtils;
 import java.io.InputStreamReader;
 import java.util.*;
 
+@Log4j2
 public final class BlockStateDictionary extends AbstractMapping {
     public static final class Dictionary {
         private final Map<Integer, BlockEntry> stateHashToEntry = new HashMap<>();
         private final Map<String, Map<Integer, BlockEntry>> stateIdToMetaToEntry = new HashMap<>();
         private final Map<Integer, Integer> stateHashToRuntimeId = new HashMap<>();
         private final Map<Integer, Integer> runtimeToStateHash = new HashMap<>();
-        private Map<String, Map<Integer, Integer>> stringMapHashMap;
         @Getter
         private Integer fallback;
 
@@ -91,18 +92,13 @@ public final class BlockStateDictionary extends AbstractMapping {
          * @return the state ID or null if no match.
          */
         public Integer lookupStateIdFromIdMeta(String id, int meta) {
-            if (stringMapHashMap.isEmpty()) {
-                stringMapHashMap = new HashMap<>();
-                for (var metaToEntryEntry : this.stateIdToMetaToEntry.entrySet()) {
-                    for (var entry : metaToEntryEntry.getValue().entrySet()) {
-                        if (entry.getValue().name.equals(id)) {
-                            stringMapHashMap.computeIfAbsent(id, k -> new HashMap<>());
-                            stringMapHashMap.get(id).put(meta, entry.getValue().stateHash);
-                        }
-                    }
-                }
+            if (!stateIdToMetaToEntry.containsKey(id)) {
+                return null;
             }
-            return stringMapHashMap.get(id).get(meta);
+            if (!stateIdToMetaToEntry.get(id).containsKey(meta)) {
+                return null;
+            }
+            return stateIdToMetaToEntry.get(id).get(meta).stateHash;
         }
 
         public record BlockEntry(String name, int meta, NbtMap stateData, int stateHash) {
