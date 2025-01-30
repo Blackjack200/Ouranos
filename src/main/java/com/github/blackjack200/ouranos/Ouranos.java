@@ -1,11 +1,18 @@
 package com.github.blackjack200.ouranos;
 
+import cn.hutool.core.io.FileUtil;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.AuthData;
 import com.github.blackjack200.ouranos.network.session.OuranosPlayer;
 import com.github.blackjack200.ouranos.network.session.Translate;
-import com.github.blackjack200.ouranos.utils.*;
+import com.github.blackjack200.ouranos.utils.BlockDictionaryRegistry;
+import com.github.blackjack200.ouranos.utils.ForgeryUtils;
+import com.github.blackjack200.ouranos.utils.HandshakeUtils;
+import com.github.blackjack200.ouranos.utils.ItemTypeDictionaryRegistry;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -21,10 +28,7 @@ import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockClientSession;
 import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
-import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
-import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
-import org.cloudburstmc.protocol.bedrock.data.ExperimentData;
 import org.cloudburstmc.protocol.bedrock.data.NetworkPermissions;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
@@ -43,7 +47,9 @@ import org.jose4j.jwx.HeaderParameterNames;
 import org.jose4j.lang.JoseException;
 
 import javax.crypto.SecretKey;
-import java.io.File;
+import java.io.FileReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPublicKey;
@@ -57,34 +63,32 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Log4j2
 public class Ouranos {
+    public static final Path SERVER_CONFIG_FILE = Path.of("config.json");
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(true);
 
-    public static final BedrockCodec REMOTE_CODEC = Bedrock_v766.CODEC;
-    public static final BedrockCodec REMOTE_CODEC_2 = Bedrock_v589.CODEC;
+    public static BedrockCodec REMOTE_CODEC = ProtocolInfo.getDefaultPacketCodec();
     private NioEventLoopGroup bossGroup;
     private NioEventLoopGroup workerGroup;
 
+    @SneakyThrows
     private Ouranos() {
-        this.config = new ServerConfig(new YamlConfig(new File("config.yml")));
+        if (!FileUtil.exist(SERVER_CONFIG_FILE.toFile()) || SERVER_CONFIG_FILE.toFile().getTotalSpace() == 0) {
+            Files.writeString(SERVER_CONFIG_FILE, new GsonBuilder().setPrettyPrinting().create().toJson(new ServerConfig()));
+        }
+        this.config = new Gson().fromJson(new FileReader(SERVER_CONFIG_FILE.toFile()), TypeToken.get(ServerConfig.class));
     }
 
     @SneakyThrows
     private void start() {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
-        val bindAddress = this.config.getBind();
-        val pong = this.config.getPong();
-
-        pong.ipv4Port(bindAddress.getPort())
-                .ipv6Port(bindAddress.getPort());
-
         this.bossGroup = new NioEventLoopGroup();
         this.workerGroup = new NioEventLoopGroup();
 
-        new ServerBootstrap()
+        var boostrap = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
-                .option(RakChannelOption.RAK_ADVERTISEMENT, pong.toByteBuf())
+                .option(RakChannelOption.RAK_ADVERTISEMENT, this.config.getPong().toByteBuf())
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
                 .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, ProtocolInfo.getPacketCodecs().stream().mapToInt(BedrockCodec::getRaknetProtocolVersion).distinct().toArray())
                 .group(this.bossGroup, this.workerGroup)
@@ -140,12 +144,21 @@ public class Ouranos {
                             }
                         });
                     }
-                })
-                .bind(bindAddress)
-                .awaitUninterruptibly();
+                });
 
-        log.info("Remote codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
-        log.info("Ouranos started at {}", this.config.getBind());
+        var bindv4 = this.config.getBindv4();
+        var bindv6 = this.config.getBindv6();
+        boostrap.bind(bindv4).awaitUninterruptibly();
+        log.info("Ouranos started on {}", bindv4);
+
+        if (this.config.server_ipv6_enabled) {
+            boostrap.bind(bindv6).awaitUninterruptibly();
+            log.info("Ouranos started on {}", bindv6);
+        }
+
+        REMOTE_CODEC = this.config.getRemoteCodec();
+
+        log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             Ouranos.this.shutdown(true);
@@ -155,13 +168,12 @@ public class Ouranos {
         while (this.running.get() && !this.bossGroup.isShutdown()) {
             if (scanner.hasNextLine()) {
                 String input = scanner.nextLine().toLowerCase().trim();
-                if (input.length() == 0) {
+                if (input.isEmpty()) {
                     continue;
                 }
                 switch (input.toLowerCase()) {
                     case "stop":
                     case "exit":
-                        log.info("Shutting down...");
                         this.shutdown(false);
                         break;
                     case "gc":
@@ -178,7 +190,7 @@ public class Ouranos {
                 }
             }
         }
-        log.info("Ouranos shutdown gracefully");
+        log.info("Ouranos shutdown gracefully.");
     }
 
     private ChannelFuture onPlayerLogin(final BedrockServerSession downstream, final LoginPacket loginPacket) {
@@ -202,7 +214,7 @@ public class Ouranos {
                         val downstreamProtocolId = downstream.getCodec().getProtocolVersion();
                         val upstreamProtocolId = upstream.getCodec().getProtocolVersion();
 
-                        log.info("{} connected to the remote server {}=>{}", downstream.getPeer().getSocketAddress(), downstreamProtocolId, upstreamProtocolId);
+                        log.info("{}({}) connected to the remote server using protocol {}", downstream.getPeer().getSocketAddress(), downstreamProtocolId, upstreamProtocolId);
 
                         val packet = new RequestNetworkSettingsPacket();
                         packet.setProtocolVersion(upstreamProtocolId);
@@ -216,7 +228,7 @@ public class Ouranos {
                                 if (upstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
                                     BedrockPacket pk = Translate.translate(player.getDownstreamProtocolId(), player.getUpstreamProtocolId(), player, packet);
                                     if (!(packet instanceof PlayerAuthInputPacket)) {
-                                        log.info("C->S {}", pk.getPacketType());
+                                        log.debug("C->S {}", pk.getPacketType());
                                     }
                                     upstream.sendPacket(pk);
                                 }
@@ -275,20 +287,12 @@ public class Ouranos {
                                     upstream.sendPacketImmediately(handshake);
                                     return PacketSignal.HANDLED;
                                 }
-                                if (packet instanceof AvailableCommandsPacket pk) {
-                                    //  pk.getCommands().clear();
-                                }
-                                if (packet instanceof CreativeContentPacket pk) {
-                                    //pk.setContents(new ItemData[0]);
-                                }
-
                                 if (packet instanceof StartGamePacket pk) {
                                     upstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamProtocolId));
                                     downstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(downstreamProtocolId));
 
                                     List<ItemDefinition> def = ItemTypeDictionary.getInstance(downstreamProtocolId).getEntries().entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
                                     pk.setItemDefinitions(def);
-                                    //pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND));
 
                                     upstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(upstreamProtocolId));
                                     downstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(downstreamProtocolId));
@@ -298,11 +302,6 @@ public class Ouranos {
                                     pk.setNetworkPermissions(new NetworkPermissions(false));
                                     pk.setEduFeaturesEnabled(true);
                                     pk.setVanillaVersion("*");
-                                    pk.getExperiments().add(new ExperimentData("next_major_update", true));
-                                    pk.getExperiments().add(new ExperimentData("data_driven_items", true));
-                                    pk.getExperiments().add(new ExperimentData("upcoming_creator_features", true));
-                                    pk.getExperiments().add(new ExperimentData("experimental_molang_features", true));
-                                    pk.getExperiments().add(new ExperimentData("recipe_unlocking", true));
 
                                     downstream.sendPacketImmediately(pk);
                                     return PacketSignal.HANDLED;
@@ -310,9 +309,8 @@ public class Ouranos {
                                 ReferenceCountUtil.retain(packet);
                                 if (downstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
                                     BedrockPacket translated = Translate.translate(upstreamProtocolId, downstreamProtocolId, player, packet);
-
                                     if (!(packet instanceof LevelChunkPacket) && !(packet instanceof CraftingDataPacket) && !(packet instanceof AvailableEntityIdentifiersPacket) && !(packet instanceof BiomeDefinitionListPacket)) {
-                                        log.info("C<-S {}", translated.getPacketType());
+                                        log.debug("C<-S {}", translated.getPacketType());
                                     }
                                     downstream.sendPacket(translated);
                                 }
@@ -368,6 +366,7 @@ public class Ouranos {
         if (!this.running.get()) {
             return;
         }
+        log.info("Stopping the server...");
         OuranosPlayer.ouranosPlayers.forEach(player -> {
             player.disconnect("Ouranos closed.");
         });
