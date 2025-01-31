@@ -268,6 +268,9 @@ public class Ouranos {
                                     upstream.setCompression(pk.getCompressionAlgorithm());
                                     try {
                                         var login = makeNewLoginPacket(loginPacket, player);
+                                        if (login == null) {
+                                            return PacketSignal.HANDLED;
+                                        }
                                         upstream.sendPacketImmediately(login);
                                     } catch (JoseException | InvalidKeySpecException | NoSuchAlgorithmException e) {
                                         throw new RuntimeException(e);
@@ -330,7 +333,7 @@ public class Ouranos {
                 .connect(this.config.getRemote());
     }
 
-    private static LoginPacket makeNewLoginPacket(LoginPacket loginPacket, OuranosPlayer player) throws JoseException, NoSuchAlgorithmException, InvalidKeySpecException {
+    private LoginPacket makeNewLoginPacket(LoginPacket loginPacket, OuranosPlayer player) throws JoseException, NoSuchAlgorithmException, InvalidKeySpecException {
         ChainValidationResult chain = EncryptionUtils.validateChain(loginPacket.getChain());
 
         var payload = chain.rawIdentityClaims();
@@ -342,6 +345,11 @@ public class Ouranos {
 
         var identityData = new AuthData(chain.identityClaims().extraData.displayName,
                 chain.identityClaims().extraData.identity, chain.identityClaims().extraData.xuid);
+
+        if (identityData.xuid().isEmpty() && this.config.online_mode) {
+            player.disconnect("You must login with xbox");
+            return null;
+        }
 
         if (!(payload.get("identityPublicKey") instanceof String)) {
             throw new RuntimeException("Identity Public Key was not found!");
