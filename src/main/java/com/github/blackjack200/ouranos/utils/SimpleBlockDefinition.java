@@ -1,7 +1,9 @@
 package com.github.blackjack200.ouranos.utils;
 
+import lombok.Data;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 
+@Data
 public class SimpleBlockDefinition implements BlockDefinition {
     private final int runtimeId;
 
