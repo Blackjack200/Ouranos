@@ -23,6 +23,8 @@ import io.netty.util.ResourceLeakDetector;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockClientSession;
@@ -46,7 +48,6 @@ import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwx.HeaderParameterNames;
 import org.jose4j.lang.JoseException;
 
-import javax.crypto.SecretKey;
 import java.io.FileReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,6 +75,11 @@ public class Ouranos {
             Files.writeString(SERVER_CONFIG_FILE, new GsonBuilder().setPrettyPrinting().create().toJson(new ServerConfig()));
         }
         this.config = new Gson().fromJson(new FileReader(SERVER_CONFIG_FILE.toFile()), TypeToken.get(ServerConfig.class));
+        if (this.config.debug) {
+            Configurator.setRootLevel(Level.DEBUG);
+        } else {
+            Configurator.setRootLevel(Level.INFO);
+        }
     }
 
     @SneakyThrows
