@@ -126,14 +126,23 @@ public final class BlockStateDictionary extends AbstractMapping {
             var list = new LinkedList<BlockEntry>();
             int i = 0;
             while (block_state.available() > 0) {
-                NbtMap blockState = (NbtMap) reader.readTag();
-                var state = BlockStateUpdaters.updateBlockState(blockState, BlockStateUpdaters.LATEST_VERSION);
+                var rawState = (NbtMap) reader.readTag();
+                var state = BlockStateUpdaters.updateBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
+
+                //TODO HACK! blame on BlockStateUpdaters
+                if (state.getString("name").equals("minecraft:0tnt")) {
+                    state = state.toBuilder().putString("name", "minecraft:tnt").build();
+                }
+                if (state.getString("name").equals("minecraft:1tnt")) {
+                    state = state.toBuilder().putString("name", "minecraft:underwater_tnt").build();
+                }
+
                 var stateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
                 var meta = meta_map.get(i);
                 if (meta == null) {
                     throw new RuntimeException("Missing associated meta value for state " + i + " (" + state + ")");
                 }
-                list.add(new BlockEntry(state.getString("name"), meta, blockState, stateHash));
+                list.add(new BlockEntry(state.getString("name"), meta, rawState, stateHash));
                 i++;
             }
             return new Dictionary(list);
