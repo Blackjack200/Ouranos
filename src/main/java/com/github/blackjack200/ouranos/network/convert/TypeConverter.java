@@ -35,16 +35,16 @@ public class TypeConverter {
             return null;
         }
 
-        var builder = itemData.toBuilder();
-        builder.definition(new SimpleItemDefinition(newStringId, networkId, false))
-                .damage(newMeta);
-
         //downgrade block runtime id
         var bid = BlockItemIdMap.getInstance().lookupItemId(output, newStringId);
         if (bid != null && !bid.equals(newStringId)) {
             log.debug("Inconsistent item id map found for {}=>{}", newStringId, bid);
             newStringId = bid;
         }
+
+        var builder = itemData.toBuilder();
+        builder.definition(new SimpleItemDefinition(newStringId, networkId, false))
+                .damage(newMeta);
 
         if (BlockItemIdMap.getInstance().lookupItemId(output, newStringId) != null && itemData.getBlockDefinition() != null) {
             int trans = translateBlockRuntimeId(input, output, itemData.getBlockDefinition().getRuntimeId());
