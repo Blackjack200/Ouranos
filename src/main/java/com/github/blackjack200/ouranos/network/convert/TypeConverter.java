@@ -13,6 +13,8 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
+import java.util.Objects;
+
 @Log4j2
 @UtilityClass
 public class TypeConverter {
@@ -123,17 +125,31 @@ public class TypeConverter {
     }
 
     public int translateBlockRuntimeId(int input, int output, int blockRuntimeId) {
-        val stateHash = BlockStateDictionary.getInstance(input).toStateHash(blockRuntimeId);
+        val inputDict = BlockStateDictionary.getInstance(input);
+
+        val stateHash = inputDict.toStateHash(blockRuntimeId);
+
         int fallback = BlockStateDictionary.getInstance(output).getFallback();
         if (stateHash == null) {
             log.error("unknown block runtime id {}", blockRuntimeId);
             return blockRuntimeId;
         }
-        val converted = BlockStateDictionary.getInstance(output).toRuntimeId(stateHash);
-        if (converted == null) {
+
+        var translated = BlockStateDictionary.getInstance(output).toRuntimeId(stateHash);
+        if (translated == null) {
+            /*
+            //TODO HACK for heads and skulls, this is not a proper way to translate them. currently unusable
+            var anyState = inputDict.lookupStateFromStateHash(stateHash);
+            if (anyState != null && (anyState.name().endsWith("_head") || anyState.name().endsWith("_skull"))) {
+                Integer skullHash = inputDict.lookupStateIdFromData("minecraft:skeleton_skull", anyState.stateData());
+                if (skullHash != null) {
+                    return Objects.requireNonNullElse(BlockStateDictionary.getInstance(output).toRuntimeId(skullHash), fallback);
+                }
+            }
+             */
             return fallback;
         }
-        return converted;
+        return translated;
     }
 
     public BlockDefinition translateBlockDefinition(int input, int output, BlockDefinition definition) {
