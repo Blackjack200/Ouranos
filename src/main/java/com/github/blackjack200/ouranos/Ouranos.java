@@ -317,10 +317,7 @@ public class Ouranos {
                                     downstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(downstreamProtocolId));
 
                                     player.blockNetworkIdAreHashes = pk.isBlockNetworkIdsHashed();
-                                    pk.setServerEngine("Ouranos");
-                                    pk.setNetworkPermissions(new NetworkPermissions(false));
-                                    pk.setEduFeaturesEnabled(true);
-                                    pk.setVanillaVersion("*");
+                                    pk.setServerEngine("Ouranos"); //for telemetry
 
                                     downstream.sendPacketImmediately(pk);
                                     return PacketSignal.HANDLED;

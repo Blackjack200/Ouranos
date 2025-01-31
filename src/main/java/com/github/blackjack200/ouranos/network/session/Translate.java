@@ -2,6 +2,7 @@ package com.github.blackjack200.ouranos.network.session;
 
 import com.github.blackjack200.ouranos.network.convert.ChunkRewriteException;
 import com.github.blackjack200.ouranos.network.convert.TypeConverter;
+import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
@@ -347,7 +348,7 @@ public class Translate {
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
             var translated = TypeConverter.translateBlockRuntimeId(input, output, runtimeId);
-            packet.setDefinition(() -> translated);
+            packet.setDefinition(new SimpleBlockDefinition(translated));
         } else if (p instanceof LevelEventPacket packet) {
             var type = packet.getType();
             if (type != ParticleType.TERRAIN && type != LevelEvent.PARTICLE_DESTROY_BLOCK && type != LevelEvent.PARTICLE_CRACK_BLOCK) {
