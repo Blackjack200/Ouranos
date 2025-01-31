@@ -33,6 +33,8 @@ import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.*;
+import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescriptorWithCount;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequestSlotData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.*;
@@ -41,6 +43,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTrans
 import org.cloudburstmc.protocol.bedrock.packet.*;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -73,6 +76,20 @@ public class Translate {
             pk.setContents(contents);
             return pk;
         } else if (p instanceof CraftingDataPacket pk) {
+           /* var newCraftingData = new ArrayList<RecipeData>(pk.getCraftingData().size());
+            for (var d : pk.getCraftingData()) {
+                try {
+                    newCraftingData.add(translateRecipeData(input, output, d));
+                } catch (NullPointerException e) {
+                    e.printStackTrace();
+                }
+            }
+           // pk.getCraftingData().clear();
+           // pk.getCraftingData().addAll(newCraftingData);
+           // pk.getContainerMixData().clear();
+           // pk.getMaterialReducers().clear();
+           // pk.getPotionMixData().clear();
+             pk.setCleanRecipes(true);*/
             pk.getPotionMixData().clear();
             pk.getMaterialReducers().clear();
             pk.getCraftingData().clear();
@@ -106,6 +123,58 @@ public class Translate {
         return p;
     }
 
+    private static RecipeData translateRecipeData(int input, int output, RecipeData d) {
+        if (d instanceof ShapelessRecipeData da) {
+            var newIngredients = da.getIngredients().stream().map((i) -> translateItemDescriptorWithCount(input, output, i)).filter(Objects::nonNull).toList();
+            da.getIngredients().clear();
+            da.getIngredients().addAll(newIngredients);
+            var newResults = da.getResults().stream().map((i) -> TypeConverter.translateItemData(input, output, i)).filter(Objects::nonNull).toList();
+            da.getResults().clear();
+            da.getResults().addAll(newResults);
+            return da;
+        }
+        if (d instanceof FurnaceRecipeData da) {
+            return FurnaceRecipeData.of(da.getType(), da.getInputId(), da.getInputData(), da.getResult(), da.getTag());
+        } else if (d instanceof MultiRecipeData da) {
+            return da;
+        } else if (d instanceof ShapedRecipeData da) {
+            var newIngredients = da.getIngredients().stream().map((i) -> translateItemDescriptorWithCount(input, output, i)).filter(Objects::nonNull).toList();
+            da.getIngredients().clear();
+            da.getIngredients().addAll(newIngredients);
+            var newResults = da.getResults().stream().map((i) -> TypeConverter.translateItemData(input, output, i)).filter(Objects::nonNull).toList();
+            da.getResults().clear();
+            da.getResults().addAll(newResults);
+            return da;
+        } else if (d instanceof SmithingTransformRecipeData da) {
+            return SmithingTransformRecipeData.of(
+                    da.getId(),
+                    translateItemDescriptorWithCount(input, output, da.getTemplate()),
+                    translateItemDescriptorWithCount(input, output, da.getBase()),
+                    translateItemDescriptorWithCount(input, output, da.getAddition()),
+                    TypeConverter.translateItemData(input, output, da.getResult()),
+                    da.getTag(),
+                    da.getNetId()
+            );
+        } else if (d instanceof SmithingTrimRecipeData da) {
+            return SmithingTrimRecipeData.of(
+                    da.getId(),
+                    translateItemDescriptorWithCount(input, output, da.getTemplate()),
+                    translateItemDescriptorWithCount(input, output, da.getBase()),
+                    translateItemDescriptorWithCount(input, output, da.getAddition()),
+                    da.getTag(),
+                    da.getNetId()
+            );
+        }
+        throw new RuntimeException("Unknown recipe type " + d.getType());
+    }
+
+    private static ItemDescriptorWithCount translateItemDescriptorWithCount(int input, int output, ItemDescriptorWithCount i) {
+        var descriptor = TypeConverter.translateItemDescriptor(input, output, i.getDescriptor());
+        if (descriptor == null) {
+            return null;
+        }
+        return new ItemDescriptorWithCount(descriptor, i.getCount());
+    }
 
     private static void rewriteProtocol(int input, int output, OuranosPlayer player, BedrockPacket p) {
         val provider = new ImmutableVectorProvider();

@@ -10,6 +10,7 @@ import lombok.val;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 @Log4j2
@@ -152,5 +153,35 @@ public class TypeConverter {
         val newState = BlockStateDictionary.getInstance(output).lookupStateFromStateHash(stateHash);
         log.debug("3 translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", input, output, oldState, newState, definition.getRuntimeId(), converted);
         return () -> converted;
+    }
+
+    public ItemDescriptor translateItemDescriptor(int input, int output, ItemDescriptor descriptor) {
+        if (descriptor instanceof ComplexAliasDescriptor d) {
+            return d;
+        } else if (descriptor instanceof DefaultDescriptor d) {
+            var itemData = translateItemData(input, output, ItemData.builder().count(1).damage(d.getAuxValue()).definition(d.getItemId()).build());
+            if (itemData == null) {
+                return InvalidDescriptor.INSTANCE;
+            }
+            return new DefaultDescriptor(itemData.getDefinition(), itemData.getDamage());
+        } else if (descriptor instanceof DeferredDescriptor d) {
+            var newData = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(d.getFullName(), d.getAuxValue());
+            var downgraded = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(newData[0].toString(), (Integer) newData[1]);
+            var newStringId = downgraded[0].toString();
+            var newMeta = (Integer) downgraded[1];
+            var typ = ItemTypeDictionary.getInstance(output).getEntries().get(newStringId);
+            //TODO
+            return new DefaultDescriptor(new SimpleItemDefinition(newStringId, typ.runtime_id(), typ.component_based()), newMeta);
+        } else if (descriptor instanceof InvalidDescriptor d) {
+            //noop
+        } else if (descriptor instanceof ItemTagDescriptor d) {
+            //TODO
+            return d;
+        } else if (descriptor instanceof MolangDescriptor d) {
+            //TODO
+            return d;
+        }
+        //log.error("unknown descriptor {}", descriptor);
+        return InvalidDescriptor.INSTANCE;
     }
 }
