@@ -329,7 +329,7 @@ public class Ouranos {
                                 if (downstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
                                     BedrockPacket translated = Translate.translate(upstreamProtocolId, downstreamProtocolId, player, packet);
                                     if (!(packet instanceof NetworkChunkPublisherUpdatePacket) && !(packet instanceof LevelChunkPacket) && !(packet instanceof CraftingDataPacket) && !(packet instanceof AvailableEntityIdentifiersPacket) && !(packet instanceof BiomeDefinitionListPacket)) {
-                                        log.debug("C<-S {}", translated.getPacketType());
+                                        log.debug("C<-S {}", translated);
                                     }
                                     downstream.sendPacket(translated);
                                 }
