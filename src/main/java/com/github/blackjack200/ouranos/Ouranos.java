@@ -1,6 +1,5 @@
 package com.github.blackjack200.ouranos;
 
-import cn.hutool.core.convert.Convert;
 import cn.hutool.core.io.FileUtil;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
@@ -39,13 +38,16 @@ import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockServerInitiali
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
+import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
 import org.cloudburstmc.protocol.common.PacketSignal;
+import org.jose4j.json.JsonUtil;
+import org.jose4j.json.internal.json_simple.JSONObject;
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwx.HeaderParameterNames;
 import org.jose4j.lang.JoseException;
 
+import javax.crypto.SecretKey;
 import java.io.FileReader;
-import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
@@ -160,6 +162,7 @@ public class Ouranos {
         REMOTE_CODEC = this.config.getRemoteCodec();
 
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
+
         log.info("Supported versions: {}", String.join(", ", ProtocolInfo.getPacketCodecs().stream().sorted(Comparator.comparingInt(BedrockCodec::getProtocolVersion)).map(BedrockCodec::getMinecraftVersion).distinct().toList()));
 
         val done = System.currentTimeMillis();
@@ -282,16 +285,15 @@ public class Ouranos {
                                         try {
                                             var jws = new JsonWebSignature();
                                             jws.setCompactSerialization(pk.getJwt());
-                                            var saltJwt = Convert.toMap(String.class, Object.class, new Gson().fromJson(new StringReader(jws.getUnverifiedPayload()), TypeToken.get(Map.class)));
+                                            var saltJwt = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
                                             var x5u = jws.getHeader(HeaderParameterNames.X509_URL);
                                             var serverKey = EncryptionUtils.parseKey(x5u);
                                             var key = EncryptionUtils.getSecretKey(player.getKeyPair().getPrivate(), serverKey,
-                                                    Base64.getDecoder().decode(saltJwt.get("salt").toString()));
+                                                    Base64.getDecoder().decode(JsonUtils.childAsType(saltJwt, "salt", String.class)));
                                             upstream.enableEncryption(key);
                                         } catch (JoseException | NoSuchAlgorithmException | InvalidKeySpecException |
                                                  InvalidKeyException e) {
-                                            log.error("Failed to prepare client encryption", e);
-                                            upstream.disconnect(e.getMessage());
+                                            throw new RuntimeException(e);
                                         }
                                         val handshake = new ClientToServerHandshakePacket();
                                         upstream.sendPacketImmediately(handshake);
@@ -341,7 +343,7 @@ public class Ouranos {
             throw new RuntimeException("AuthData was not found!");
         }
 
-        var extraData = Convert.toMap(String.class, Object.class, payload.get("extraData"));
+        var extraData = new JSONObject(JsonUtils.childAsType(payload, "extraData", Map.class));
 
         var identityData = new AuthData(chain.identityClaims().extraData.displayName,
                 chain.identityClaims().extraData.identity, chain.identityClaims().extraData.xuid);
@@ -363,14 +365,15 @@ public class Ouranos {
         jws.setCompactSerialization(clientJwt);
         jws.verifySignature();
 
-        var clientData = Convert.toMap(String.class, Object.class, new Gson().fromJson(new StringReader(jws.getUnverifiedPayload()), TypeToken.get(Map.class)));
+        var skinData = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
         var chainData = HandshakeUtils.createExtraData(player.getKeyPair(), extraData);
+
         var authData = ForgeryUtils.forgeAuthData(player.getKeyPair(), extraData);
-        var clientDataString = ForgeryUtils.forgeSkinData(player.getKeyPair(), player.getUpstreamProtocolId(), clientData);
+        var skinDataString = ForgeryUtils.forgeSkinData(player.getKeyPair(), player.getUpstreamProtocolId(), skinData);
 
         LoginPacket login = new LoginPacket();
         login.getChain().add(chainData.serialize());
-        login.setExtra(clientDataString);
+        login.setExtra(skinDataString);
         login.setProtocolVersion(player.getUpstreamProtocolId());
         return login;
     }
