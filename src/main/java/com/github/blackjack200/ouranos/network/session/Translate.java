@@ -86,16 +86,16 @@ public class Translate {
             pk.getCraftingData().clear();
             pk.getContainerMixData().clear();
         } else if (p instanceof CreativeContentPacket pk) {
-            val contents = new ArrayList<ItemData>();
-            var j = 0;
-            for (val i : pk.getContents()) {
-                j++;
-                val item = TypeConverter.translateItemData(input, output, i);
+            val contents = pk.getContents();
+            for (int i = 0, iMax = pk.getContents().length; i < iMax; i++) {
+                val item = TypeConverter.translateItemData(input, output, contents[i]);
                 if (item != null) {
-                    contents.add(item.toBuilder().usingNetId(true).netId(j).build());
+                    contents[i] = (item.toBuilder().build());
+                } else {
+                    contents[i] = ItemData.AIR.toBuilder().netId(i).build();
                 }
             }
-            pk.setContents(contents.toArray(new ItemData[0]));
+            pk.setContents(contents);
         } else if (p instanceof AddItemEntityPacket pk) {
             pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
         } else if (p instanceof InventorySlotPacket pk) {
