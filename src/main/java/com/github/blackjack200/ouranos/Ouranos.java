@@ -1,5 +1,6 @@
 package com.github.blackjack200.ouranos;
 
+import cn.hutool.core.convert.Convert;
 import cn.hutool.core.io.FileUtil;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
@@ -38,16 +39,13 @@ import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockServerInitiali
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
-import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
 import org.cloudburstmc.protocol.common.PacketSignal;
-import org.jose4j.json.JsonUtil;
-import org.jose4j.json.internal.json_simple.JSONObject;
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwx.HeaderParameterNames;
 import org.jose4j.lang.JoseException;
 
-import javax.crypto.SecretKey;
 import java.io.FileReader;
+import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
@@ -81,10 +79,11 @@ public class Ouranos {
 
     @SneakyThrows
     private void start() {
+        val start = System.currentTimeMillis();
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
 
         this.bossGroup = new NioEventLoopGroup();
-        this.workerGroup = new NioEventLoopGroup();
+        this.workerGroup = this.bossGroup;
 
         var boostrap = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
@@ -95,6 +94,10 @@ public class Ouranos {
                 .childHandler(new BedrockServerInitializer() {
                     @Override
                     protected void initSession(BedrockServerSession session) {
+                        if (OuranosPlayer.ouranosPlayers.size() >= Ouranos.this.config.maximum_player) {
+                            session.disconnect("Ouranos proxy is full.");
+                            return;
+                        }
                         log.info("{} connected", session.getPeer().getSocketAddress());
                         session.setPacketHandler(new BedrockPacketHandler() {
                             @Override
@@ -105,7 +108,7 @@ public class Ouranos {
                             private BedrockCodec setupCodec(int protocolId) {
                                 val codec = ProtocolInfo.getPacketCodec(protocolId);
                                 if (codec == null) {
-                                    log.error("Packet protocol version {} is not supported", protocolId);
+                                    log.error("Protocol version {} is not supported", protocolId);
                                     val status = new PlayStatusPacket();
                                     status.setStatus(PlayStatusPacket.Status.LOGIN_FAILED_CLIENT_OLD);
                                     session.sendPacketImmediately(status);
@@ -116,6 +119,7 @@ public class Ouranos {
                             }
 
                             @Override
+                            @SneakyThrows
                             public PacketSignal handle(LoginPacket packet) {
                                 val codec = setupCodec(packet.getProtocolVersion());
                                 if (codec == null) {
@@ -160,12 +164,17 @@ public class Ouranos {
 
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
 
+
+        val done = System.currentTimeMillis();
+        val time = done - start;
+        log.info("Server started in {} ms", time);
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             Ouranos.this.shutdown(true);
         }));
         Scanner scanner = new Scanner(System.in);
 
-        while (this.running.get() && !this.bossGroup.isShutdown()) {
+        while (this.running.get() && !this.bossGroup.isShutdown() && !this.workerGroup.isShutdown()) {
             if (scanner.hasNextLine()) {
                 String input = scanner.nextLine().toLowerCase().trim();
                 if (input.isEmpty()) {
@@ -177,7 +186,6 @@ public class Ouranos {
                         this.shutdown(false);
                         break;
                     case "gc":
-                        log.info("Trigger gc...");
                         val runtime = Runtime.getRuntime();
                         val usedMemory = runtime.totalMemory() - runtime.freeMemory();
                         log.info("Memory used: {} MB", Math.round((usedMemory / 1024d / 1024d)));
@@ -270,21 +278,24 @@ public class Ouranos {
                                     return PacketSignal.HANDLED;
                                 }
                                 if (packet instanceof ServerToClientHandshakePacket pk) {
-                                    try {
-                                        JsonWebSignature jws = new JsonWebSignature();
-                                        jws.setCompactSerialization(pk.getJwt());
-                                        JSONObject saltJwt = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
-                                        String x5u = jws.getHeader(HeaderParameterNames.X509_URL);
-                                        ECPublicKey serverKey = EncryptionUtils.parseKey(x5u);
-                                        SecretKey key = EncryptionUtils.getSecretKey(player.getKeyPair().getPrivate(), serverKey,
-                                                Base64.getDecoder().decode(JsonUtils.childAsType(saltJwt, "salt", String.class)));
-                                        upstream.enableEncryption(key);
-                                    } catch (JoseException | NoSuchAlgorithmException | InvalidKeySpecException |
-                                             InvalidKeyException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                    val handshake = new ClientToServerHandshakePacket();
-                                    upstream.sendPacketImmediately(handshake);
+                                    upstream.getPeer().getChannel().eventLoop().execute(() -> {
+                                        try {
+                                            var jws = new JsonWebSignature();
+                                            jws.setCompactSerialization(pk.getJwt());
+                                            var saltJwt = Convert.toMap(String.class, Object.class, new Gson().fromJson(new StringReader(jws.getUnverifiedPayload()), TypeToken.get(Map.class)));
+                                            var x5u = jws.getHeader(HeaderParameterNames.X509_URL);
+                                            var serverKey = EncryptionUtils.parseKey(x5u);
+                                            var key = EncryptionUtils.getSecretKey(player.getKeyPair().getPrivate(), serverKey,
+                                                    Base64.getDecoder().decode(saltJwt.get("salt").toString()));
+                                            upstream.enableEncryption(key);
+                                        } catch (JoseException | NoSuchAlgorithmException | InvalidKeySpecException |
+                                                 InvalidKeyException e) {
+                                            log.error("Failed to prepare client encryption", e);
+                                            upstream.disconnect(e.getMessage());
+                                        }
+                                        val handshake = new ClientToServerHandshakePacket();
+                                        upstream.sendPacketImmediately(handshake);
+                                    });
                                     return PacketSignal.HANDLED;
                                 }
                                 if (packet instanceof StartGamePacket pk) {
@@ -323,15 +334,14 @@ public class Ouranos {
     }
 
     private static LoginPacket makeNewLoginPacket(LoginPacket loginPacket, OuranosPlayer player) throws JoseException, NoSuchAlgorithmException, InvalidKeySpecException {
-        ChainValidationResult chain = null;
-        chain = EncryptionUtils.validateChain(loginPacket.getChain());
+        ChainValidationResult chain = EncryptionUtils.validateChain(loginPacket.getChain());
 
         var payload = chain.rawIdentityClaims();
         if (!(payload.get("extraData") instanceof Map<?, ?>)) {
             throw new RuntimeException("AuthData was not found!");
         }
 
-        var extraData = new JSONObject(JsonUtils.childAsType(payload, "extraData", Map.class));
+        var extraData = Convert.toMap(String.class, Object.class, payload.get("extraData"));
 
         var identityData = new AuthData(chain.identityClaims().extraData.displayName,
                 chain.identityClaims().extraData.identity, chain.identityClaims().extraData.xuid);
@@ -348,15 +358,14 @@ public class Ouranos {
         jws.setCompactSerialization(clientJwt);
         jws.verifySignature();
 
-        var skinData = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
+        var clientData = Convert.toMap(String.class, Object.class, new Gson().fromJson(new StringReader(jws.getUnverifiedPayload()), TypeToken.get(Map.class)));
         var chainData = HandshakeUtils.createExtraData(player.getKeyPair(), extraData);
-
         var authData = ForgeryUtils.forgeAuthData(player.getKeyPair(), extraData);
-        var skinDataString = ForgeryUtils.forgeSkinData(player.getKeyPair(), skinData);
+        var clientDataString = ForgeryUtils.forgeSkinData(player.getKeyPair(), player.getUpstreamProtocolId(), clientData);
 
         LoginPacket login = new LoginPacket();
         login.getChain().add(chainData.serialize());
-        login.setExtra(skinDataString);
+        login.setExtra(clientDataString);
         login.setProtocolVersion(player.getUpstreamProtocolId());
         return login;
     }
@@ -367,9 +376,12 @@ public class Ouranos {
             return;
         }
         log.info("Stopping the server...");
-        OuranosPlayer.ouranosPlayers.forEach(player -> {
+        val iter = OuranosPlayer.ouranosPlayers.iterator();
+        while (iter.hasNext()) {
+            val player = iter.next();
+            iter.remove();
             player.disconnect("Ouranos closed.");
-        });
+        }
         if (force) {
             this.bossGroup.shutdownGracefully(2, 2, TimeUnit.SECONDS);
             this.workerGroup.shutdownGracefully(2, 2, TimeUnit.SECONDS);

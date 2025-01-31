@@ -48,6 +48,13 @@ import java.util.UUID;
 public class Translate {
 
     public static BedrockPacket translate(int input, int output, OuranosPlayer player, BedrockPacket p) {
+        val barrierNamespaceId = "minecraft:info_update";
+        val barrier = ItemData.builder()
+                .definition(new SimpleItemDefinition(barrierNamespaceId, ItemTypeDictionary.getInstance(output).fromStringId(barrierNamespaceId), false))
+                .count(1)
+                .blockDefinition(() -> BlockStateDictionary.getInstance(output).getFallback())
+                .build();
+
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -60,7 +67,7 @@ public class Translate {
                 if (item != null) {
                     contents.set(i, item);
                 } else {
-                    contents.set(i, ItemData.AIR);
+                    contents.set(i, barrier);
                 }
             }
             pk.setContents(contents);
@@ -70,6 +77,7 @@ public class Translate {
             pk.getMaterialReducers().clear();
             pk.getCraftingData().clear();
             pk.getContainerMixData().clear();
+            pk.setCleanRecipes(true);
         } else if (p instanceof CreativeContentPacket pk) {
             val contents = new ArrayList<ItemData>();
             var j = -1;

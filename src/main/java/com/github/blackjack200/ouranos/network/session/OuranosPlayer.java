@@ -8,11 +8,10 @@ import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 
 import java.security.KeyPair;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Vector;
 
 public class OuranosPlayer {
-    public static Set<OuranosPlayer> ouranosPlayers = new HashSet<>();
+    public static Vector<OuranosPlayer> ouranosPlayers = new Vector<>();
     public final BedrockClientSession upstream;
     public final BedrockServerSession downstream;
     public boolean blockNetworkIdAreHashes = false;
@@ -48,9 +47,13 @@ public class OuranosPlayer {
             this.downstream.disconnect(reason, hideReason);
             this.downstream.getPeer().getChannel().flush().closeFuture().get();
             this.downstream.close(reason);
+            this.downstream.setPacketHandler(new BedrockPacketHandler() {
+            });
         }
         if (this.upstream.isConnected()) {
             this.upstream.disconnect(reason, hideReason);
+            this.downstream.setPacketHandler(new BedrockPacketHandler() {
+            });
         }
     }
 

@@ -1,33 +1,28 @@
 package com.github.blackjack200.ouranos.utils;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.nimbusds.jose.*;
+import com.google.gson.Gson;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.crypto.ECDSASigner;
-import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import org.cloudburstmc.protocol.bedrock.BedrockSession;
-import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
-import org.cloudburstmc.protocol.bedrock.packet.ServerToClientHandshakePacket;
-import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
-import org.cloudburstmc.protocol.common.util.Preconditions;
-import org.jose4j.json.internal.json_simple.JSONObject;
 
-import javax.crypto.SecretKey;
-import java.net.InetSocketAddress;
 import java.net.URI;
-import java.security.*;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.text.ParseException;
 import java.util.Base64;
-import java.util.Iterator;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -54,11 +49,11 @@ public class HandshakeUtils {
     }
 
 
-    public static SignedJWT createExtraData(KeyPair pair, JSONObject extraData) {
-        String publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
+    public static SignedJWT createExtraData(KeyPair pair, Map<String, Object> extraData) {
+        var publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
         long timestamp = System.currentTimeMillis() / 1000;
 
-        JSONObject dataChain = new JSONObject();
+        var dataChain = new HashMap<String, Object>();
         dataChain.put("nbf", timestamp - 3600);
         dataChain.put("exp", timestamp + 24 * 3600);
         dataChain.put("iat", timestamp);
@@ -70,12 +65,12 @@ public class HandshakeUtils {
         return encodeJWT(pair, dataChain);
     }
 
-    public static SignedJWT encodeJWT(KeyPair pair, JSONObject payload) {
+    public static SignedJWT encodeJWT(KeyPair pair, Object payload) {
         String publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
         URI x5u = URI.create(publicKeyBase64);
         JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES384).x509CertURL(x5u).build();
         try {
-            SignedJWT jwt = new SignedJWT(header, JWTClaimsSet.parse(payload.toString()));
+            SignedJWT jwt = new SignedJWT(header, JWTClaimsSet.parse(new Gson().toJson(payload)));
             signJwt(jwt, (ECPrivateKey) pair.getPrivate());
             return jwt;
         } catch (JOSEException | ParseException e) {
