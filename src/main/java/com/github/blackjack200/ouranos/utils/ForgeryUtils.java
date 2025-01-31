@@ -68,6 +68,8 @@ public class ForgeryUtils {
             clientData.putIfAbsent("MemoryTier", 0);
             clientData.putIfAbsent("PlatformType", 0);
         }
+        clientData.putIfAbsent("IsEditorMode", false);
+        clientData.putIfAbsent("SkinGeometryDataEngineVersion", "");
         jws.setPayload(new Gson().toJson(clientData));
         jws.setKey(pair.getPrivate());
 

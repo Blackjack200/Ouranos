@@ -52,10 +52,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -163,7 +160,7 @@ public class Ouranos {
         REMOTE_CODEC = this.config.getRemoteCodec();
 
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
-
+        log.info("Supported versions: {}", String.join(", ", ProtocolInfo.getPacketCodecs().stream().sorted(Comparator.comparingInt(BedrockCodec::getProtocolVersion)).map(BedrockCodec::getMinecraftVersion).distinct().toList()));
 
         val done = System.currentTimeMillis();
         val time = done - start;

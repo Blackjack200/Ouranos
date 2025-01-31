@@ -13,6 +13,7 @@ import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
+import org.cloudburstmc.protocol.bedrock.codec.v544.Bedrock_v544;
 import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
 import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
 import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
@@ -23,10 +24,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
 import org.cloudburstmc.protocol.bedrock.codec.v748.Bedrock_v748;
 import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
-import org.cloudburstmc.protocol.bedrock.data.BlockChangeEntry;
-import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
-import org.cloudburstmc.protocol.bedrock.data.ParticleType;
-import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
+import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
@@ -180,7 +178,7 @@ public class Translate {
         val provider = new ImmutableVectorProvider();
         if (input < Bedrock_v766.CODEC.getProtocolVersion()) {
             if (p instanceof ResourcePacksInfoPacket pk) {
-                pk.setWorldTemplateId(UUID.randomUUID());
+                pk.setWorldTemplateId(UUID.fromString(""));
                 pk.setWorldTemplateVersion("0.0.0");
             }
         }
@@ -303,6 +301,18 @@ public class Translate {
             if (p instanceof PlayerAuthInputPacket pk) {
                 //FIXME? context based value: xuid platformId
                 pk.setAnalogMoveVector(provider.createVector2f(0, 0));
+            }
+        }
+        if (input < Bedrock_v544.CODEC.getProtocolVersion()) {
+            if (p instanceof ModalFormResponsePacket pk) {
+                pk.setCancelReason(Optional.of(ModalFormCancelReason.USER_CLOSED));
+            }
+        }
+        if (input < Bedrock_v527.CODEC.getProtocolVersion()) {
+            if (p instanceof PlayerAuthInputPacket pk) {
+                pk.setInputInteractionModel(Optional.ofNullable(pk.getInputInteractionModel()).orElse(InputInteractionModel.CLASSIC));
+            } else if (p instanceof PlayerActionPacket pk) {
+                pk.setResultPosition(pk.getBlockPosition());
             }
         }
 

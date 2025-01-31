@@ -34,20 +34,33 @@ public final class GlobalItemDataHandlers {
 
     public static int getSchemaId(int protocolId) {
         return switch (protocolId) {
+            case 768 -> 622;
+            case 767 -> 686;
+
             case 766 -> 231;
             case 748 -> 221;
             case 729 -> 211;
             case 712 -> 201;
-            case 767 -> 686;
             case 685 -> 191;
             case 671 -> 181;
             case 662 -> 171;
             case 649 -> 161;
             case 630 -> 151;
-            case 768 -> 622;
             case 618 -> 141;
             case 594 -> 121;
             case 589 -> 111;
+
+            case 582 -> 101;
+            case 575 -> 91;
+            case 567 -> 91;
+            case 560 -> 91;
+            case 557 -> 81;
+            case 527 -> 81;
+            case 503 -> 71;
+            case 486 -> 61;
+            case 475 -> 51;
+            case 471 -> 51;
+            case 431 -> 41;
             default -> throw new RuntimeException("schemaid for protocol " + protocolId + " not found");
         };
     }

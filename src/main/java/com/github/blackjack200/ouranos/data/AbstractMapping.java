@@ -16,7 +16,7 @@ public class AbstractMapping {
             int protocolId = codec.getProtocolVersion();
             String name = lookupAvailableFile(file, protocolId);
             var rawData = open(name);
-            //log.info("Loading packet codec {} from {}", codec.getProtocolVersion(), file);
+            log.debug("Loading packet codec {} from {}", codec.getProtocolVersion(), name);
             handler.accept(protocolId, rawData);
         });
     }
