@@ -86,6 +86,7 @@ public class Translate {
             pk.getMaterialReducers().clear();
             pk.getCraftingData().clear();
             pk.getContainerMixData().clear();
+            pk.setCleanRecipes(true);
         } else if (p instanceof CreativeContentPacket pk) {
             val contents = pk.getContents();
             for (int i = 0, iMax = pk.getContents().length; i < iMax; i++) {
