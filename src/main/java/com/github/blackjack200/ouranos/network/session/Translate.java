@@ -101,9 +101,7 @@ public class Translate {
             pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
         } else if (p instanceof InventorySlotPacket pk) {
             pk.setItem(TypeConverter.translateItemData(input, output, pk.getItem()));
-            if (pk.getStorageItem() != null) {
-                pk.setStorageItem(TypeConverter.translateItemData(input, output, pk.getStorageItem()));
-            }
+            pk.setStorageItem(TypeConverter.translateItemData(input, output, pk.getStorageItem()));
         } else if (p instanceof InventoryTransactionPacket pk) {
             var newActions = new ArrayList<InventoryActionData>(pk.getActions().size());
             for (var action : pk.getActions()) {

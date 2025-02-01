@@ -29,6 +29,7 @@ public class TypeConverter {
 
         String newStringId = i[0].toString();
         var newMeta = (Integer) i[1];
+        //log.info("old_id={}:{} new_id={}:{}", itemData.getDefinition().getIdentifier(), itemData.getDamage(), newStringId, newMeta);
 
         var networkId = ItemTypeDictionary.getInstance(output).fromStringId(newStringId);
         if (networkId == null) {
@@ -40,7 +41,7 @@ public class TypeConverter {
         var bid = BlockItemIdMap.getInstance().lookupItemId(output, newStringId);
         if (bid != null && !bid.equals(newStringId)) {
             log.debug("Inconsistent item id map found for {}=>{}", newStringId, bid);
-            //  newStringId = bid;
+            //newStringId = bid;
         }
 
         var builder = itemData.toBuilder();
@@ -116,22 +117,7 @@ public class TypeConverter {
     }
 
     public BlockDefinition translateBlockDefinition(int input, int output, BlockDefinition definition) {
-        int fallback = BlockStateDictionary.getInstance(output).getFallback();
-        val stateHash = BlockStateDictionary.getInstance(input).toStateHash(definition.getRuntimeId());
-        if (stateHash == null) {
-            log.error("1 translateBlockDefinition: protocol: {}->{}, id={}->{}", input, output, definition.getRuntimeId(), fallback);
-            return () -> fallback;
-        }
-
-        val oldState = BlockStateDictionary.getInstance(input).lookupStateFromStateHash(stateHash);
-        val converted = BlockStateDictionary.getInstance(output).toRuntimeId(oldState.stateHash());
-        if (converted == null) {
-            log.error("2 translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", input, output, oldState, "minecraft:info_update", definition.getRuntimeId(), fallback);
-            return () -> fallback;
-        }
-        val newState = BlockStateDictionary.getInstance(output).lookupStateFromStateHash(stateHash);
-        log.debug("3 translateBlockDefinition: protocol: {}->{}, name=>{}->{} id={}->{}", input, output, oldState, newState, definition.getRuntimeId(), converted);
-        return () -> converted;
+        return new SimpleBlockDefinition(translateBlockRuntimeId(input, output, definition.getRuntimeId()));
     }
 
     public ItemDescriptor translateItemDescriptor(int input, int output, ItemDescriptor descriptor) {

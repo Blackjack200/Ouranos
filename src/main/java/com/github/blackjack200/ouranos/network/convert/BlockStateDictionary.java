@@ -36,19 +36,7 @@ public final class BlockStateDictionary extends AbstractMapping {
                 this.stateHashToRuntimeId.put(entry.stateHash, runtimeId);
                 this.runtimeToStateHash.put(runtimeId, entry.stateHash);
             }
-            val str = new String[]{
-                    "minecraft:wither_skeleton_skull",
-                    "minecraft:zombie_head",
-                    "minecraft:player_head",
-                    "minecraft:creeper_head",
-                    "minecraft:piglin_head",
-                    "minecraft:dragon_head",
-            };
-            for (val id : str) {
-                if (!this.stateIdToMetaToEntry.containsKey(id)) {
-                    this.stateIdToMetaToEntry.put(id, this.stateIdToMetaToEntry.get("minecraft:skeleton_skull"));
-                }
-            }
+
             for (val v : this.stateHashToEntry.entrySet()) {
                 if (v.getValue().name.equals("minecraft:info_update")) {
                     this.fallback = Optional.of(this.toRuntimeId(v.getKey())).get();
