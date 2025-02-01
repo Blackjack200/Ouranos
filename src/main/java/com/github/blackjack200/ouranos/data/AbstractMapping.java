@@ -40,6 +40,9 @@ public class AbstractMapping {
                 }
             }
         }
+        if (!FileUtil.exist(name)) {
+            name = file;
+        }
         return name;
     }
 

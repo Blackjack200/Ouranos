@@ -2,6 +2,9 @@ package com.github.blackjack200.ouranos.network;
 
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v554.Bedrock_v554;
+import org.cloudburstmc.protocol.bedrock.codec.v557.Bedrock_v557;
+import org.cloudburstmc.protocol.bedrock.codec.v560.Bedrock_v560;
 import org.cloudburstmc.protocol.bedrock.codec.v567.Bedrock_v567;
 import org.cloudburstmc.protocol.bedrock.codec.v568.Bedrock_v568;
 import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
@@ -31,17 +34,16 @@ public final class ProtocolInfo {
     private static final Set<BedrockCodec> UNMODIFIABLE_PACKET_CODECS = Collections.unmodifiableSet(PACKET_CODECS);
 
     static {
+        // 1.21.x
         addPacketCodec(Bedrock_v766.CODEC);
         addPacketCodec(Bedrock_v748.CODEC);
         addPacketCodec(Bedrock_v729.CODEC);
         addPacketCodec(Bedrock_v712.CODEC);
-
         addPacketCodec(Bedrock_v686.CODEC);
-
         addPacketCodec(Bedrock_v685.CODEC);
+        // 1.20.x
         addPacketCodec(Bedrock_v671.CODEC);
         addPacketCodec(Bedrock_v662.CODEC);
-
         addPacketCodec(Bedrock_v649.CODEC);
         addPacketCodec(Bedrock_v630.CODEC);
         addPacketCodec(Bedrock_v622.CODEC);
@@ -49,14 +51,32 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v594.CODEC);
         addPacketCodec(Bedrock_v589.CODEC);
 
+        // 1.19.x
         addPacketCodec(Bedrock_v582.CODEC);
         addPacketCodec(Bedrock_v575.CODEC);
         addPacketCodec(Bedrock_v568.CODEC);
         addPacketCodec(Bedrock_v567.CODEC);
-        /*addPacketCodec(Bedrock_v560.CODEC);
+
+        addPacketCodec(Bedrock_v560.CODEC);
+
+        addPacketCodec(Bedrock_v557.CODEC);
+        addPacketCodec(Bedrock_v554.CODEC);
+        /*
+        addPacketCodec(Bedrock_v545.CODEC);
         addPacketCodec(Bedrock_v544.CODEC);
+        addPacketCodec(Bedrock_v534.CODEC);
+        addPacketCodec(Bedrock_v527.CODEC);
+
+        // 1.18.x
         addPacketCodec(Bedrock_v503.CODEC);
-        addPacketCodec(Bedrock_v431.CODEC);*/
+        addPacketCodec(Bedrock_v486.CODEC);
+        addPacketCodec(Bedrock_v475.CODEC);
+*/
+        /// not playable
+        //addPacketCodec(Bedrock_v471.CODEC);
+        //addPacketCodec(Bedrock_v471.CODEC);
+        //addPacketCodec(Bedrock_v440.CODEC);
+        //addPacketCodec(Bedrock_v431.CODEC);
     }
 
     private static BedrockCodec DEFAULT_PACKET_CODEC;

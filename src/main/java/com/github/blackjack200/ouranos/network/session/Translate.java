@@ -13,6 +13,7 @@ import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
 import org.cloudburstmc.protocol.bedrock.codec.v544.Bedrock_v544;
+import org.cloudburstmc.protocol.bedrock.codec.v554.Bedrock_v554;
 import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
 import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
 import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
@@ -38,15 +39,12 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryAct
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 
-import java.util.ArrayList;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Log4j2
 public class Translate {
 
-    public static BedrockPacket translate(int input, int output, OuranosPlayer player, BedrockPacket p) {
+    public static Collection<BedrockPacket> translate(int input, int output, OuranosPlayer player, BedrockPacket p) {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -54,15 +52,21 @@ public class Translate {
             pk.setSupported(false);
         }
 
-        rewriteItem(input, output, p);
-        rewriteProtocol(input, output, player, p);
-        rewriteChunk(input, output, player, p);
-        rewriteBlock(input, output, player, p);
+        var list = new HashSet<BedrockPacket>();
+        list.add(p);
 
-        return p;
+        rewriteItem(input, output, p, list);
+        rewriteProtocol(input, output, player, p, list);
+        rewriteChunk(input, output, player, p, list);
+        if(p instanceof LevelChunkPacket){
+           // list.clear();
+        }
+        rewriteBlock(input, output, player, p, list);
+
+        return list;
     }
 
-    private static void rewriteItem(int input, int output, BedrockPacket p) {
+    private static void rewriteItem(int input, int output, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof InventoryContentPacket pk) {
             val contents = new ArrayList<>(pk.getContents());
             contents.replaceAll(itemData -> Objects.requireNonNullElse(TypeConverter.translateItemData(input, output, itemData), ItemData.AIR));
@@ -177,7 +181,7 @@ public class Translate {
         return new ItemDescriptorWithCount(descriptor, i.getCount());
     }
 
-    private static void rewriteProtocol(int input, int output, OuranosPlayer player, BedrockPacket p) {
+    private static void rewriteProtocol(int input, int output, OuranosPlayer player, BedrockPacket p, Collection<BedrockPacket> list) {
         val provider = new ImmutableVectorProvider();
         if (input < Bedrock_v766.CODEC.getProtocolVersion()) {
             if (p instanceof ResourcePacksInfoPacket pk) {
@@ -237,6 +241,22 @@ public class Translate {
                 }
                 pk.getRequests().clear();
                 pk.getRequests().addAll(newRequests);
+            }
+        }
+        if (output > Bedrock_v554.CODEC.getProtocolVersion()) {
+            if (p instanceof AdventureSettingsPacket packet) {
+                var newPk = new UpdateAbilitiesPacket();
+                newPk.setUniqueEntityId(packet.getUniqueEntityId());
+                newPk.setPlayerPermission(packet.getPlayerPermission());
+                newPk.setCommandPermission(packet.getCommandPermission());
+                newPk.setAbilityLayers(new ArrayList<>(AbilityLayer.Type.BASE.ordinal()));
+                val x = packet.getSettings();
+                var newPk2 = new UpdateAdventureSettingsPacket();
+                //TODO implement this properly
+                //newPk2.setAutoJump(packet.getSettings());
+                list.removeIf((bedrockPacket -> bedrockPacket instanceof AdventureSettingsPacket));
+               //list.add(newPk);
+                //list.add(newPk2);
             }
         }
         removeNewEntityData(p, output, Bedrock_v685.CODEC, EntityDataTypes.VISIBLE_MOB_EFFECTS);
@@ -343,7 +363,7 @@ public class Translate {
         }
     }
 
-    private static void rewriteBlock(int input, int output, OuranosPlayer player, BedrockPacket p) {
+    private static void rewriteBlock(int input, int output, OuranosPlayer player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
             var translated = TypeConverter.translateBlockRuntimeId(input, output, runtimeId);
@@ -386,7 +406,7 @@ public class Translate {
         }
     }
 
-    private static void rewriteChunk(int input, int output, OuranosPlayer player, BedrockPacket p) {
+    private static void rewriteChunk(int input, int output, OuranosPlayer player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof LevelChunkPacket packet) {
             try {
                 var from = packet.getData();

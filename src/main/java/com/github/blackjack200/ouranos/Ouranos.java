@@ -31,7 +31,6 @@ import org.cloudburstmc.protocol.bedrock.BedrockClientSession;
 import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
-import org.cloudburstmc.protocol.bedrock.data.NetworkPermissions;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
@@ -240,11 +239,13 @@ public class Ouranos {
 
                                 ReferenceCountUtil.retain(packet);
                                 if (upstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
-                                    packet = Translate.translate(player.getDownstreamProtocolId(), player.getUpstreamProtocolId(), player, packet);
-                                    if (!(packet instanceof PlayerAuthInputPacket)) {
-                                        log.debug("C->S {}", packet);
+                                    var packets = Translate.translate(player.getDownstreamProtocolId(), player.getUpstreamProtocolId(), player, packet);
+                                    for (var pk : packets) {
+                                        if (!(pk instanceof PlayerAuthInputPacket)) {
+                                            log.debug("C->S {}", pk);
+                                        }
+                                        upstream.sendPacket(pk);
                                     }
-                                    upstream.sendPacket(packet);
                                 }
                                 return PacketSignal.HANDLED;
                             }
@@ -324,11 +325,13 @@ public class Ouranos {
                                 }
                                 ReferenceCountUtil.retain(packet);
                                 if (downstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
-                                    packet = Translate.translate(upstreamProtocolId, downstreamProtocolId, player, packet);
-                                    if (!(packet instanceof NetworkChunkPublisherUpdatePacket) && !(packet instanceof LevelChunkPacket) && !(packet instanceof CraftingDataPacket) && !(packet instanceof AvailableEntityIdentifiersPacket) && !(packet instanceof BiomeDefinitionListPacket)) {
-                                        log.debug("C<-S {}", packet);
+                                    var packets = Translate.translate(upstreamProtocolId, downstreamProtocolId, player, packet);
+                                    for (var pk : packets) {
+                                        if (!(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof CraftingDataPacket) && !(pk instanceof AvailableEntityIdentifiersPacket) && !(pk instanceof BiomeDefinitionListPacket)) {
+                                            log.debug("S->C {}", pk);
+                                        }
+                                        downstream.sendPacket(pk);
                                     }
-                                    downstream.sendPacket(packet);
                                 }
                                 return PacketSignal.HANDLED;
                             }

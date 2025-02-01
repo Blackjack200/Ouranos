@@ -1,7 +1,8 @@
 package com.github.blackjack200.ouranos.data.bedrock.item.downgrade;
 
-import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
+import cn.hutool.core.util.ArrayUtil;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
+import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -67,8 +68,8 @@ public class ItemIdMetaDowngrader {
             String newStringId = networkIdEntry.getKey().toString();
             Object oldId = networkIdEntry.getValue();
 
-            if (oldId instanceof String[]) {
-                this.remappedMetas.put(newStringId, (String[]) oldId);
+            if (oldId instanceof Object[]) {
+                this.remappedMetas.put(newStringId, ArrayUtil.cast(String.class, oldId));
             } else {
                 this.renamedIds.put(newStringId, (String) oldId);
             }
