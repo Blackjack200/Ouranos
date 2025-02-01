@@ -68,6 +68,10 @@ public final class BlockStateDictionary extends AbstractMapping {
             return this.runtimeToStateHash.get(runtimeId);
         }
 
+        public BlockEntry toBlockState(int runtimeId) {
+            return this.stateHashToEntry.get(this.runtimeToStateHash.get(runtimeId));
+        }
+
         /**
          * Returns the state ID associated with a given blockstate data.
          *

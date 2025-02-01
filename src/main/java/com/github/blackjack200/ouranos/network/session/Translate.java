@@ -1,6 +1,5 @@
 package com.github.blackjack200.ouranos.network.session;
 
-import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ChunkRewriteException;
 import com.github.blackjack200.ouranos.network.convert.TypeConverter;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
@@ -349,17 +348,6 @@ public class Translate {
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
             var translated = TypeConverter.translateBlockRuntimeId(input, output, runtimeId);
-            //TODO: a copy from TypeConverter
-            if (translated == BlockStateDictionary.getInstance(output).getFallback()) {
-                var inputDict = BlockStateDictionary.getInstance(input);
-                var anyState = inputDict.lookupStateFromStateHash(inputDict.toStateHash(runtimeId));
-                if (anyState != null && (anyState.name().endsWith("_head") || anyState.name().endsWith("_skull"))) {
-                    Integer skullHash = inputDict.lookupStateIdFromData("minecraft:skeleton_skull", anyState.stateData());
-                    if (skullHash != null) {
-                        translated = BlockStateDictionary.getInstance(output).toRuntimeId(skullHash);
-                    }
-                }
-            }
             packet.setDefinition(new SimpleBlockDefinition(translated));
         } else if (p instanceof LevelEventPacket packet) {
             var type = packet.getType();

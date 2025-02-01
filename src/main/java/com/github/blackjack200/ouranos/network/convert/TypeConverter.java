@@ -11,7 +11,6 @@ import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
-import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.util.Objects;
 
@@ -41,7 +40,7 @@ public class TypeConverter {
         var bid = BlockItemIdMap.getInstance().lookupItemId(output, newStringId);
         if (bid != null && !bid.equals(newStringId)) {
             log.debug("Inconsistent item id map found for {}=>{}", newStringId, bid);
-            newStringId = bid;
+            //  newStringId = bid;
         }
 
         var builder = itemData.toBuilder();
@@ -56,9 +55,7 @@ public class TypeConverter {
         return builder.build();
     }
 
-
     public void rewriteChunkData(int input, int output, ByteBuf from, ByteBuf to, int sections) throws ChunkRewriteException {
-        val isNetwork = 1;
         for (var section = 0; section < sections; section++) {
             var version = from.readUnsignedByte();
             to.writeByte(version);
@@ -75,53 +72,21 @@ public class TypeConverter {
                     }
 
                     for (var storage = 0; storage < storageCount; storage++) {
-                        var blockSize = from.readUnsignedByte() >> 1;
-                        if (blockSize == 0x7f) {
-                            //no data
-                            return;
-                        }
-                        if (blockSize > 32) {
-                            throw new ChunkRewriteException("cannot read paletted storage (size=" + blockSize + "): size too large");
-                        }
-
-                        to.writeByte((blockSize << 1) | isNetwork);
-                        val uint32Count = uint32s(blockSize);
-                        val byteCount = uint32Count * 4;
-
-                        to.writeBytes(from, byteCount);
-
-                        var paletteCount = 1;
-                        if (blockSize != 0) {
-                            paletteCount = VarInts.readInt(from);
-                            if (paletteCount <= 0) {
-                                throw new ChunkRewriteException("invalid palette entry count " + paletteCount);
-                            }
-                        }
-                        VarInts.writeInt(to, paletteCount);
-
-                        for (var i = 0; i < paletteCount; i++) {
-                            int runtimeId = VarInts.readInt(from);
-                            VarInts.writeInt(to, translateBlockRuntimeId(input, output, runtimeId));
-                        }
+                        PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
                     }
                 }
                 default -> { // Unsupported
-                    throw new ChunkRewriteException("PEBlockRewrite: Unknown subchunk format " + version);
+                    throw new ChunkRewriteException("ChunkDataRewrite: Unknown subchunk format " + version);
                 }
             }
         }
-    }
-
-    private int uint32s(int p) {
-        var uint32Count = 0;
-        if (p != 0) {
-            val indicesPerUint32 = 32 / p;
-            uint32Count = 4096 / indicesPerUint32;
+        //biome
+        int remaining = from.capacity() - from.readerIndex();
+        if (remaining > 0) {
+            //TODO: implement biome data rewriting
+            //TODO: implement block entities data rewriting
+            to.writeBytes(from);
         }
-        if (p == 3 || p == 5 || p == 6) {
-            uint32Count++;
-        }
-        return uint32Count;
     }
 
     public int translateBlockRuntimeId(int input, int output, int blockRuntimeId) {
@@ -137,7 +102,6 @@ public class TypeConverter {
 
         var translated = BlockStateDictionary.getInstance(output).toRuntimeId(stateHash);
         if (translated == null) {
-            /*
             //TODO HACK for heads and skulls, this is not a proper way to translate them. currently unusable
             var anyState = inputDict.lookupStateFromStateHash(stateHash);
             if (anyState != null && (anyState.name().endsWith("_head") || anyState.name().endsWith("_skull"))) {
@@ -146,7 +110,6 @@ public class TypeConverter {
                     return Objects.requireNonNullElse(BlockStateDictionary.getInstance(output).toRuntimeId(skullHash), fallback);
                 }
             }
-             */
             return fallback;
         }
         return translated;

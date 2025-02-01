@@ -240,11 +240,11 @@ public class Ouranos {
 
                                 ReferenceCountUtil.retain(packet);
                                 if (upstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
-                                    BedrockPacket pk = Translate.translate(player.getDownstreamProtocolId(), player.getUpstreamProtocolId(), player, packet);
+                                    packet = Translate.translate(player.getDownstreamProtocolId(), player.getUpstreamProtocolId(), player, packet);
                                     if (!(packet instanceof PlayerAuthInputPacket)) {
-                                        log.debug("C->S {}", pk);
+                                        log.debug("C->S {}", packet);
                                     }
-                                    upstream.sendPacket(pk);
+                                    upstream.sendPacket(packet);
                                 }
                                 return PacketSignal.HANDLED;
                             }
@@ -324,11 +324,11 @@ public class Ouranos {
                                 }
                                 ReferenceCountUtil.retain(packet);
                                 if (downstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
-                                    BedrockPacket translated = Translate.translate(upstreamProtocolId, downstreamProtocolId, player, packet);
+                                    packet = Translate.translate(upstreamProtocolId, downstreamProtocolId, player, packet);
                                     if (!(packet instanceof NetworkChunkPublisherUpdatePacket) && !(packet instanceof LevelChunkPacket) && !(packet instanceof CraftingDataPacket) && !(packet instanceof AvailableEntityIdentifiersPacket) && !(packet instanceof BiomeDefinitionListPacket)) {
-                                        log.debug("C<-S {}", translated);
+                                        log.debug("C<-S {}", packet);
                                     }
-                                    downstream.sendPacket(translated);
+                                    downstream.sendPacket(packet);
                                 }
                                 return PacketSignal.HANDLED;
                             }
