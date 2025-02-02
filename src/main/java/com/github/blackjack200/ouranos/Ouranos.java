@@ -375,7 +375,7 @@ public class Ouranos {
         var chainData = HandshakeUtils.createExtraData(player.getKeyPair(), extraData);
 
         var authData = ForgeryUtils.forgeAuthData(player.getKeyPair(), extraData);
-        var skinDataString = ForgeryUtils.forgeSkinData(player.getKeyPair(), player.getUpstreamProtocolId(), skinData);
+        var skinDataString = ForgeryUtils.writeClientData(player.getKeyPair(), player.getUpstreamProtocolId(), player, identityData, skinData,this.config.login_extra);
 
         LoginPacket login = new LoginPacket();
         login.getChain().add(chainData.serialize());

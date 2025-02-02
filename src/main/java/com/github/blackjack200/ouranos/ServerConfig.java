@@ -29,6 +29,7 @@ public class ServerConfig {
     public boolean online_mode = true;
 
     public boolean debug = false;
+    public boolean login_extra = false;
 
     public InetSocketAddress getBindv4() {
         return new InetSocketAddress(this.server_ipv4, this.server_port_v4);

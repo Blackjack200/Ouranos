@@ -1,6 +1,8 @@
 package com.github.blackjack200.ouranos.utils;
 
 
+import com.github.blackjack200.ouranos.network.session.AuthData;
+import com.github.blackjack200.ouranos.network.session.OuranosPlayer;
 import lombok.experimental.UtilityClass;
 import org.cloudburstmc.protocol.bedrock.codec.v544.Bedrock_v544;
 import org.cloudburstmc.protocol.bedrock.codec.v582.Bedrock_v582;
@@ -12,6 +14,7 @@ import org.jose4j.jwt.NumericDate;
 import org.jose4j.jwx.HeaderParameterNames;
 import org.jose4j.lang.JoseException;
 
+import java.net.InetSocketAddress;
 import java.security.KeyPair;
 import java.util.Base64;
 import java.util.Date;
@@ -49,7 +52,7 @@ public class ForgeryUtils {
         }
     }
 
-    public static String forgeSkinData(KeyPair pair, int outputProtocol, JSONObject clientData) {
+    public static String writeClientData(KeyPair pair, int outputProtocol, OuranosPlayer player, AuthData identityData, JSONObject clientData, boolean login_extra) {
         String publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
 
         JsonWebSignature jws = new JsonWebSignature();
@@ -70,6 +73,11 @@ public class ForgeryUtils {
         }
         clientData.putIfAbsent("IsEditorMode", false);
         clientData.putIfAbsent("SkinGeometryDataEngineVersion", "");
+
+        if (login_extra) {
+            clientData.put("OuranosXUID", identityData.xuid());
+            clientData.put("OuranosIP", ((InetSocketAddress) player.downstream.getSocketAddress()).getHostString());
+        }
         jws.setPayload(clientData.toJSONString());
         jws.setKey(pair.getPrivate());
 

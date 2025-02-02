@@ -58,8 +58,8 @@ public class Translate {
         rewriteItem(input, output, p, list);
         rewriteProtocol(input, output, player, p, list);
         rewriteChunk(input, output, player, p, list);
-        if(p instanceof LevelChunkPacket){
-           // list.clear();
+        if (p instanceof LevelChunkPacket) {
+            // list.clear();
         }
         rewriteBlock(input, output, player, p, list);
 
@@ -115,8 +115,12 @@ public class Translate {
             pk.getActions().clear();
             pk.getActions().addAll(newActions);
 
-            pk.setBlockDefinition(TypeConverter.translateBlockDefinition(input, output, pk.getBlockDefinition()));
-            pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
+            if (pk.getBlockDefinition() != null) {
+                pk.setBlockDefinition(TypeConverter.translateBlockDefinition(input, output, pk.getBlockDefinition()));
+            }
+            if (pk.getItemInHand() != null) {
+                pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
+            }
         } else if (p instanceof MobEquipmentPacket pk) {
             pk.setItem(TypeConverter.translateItemData(input, output, pk.getItem()));
         } else if (p instanceof MobArmorEquipmentPacket pk) {
@@ -255,7 +259,7 @@ public class Translate {
                 //TODO implement this properly
                 //newPk2.setAutoJump(packet.getSettings());
                 list.removeIf((bedrockPacket -> bedrockPacket instanceof AdventureSettingsPacket));
-               //list.add(newPk);
+                //list.add(newPk);
                 //list.add(newPk2);
             }
         }
@@ -305,7 +309,7 @@ public class Translate {
         }
         if (input < Bedrock_v544.CODEC.getProtocolVersion()) {
             if (p instanceof ModalFormResponsePacket pk) {
-                pk.setCancelReason(Optional.of(ModalFormCancelReason.USER_CLOSED));
+                pk.setCancelReason(Optional.empty());
             }
         }
         if (input < Bedrock_v527.CODEC.getProtocolVersion()) {
