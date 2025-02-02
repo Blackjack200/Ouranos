@@ -42,7 +42,7 @@ public final class Palette<V> {
         this.palette.forEach(value -> VarInts.writeInt(out, serializer.serialize(value)));
     }
 
-    public void readNetwork(ByteBuf in, RuntimeDataDeserializer<V> deserializer) {
+    public void readNetwork(ByteBuf in, RuntimeDataDeserializer<V> deserializer) throws PaletteException {
         var header = in.readUnsignedByte();
         val blockSize = header >> 1;
         if ((header & 1) == 0) {
