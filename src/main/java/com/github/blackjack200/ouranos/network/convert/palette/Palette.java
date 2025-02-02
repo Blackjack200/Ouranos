@@ -1,133 +1,82 @@
 package com.github.blackjack200.ouranos.network.convert.palette;
 
-import com.github.blackjack200.ouranos.network.convert.bitarray.BitArray;
-import com.github.blackjack200.ouranos.network.convert.bitarray.BitArrayVersion;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * @author JukeboxMC | daoge_cmd | CoolLoong
  */
 @Slf4j
 public final class Palette<V> {
+    private final List<V> palette = new ArrayList<>();
+    private BitArrayVersion version = BitArrayVersion.V0;
+    private ByteBuf bitArray;
+    private boolean equalLast = false;
 
-    private static final int SECTION_SIZE = 16 * 16 * 16;
-    private static final BitArrayVersion INITIAL_VERSION = BitArrayVersion.V0;
-
-    private List<V> palette;
-    private BitArray bitArray;
-
-    public Palette(V first) {
-        this(first, INITIAL_VERSION);
-    }
-
-    public Palette(V first, BitArrayVersion version) {
-        this(first, new ArrayList<>(version.maxEntryIndex + 1), version);
-    }
-
-    public Palette(V first, List<V> palette, BitArrayVersion version) {
-        this.bitArray = version.createArray(SECTION_SIZE);
-        this.palette = palette;
-        // Please note that the first entry shouldn't be changed
-        this.palette.add(first);
-    }
-
-    private static boolean isPersistent(short header) {
-        return (header & 1) == 0;
-    }
-
-    public void writeToNetwork(ByteBuf byteBuf, RuntimeDataSerializer<V> serializer) {
-        if (bitArray.version() == BitArrayVersion.V0) {
-            byteBuf.writeByte(getPaletteHeader(BitArrayVersion.V0, true));
-            VarInts.writeInt(byteBuf, serializer.serialize(palette.get(0)));
+    public void writeNetwork(ByteBuf out, RuntimeDataSerializer<V> serializer) {
+        if (this.version == BitArrayVersion.V0) {
+            out.writeByte((BitArrayVersion.V0.bits << 1) | 1);
+            VarInts.writeInt(out, serializer.serialize(palette.get(0)));
             return;
         }
 
-        byteBuf.writeByte(getPaletteHeader(this.bitArray.version(), true));
-
-        for (int word : this.bitArray.words()) {
-            byteBuf.writeIntLE(word);
+        byte blockSize = this.version.bits;
+        if (this.equalLast) {
+            blockSize = 0x7F;
         }
-        VarInts.writeInt(byteBuf, this.palette.size());
-
-        this.palette.forEach(value -> VarInts.writeInt(byteBuf, serializer.serialize(value)));
-    }
-
-    public void readFromStorageRuntime(ByteBuf byteBuf, RuntimeDataDeserializer<V> deserializer, Palette<V> last) {
-        var header = byteBuf.readUnsignedByte();
-        if (isPersistent(header)) {
-            log.warn("Reading persistent data with runtime method!");
-        }
-        if (hasCopyLastFlag(header)) {
-            last.copyTo(this);
+        out.writeByte((blockSize << 1) | 1);
+        if (this.equalLast) {
             return;
         }
 
-        var version = getVersionFromPaletteHeader(header);
+        out.writeBytes(this.bitArray);
+
+        VarInts.writeInt(out, this.palette.size());
+
+        this.palette.forEach(value -> VarInts.writeInt(out, serializer.serialize(value)));
+    }
+
+    public void readNetwork(ByteBuf in, RuntimeDataDeserializer<V> deserializer) {
+        var header = in.readUnsignedByte();
+        val blockSize = header >> 1;
+        if ((header & 1) == 0) {
+            throw new PaletteException("Reading persistent data with runtime method!");
+        }
+        if (blockSize == 0x7F) {
+            this.equalLast = true;
+            return;
+        }
+
+        this.version = BitArrayVersion.get(blockSize, true);
+
+        if (version == null) {
+            throw new PaletteException("Unknown bit array version: " + (blockSize));
+        }
+
         this.palette.clear();
-        var paletteSize = 1;
+        var paletteCount = 1;
 
         if (version == BitArrayVersion.V0) {
-            this.bitArray = version.createArray(SECTION_SIZE, null);
-            this.palette.add(deserializer.deserialize(VarInts.readInt(byteBuf)));
+            this.bitArray = ByteBufAllocator.DEFAULT.buffer();
+            this.palette.add(deserializer.deserialize(VarInts.readInt(in)));
             return;
         }
 
-        readWords(byteBuf, version);
-        paletteSize = VarInts.readInt(byteBuf);
-        checkVersion(version, paletteSize);
+        var wordCount = version.getWordsForSize(16 * 16 * 16);
+        this.bitArray = in.readBytes(wordCount * 4);
 
-        for (int i = 0; i < paletteSize; i++) {
-            this.palette.add(deserializer.deserialize(VarInts.readInt(byteBuf)));
+        paletteCount = VarInts.readInt(in);
+        if (version.maxEntryIndex < paletteCount - 1) {
+            throw new PaletteException("Palette (version " + version.name() + ") is too large. Max size " + version.maxEntryIndex + ". Actual size " + paletteCount);
         }
-    }
-
-    public void copyTo(Palette<V> palette) {
-        palette.bitArray = this.bitArray.copy();
-        palette.palette.clear();
-        palette.palette.addAll(this.palette);
-    }
-
-    public BitArrayVersion getVersion() {
-        return bitArray.version();
-    }
-
-    private void readWords(ByteBuf byteBuf, BitArrayVersion version) {
-        var wordCount = version.getWordsForSize(SECTION_SIZE);
-        var words = new int[wordCount];
-        Arrays.setAll(words, i -> byteBuf.readIntLE());
-
-        this.bitArray = version.createArray(SECTION_SIZE, words);
-    }
-
-    private static boolean hasCopyLastFlag(short header) {
-        return (header >> 1) == 0x7F;
-    }
-
-    private static short getPaletteHeader(BitArrayVersion version, boolean runtime) {
-        return (short) ((version.bits << 1) | (runtime ? 1 : 0));
-    }
-
-    private static BitArrayVersion getVersionFromPaletteHeader(short header) {
-        return BitArrayVersion.get(header >> 1, true);
-    }
-
-    private static void checkVersion(BitArrayVersion version, int paletteSize) {
-        if (version.maxEntryIndex < paletteSize - 1) {
-            throw new PaletteException("Palette (version " + version.name() + ") is too large. Max size " + version.maxEntryIndex + ". Actual size " + paletteSize);
+        for (int i = 0; i < paletteCount; i++) {
+            this.palette.add(deserializer.deserialize(VarInts.readInt(in)));
         }
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Palette<?> palette1)) return false;
-        return Objects.equals(palette, palette1.palette) && Objects.equals(bitArray, palette1.bitArray);
     }
 }

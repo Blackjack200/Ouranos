@@ -1,4 +1,4 @@
-package com.github.blackjack200.ouranos.network.convert.bitarray;
+package com.github.blackjack200.ouranos.network.convert.palette;
 
 import org.cloudburstmc.math.GenericMath;
 import org.cloudburstmc.protocol.common.util.Preconditions;
@@ -32,14 +32,6 @@ public enum BitArrayVersion {
         this.next = next;
     }
 
-    public static BitArrayVersion getMinimalVersion(int maxEntryIndex) {
-        var version = V0;
-        while (version.maxEntryIndex < maxEntryIndex) {
-            version = version.next;
-        }
-        return version;
-    }
-
     public static BitArrayVersion get(int version, boolean read) {
         for (BitArrayVersion ver : VALUES) {
             if ((!read && ver.entriesPerWord <= version) || (read && ver.bits == version)) {
@@ -51,35 +43,8 @@ public enum BitArrayVersion {
         throw new IllegalArgumentException("Invalid palette version: " + version);
     }
 
-    public static BitArrayVersion forBitsCeil(int bits) {
-        for (int i = VALUES.length - 1; i >= 0; i--) {
-            var version = VALUES[i];
-            if (version.bits >= bits) return version;
-        }
-
-        return null;
-    }
-
-    public BitArray createArray(int size) {
-        if (this == V0) {
-            return SingletonBitArray.INSTANCE;
-        }
-        return this.createArray(size, new int[getWordsForSize(size)]);
-    }
-
     public int getWordsForSize(int size) {
         Preconditions.checkArgument(this != V0);
         return GenericMath.ceil((float) size / this.entriesPerWord);
-    }
-
-    public BitArray createArray(int size, int[] words) {
-        if (this == V0) {
-            return SingletonBitArray.INSTANCE;
-        } else if (this == V3 || this == V5 || this == V6) {
-            // Padded palettes aren't able to use bitwise operations due to their padding.
-            return new PaddedBitArray(this, size, words);
-        } else {
-            return new Pow2BitArray(this, size, words);
-        }
     }
 }
