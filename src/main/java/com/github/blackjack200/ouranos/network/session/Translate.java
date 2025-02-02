@@ -59,7 +59,7 @@ public class Translate {
         rewriteProtocol(input, output, player, p, list);
         rewriteChunk(input, output, player, p, list);
         if (p instanceof LevelChunkPacket) {
-            // list.clear();
+            //list.clear();
         }
         rewriteBlock(input, output, player, p, list);
 
@@ -191,6 +191,9 @@ public class Translate {
             if (p instanceof ResourcePacksInfoPacket pk) {
                 pk.setWorldTemplateId(UUID.randomUUID());
                 pk.setWorldTemplateVersion("0.0.0");
+            }
+            if (p instanceof PlayerAuthInputPacket pk) {
+                pk.setRawMoveVector(provider.createVector2f(0, 0));
             }
         }
         if (input < Bedrock_v748.CODEC.getProtocolVersion()) {
@@ -415,7 +418,7 @@ public class Translate {
             try {
                 var from = packet.getData();
                 var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
-                TypeConverter.rewriteChunkData(input, output, from, to, packet.getSubChunksLength());
+                TypeConverter.rewriteFullChunk(input, output, from, to, packet.getSubChunksLength());
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             } catch (ChunkRewriteException exception) {
@@ -426,12 +429,12 @@ public class Translate {
         }
         if (p instanceof SubChunkPacket packet) {
             for (var subChunk : packet.getSubChunks()) {
-                subChunk.getData().resetReaderIndex();
+                ByteBuf from = subChunk.getData();
                 if (subChunk.getData().readableBytes() > 0) {
                     try {
-                        ByteBuf from = subChunk.getData();
                         var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
-                        TypeConverter.rewriteChunkData(input, output, from, to, 1);
+                        TypeConverter.rewriteSubChunk(input, output, from, to);
+                        to.writeBytes(from);
                         subChunk.setData(to);
                         ReferenceCountUtil.release(from);
                     } catch (ChunkRewriteException exception) {

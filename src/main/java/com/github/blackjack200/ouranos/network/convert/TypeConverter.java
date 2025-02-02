@@ -56,38 +56,44 @@ public class TypeConverter {
         return builder.build();
     }
 
-    public void rewriteChunkData(int input, int output, ByteBuf from, ByteBuf to, int sections) throws ChunkRewriteException {
+    public void rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int sections) throws ChunkRewriteException {
         for (var section = 0; section < sections; section++) {
-            var version = from.readUnsignedByte();
-            to.writeByte(version);
-            switch (version) {
-                case 0, 4, 139 -> {
-                    to.writeBytes(from);
-                    return;
-                }
-                case 8, 9 -> { // New form chunk, baked-in palette
-                    var storageCount = from.readUnsignedByte();
-                    to.writeByte(storageCount);
-                    if (version == 9) {
-                        to.writeByte(from.readUnsignedByte());//what ??? uint8(index + (c.range[0] >> 4))
-                    }
-
-                    for (var storage = 0; storage < storageCount; storage++) {
-                        PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
-                    }
-                }
-                default -> { // Unsupported
-                    throw new ChunkRewriteException("ChunkDataRewrite: Unknown subchunk format " + version);
-                }
+            if (rewriteSubChunk(input, output, from, to)) {
+                return;
             }
         }
-        //biome
         int remaining = from.capacity() - from.readerIndex();
         if (remaining > 0) {
             //TODO: implement biome data rewriting
             //TODO: implement block entities data rewriting
             to.writeBytes(from);
         }
+    }
+
+    public static boolean rewriteSubChunk(int input, int output, ByteBuf from, ByteBuf to) throws ChunkRewriteException {
+        var version = from.readUnsignedByte();
+        to.writeByte(version);
+        switch (version) {
+            case 0, 4, 139 -> {
+                to.writeBytes(from);
+                return true;
+            }
+            case 8, 9 -> { // New form chunk, baked-in palette
+                var storageCount = from.readUnsignedByte();
+                to.writeByte(storageCount);
+                if (version == 9) {
+                    to.writeByte(from.readUnsignedByte());//what ??? uint8(index + (c.range[0] >> 4))
+                }
+
+                for (var storage = 0; storage < storageCount; storage++) {
+                    PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
+                }
+            }
+            default -> { // Unsupported
+                throw new ChunkRewriteException("ChunkDataRewrite: Unknown subchunk format " + version);
+            }
+        }
+        return false;
     }
 
     public int translateBlockRuntimeId(int input, int output, int blockRuntimeId) {
