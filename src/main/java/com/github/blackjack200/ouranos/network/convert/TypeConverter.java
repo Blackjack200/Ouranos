@@ -84,7 +84,6 @@ public class TypeConverter {
                 if (version == 9) {
                     to.writeByte(from.readUnsignedByte());//what ??? uint8(index + (c.range[0] >> 4))
                 }
-
                 for (var storage = 0; storage < storageCount; storage++) {
                     PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
                 }
