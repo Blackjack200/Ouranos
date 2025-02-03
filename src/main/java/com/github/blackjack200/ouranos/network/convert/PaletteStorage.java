@@ -16,15 +16,4 @@ public class PaletteStorage {
         storage.writeNetwork(to, (id) -> rewriter.apply(input, output, id));
     }
 
-    private int uint32s(int p) {
-        var uint32Count = 0;
-        if (p != 0) {
-            val indicesPerUint32 = 32 / p;
-            uint32Count = 4096 / indicesPerUint32;
-        }
-        if (p == 3 || p == 5 || p == 6) {
-            uint32Count++;
-        }
-        return uint32Count;
-    }
 }
