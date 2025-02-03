@@ -1,11 +1,13 @@
 package com.github.blackjack200.ouranos.network.convert.palette;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
@@ -13,12 +15,23 @@ import java.util.function.Function;
  * @author JukeboxMC | daoge_cmd | CoolLoong | Blackjack200
  */
 @Slf4j
-public final class Palette<V> {
-    private final List<V> palette = new ArrayList<>();
-    private int blockSize;
-    private ByteBuf bitArray;
+public final class Palette<V> implements AutoCloseable {
+    private final int blockSize;
+    private final List<V> palette;
+    private final ByteBuf bitArray;
 
-    private int uint32s(int p) {
+    private Palette(int blockSize, List<V> palette, ByteBuf bitArray) {
+        this.blockSize = blockSize;
+        this.palette = palette;
+        this.bitArray = bitArray;
+    }
+
+    @Override
+    public void close() throws Exception {
+        ReferenceCountUtil.safeRelease(this.bitArray);
+    }
+
+    private static int uint32s(int p) {
         var uint32Count = 0;
         if (p != 0) {
             val indicesPerUint32 = 32 / p;
@@ -50,31 +63,29 @@ public final class Palette<V> {
         this.palette.forEach(value -> VarInts.writeInt(out, serializer.apply(value)));
     }
 
-    public void readNetwork(ByteBuf in, Function<Integer, V> deserializer) throws PaletteException {
+    public static <V> Palette<V> readNetwork(ByteBuf in, Function<Integer, V> deserializer) throws PaletteException {
         var header = in.readUnsignedByte();
         if ((header & 1) == 0) {
             throw new PaletteException("Reading persistent data with runtime method!");
         }
-        blockSize = header >> 1;
-        if (blockSize == 0x7F) {
-            return;
-        }
 
-        this.palette.clear();
-        var paletteCount = 1;
-
+        int blockSize = header >> 1;
         if (blockSize == 0) {
-            this.bitArray = null;
-            this.palette.add(deserializer.apply(VarInts.readInt(in)));
-            return;
+            return new Palette<>(blockSize, List.of(deserializer.apply(VarInts.readInt(in))), null);
+        }
+        if (blockSize == 0x7F) {
+            return new Palette<>(blockSize, Collections.emptyList(), null);
         }
 
-        this.bitArray = in.readBytes(uint32s(blockSize) * 4);
+        ByteBuf bitArray = in.readBytes(uint32s(blockSize) * 4);
 
-        paletteCount = VarInts.readInt(in);
+        var paletteCount = VarInts.readInt(in);
+        var palette = new ArrayList<V>(paletteCount);
 
         for (int i = 0; i < paletteCount; i++) {
-            this.palette.add(deserializer.apply(VarInts.readInt(in)));
+            palette.add(deserializer.apply(VarInts.readInt(in)));
         }
+        return new Palette<>(blockSize, palette, bitArray);
     }
+
 }
