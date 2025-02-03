@@ -1,7 +1,6 @@
 package com.github.blackjack200.ouranos.network.convert.palette;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.cloudburstmc.protocol.common.util.VarInts;
@@ -35,7 +34,9 @@ public final class Palette<V> {
             return;
         }
 
-        out.writeBytes(this.bitArray);
+        if (this.bitArray != null) {
+            out.writeBytes(this.bitArray);
+        }
 
         VarInts.writeInt(out, this.palette.size());
 
@@ -63,7 +64,7 @@ public final class Palette<V> {
         var paletteCount = 1;
 
         if (version == BitArrayVersion.V0) {
-            this.bitArray = ByteBufAllocator.DEFAULT.buffer();
+            this.bitArray = null;
             this.palette.add(deserializer.deserialize(VarInts.readInt(in)));
             return;
         }
