@@ -1,5 +1,6 @@
 package com.github.blackjack200.ouranos;
 
+import cn.hutool.core.convert.Convert;
 import cn.hutool.core.io.FileUtil;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
@@ -7,9 +8,8 @@ import com.github.blackjack200.ouranos.network.session.AuthData;
 import com.github.blackjack200.ouranos.network.session.OuranosPlayer;
 import com.github.blackjack200.ouranos.network.session.Translate;
 import com.github.blackjack200.ouranos.utils.BlockDictionaryRegistry;
-import com.github.blackjack200.ouranos.utils.ForgeryUtils;
-import com.github.blackjack200.ouranos.utils.HandshakeUtils;
 import com.github.blackjack200.ouranos.utils.ItemTypeDictionaryRegistry;
+import com.github.blackjack200.ouranos.utils.LoginPacketUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -37,7 +37,6 @@ import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockClientInitializer;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockServerInitializer;
 import org.cloudburstmc.protocol.bedrock.packet.*;
-import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
 import org.cloudburstmc.protocol.common.PacketSignal;
@@ -48,13 +47,16 @@ import org.jose4j.jwx.HeaderParameterNames;
 import org.jose4j.lang.JoseException;
 
 import java.io.FileReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.ECPublicKey;
 import java.security.spec.InvalidKeySpecException;
-import java.util.*;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -241,7 +243,7 @@ public class Ouranos {
                                 if (upstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
                                     var packets = Translate.translate(player.getDownstreamProtocolId(), player.getUpstreamProtocolId(), player, packet);
                                     for (var pk : packets) {
-                                        if (!(pk instanceof PlayerAuthInputPacket)) {
+                                        if (Ouranos.this.config.debug && !(pk instanceof PlayerAuthInputPacket)) {
                                             log.debug("C->S {}", pk);
                                         }
                                         upstream.sendPacket(pk);
@@ -327,7 +329,7 @@ public class Ouranos {
                                 if (downstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
                                     var packets = Translate.translate(upstreamProtocolId, downstreamProtocolId, player, packet);
                                     for (var pk : packets) {
-                                        if (!(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof CraftingDataPacket) && !(pk instanceof AvailableEntityIdentifiersPacket) && !(pk instanceof BiomeDefinitionListPacket)) {
+                                        if (Ouranos.this.config.debug && !(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof CraftingDataPacket) && !(pk instanceof AvailableEntityIdentifiersPacket) && !(pk instanceof BiomeDefinitionListPacket)) {
                                             log.debug("S->C {}", pk);
                                         }
                                         downstream.sendPacket(pk);
@@ -342,46 +344,35 @@ public class Ouranos {
     }
 
     private LoginPacket makeNewLoginPacket(LoginPacket loginPacket, OuranosPlayer player) throws JoseException, NoSuchAlgorithmException, InvalidKeySpecException {
-        ChainValidationResult chain = EncryptionUtils.validateChain(loginPacket.getChain());
+        var chain = EncryptionUtils.validateChain(loginPacket.getChain());
 
-        var payload = chain.rawIdentityClaims();
-        if (!(payload.get("extraData") instanceof Map<?, ?>)) {
-            throw new RuntimeException("AuthData was not found!");
-        }
+        var claims = chain.identityClaims();
+        var extraData = claims.extraData;
+        var identityData = new AuthData(extraData.displayName,
+                extraData.identity, extraData.xuid);
 
-        var extraData = new JSONObject(JsonUtils.childAsType(payload, "extraData", Map.class));
-
-        var identityData = new AuthData(chain.identityClaims().extraData.displayName,
-                chain.identityClaims().extraData.identity, chain.identityClaims().extraData.xuid);
+        var rawExtraData = Convert.toMap(String.class, Object.class, chain.rawIdentityClaims().get("extraData"));
 
         if (identityData.xuid().isEmpty() && this.config.online_mode) {
             player.disconnect("You must login with xbox");
             return null;
         }
 
-        if (!(payload.get("identityPublicKey") instanceof String)) {
-            throw new RuntimeException("Identity Public Key was not found!");
-        }
-
-        ECPublicKey identityPublicKey = EncryptionUtils.parseKey(payload.get("identityPublicKey").toString());
-
-        String clientJwt = loginPacket.getExtra();
-        JsonWebSignature jws = new JsonWebSignature();
-        jws.setKey(identityPublicKey);
-        jws.setCompactSerialization(clientJwt);
+        var jws = new JsonWebSignature();
+        jws.setKey(claims.parsedIdentityPublicKey());
+        jws.setCompactSerialization(loginPacket.getExtra());
+        jws.setPayloadCharEncoding(String.valueOf(StandardCharsets.UTF_8));
         jws.verifySignature();
 
-        var skinData = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
-        var chainData = HandshakeUtils.createExtraData(player.getKeyPair(), extraData);
+        var clientData = new JSONObject(JsonUtil.parseJson(jws.getPayload()));
+        var chainData = LoginPacketUtils.createChainDataJwt(player.getKeyPair(), rawExtraData);
+        var skinDataString = LoginPacketUtils.writeClientData(player.getKeyPair(), player, identityData, clientData, this.config.login_extra);
 
-        var authData = ForgeryUtils.forgeAuthData(player.getKeyPair(), extraData);
-        var skinDataString = ForgeryUtils.writeClientData(player.getKeyPair(), player.getUpstreamProtocolId(), player, identityData, skinData,this.config.login_extra);
-
-        LoginPacket login = new LoginPacket();
-        login.getChain().add(chainData.serialize());
-        login.setExtra(skinDataString);
-        login.setProtocolVersion(player.getUpstreamProtocolId());
-        return login;
+        var newLogin = new LoginPacket();
+        newLogin.getChain().add(chainData);
+        newLogin.setExtra(skinDataString);
+        newLogin.setProtocolVersion(player.getUpstreamProtocolId());
+        return newLogin;
     }
 
     @SneakyThrows
