@@ -2,7 +2,6 @@ package com.github.blackjack200.ouranos.network.convert.palette;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
-import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
@@ -14,7 +13,6 @@ import java.util.function.Function;
 /**
  * @author JukeboxMC | daoge_cmd | CoolLoong | Blackjack200
  */
-@Slf4j
 public final class Palette<V> implements AutoCloseable {
     private final int blockSize;
     private final List<V> palette;
