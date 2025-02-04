@@ -21,9 +21,9 @@
             <url>https://repo.opencollab.dev/maven-releases</url>
         </repository>
         <repository>
-            <id>opencollab-repository-maven-releases</id>
+            <id>opencollab-repository-maven-snapshots</id>
             <name>Opencollab Repository</name>
-            <url>https://repo.opencollab.dev/maven-releases</url>
+            <url>https://repo.opencollab.dev/maven-snapshots</url>
         </repository>
         <repository>
             <id>central</id>
