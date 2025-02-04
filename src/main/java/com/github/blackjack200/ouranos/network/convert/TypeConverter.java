@@ -4,14 +4,24 @@ import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.data.bedrock.item.BlockItemIdMap;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.ByteBufOutputStream;
+import io.netty.util.ReferenceCountUtil;
+import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.cloudburstmc.nbt.NbtUtils;
+import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
+import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
+
+import java.io.IOException;
 
 @Log4j2
 @UtilityClass
@@ -55,17 +65,48 @@ public class TypeConverter {
         return builder.build();
     }
 
-    public void rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int sections) throws ChunkRewriteException {
+    @SneakyThrows
+    public void rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
         for (var section = 0; section < sections; section++) {
+            if (output < Bedrock_v475.CODEC.getProtocolVersion() && section == 4) {
+                to.clear();
+            }
             if (rewriteSubChunk(input, output, from, to)) {
                 return;
             }
         }
-        int remaining = from.capacity() - from.readerIndex();
-        if (remaining > 0) {
-            //TODO: implement biome data rewriting
-            //TODO: implement block entities data rewriting
-            to.writeBytes(from);
+
+        var buf = ByteBufAllocator.DEFAULT.buffer().touch();
+        for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
+            PaletteStorage.translatePaletteStorage(input, output, from, buf, (i, o, v) -> v);
+        }
+        to.writeBytes(buf);
+        //to.writeBytes(new byte[256]);
+        to.writeByte(from.readByte());
+        ReferenceCountUtil.release(buf);
+        rewriteBlockEntities(input, output, from, to);
+    }
+
+    private static void rewriteBlockEntities(int input, int output, ByteBuf from, ByteBuf to) throws IOException {
+        var inp = new ByteBufInputStream(from);
+        var reader = NbtUtils.createNetworkReader(inp);
+        var rd = NbtUtils.createNetworkWriter(new ByteBufOutputStream(to));
+        while (inp.available() > 0) {
+            rd.writeTag(reader.readTag());
+        }
+    }
+
+    private int getDimensionChunkBounds(int protocol, int dimension) {
+        switch (dimension) {
+            case 0://overworld
+                return protocol <= Bedrock_v503.CODEC.getProtocolVersion() ? 25 : 24;
+            case 1://nether
+                return 8;
+            case 2://the_end
+                return 16;
+            default:
+                log.debug("Unknown dimension for chunk bounds: {}", dimension);
+                return protocol <= Bedrock_v503.CODEC.getProtocolVersion() ? 25 : 24;
         }
     }
 

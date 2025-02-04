@@ -41,6 +41,7 @@ public final class GlobalItemDataHandlers {
             case 748 -> 221;
             case 729 -> 211;
             case 712 -> 201;
+            case 686 -> 191;
             case 685 -> 191;
             case 671 -> 181;
             case 662 -> 171;

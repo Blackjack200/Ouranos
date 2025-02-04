@@ -96,7 +96,7 @@ public class Translate {
             val contents = new ArrayList<CreativeItemData>();
             for (int i = 0, iMax = pk.getContents().size(); i < iMax; i++) {
                 val item = TypeConverter.translateCreativeItemData(input, output, pk.getContents().get(i));
-                if(item!=null){
+                if (item != null) {
                     contents.add(item);
                 }
             }
@@ -418,7 +418,7 @@ public class Translate {
             try {
                 var from = packet.getData();
                 var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
-                TypeConverter.rewriteFullChunk(input, output, from, to, packet.getSubChunksLength());
+                TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength());
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             } catch (ChunkRewriteException exception) {
