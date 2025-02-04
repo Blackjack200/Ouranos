@@ -15,6 +15,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
@@ -53,15 +54,15 @@ import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Log4j2
 public class Ouranos {
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     public static final Path SERVER_CONFIG_FILE = Path.of("config.json");
     private final ServerConfig config;
     private final AtomicBoolean running = new AtomicBoolean(true);
@@ -158,11 +159,12 @@ public class Ouranos {
 
         var bindv4 = this.config.getBindv4();
         var bindv6 = this.config.getBindv6();
-        boostrap.bind(bindv4).awaitUninterruptibly();
+        var channels = new ArrayList<Channel>(2);
+        channels.add(boostrap.bind(bindv4).awaitUninterruptibly().channel());
         log.info("Ouranos started on {}", bindv4);
 
         if (this.config.server_ipv6_enabled) {
-            boostrap.bind(bindv6).awaitUninterruptibly();
+            channels.add(boostrap.bind(bindv6).awaitUninterruptibly().channel());
             log.info("Ouranos started on {}", bindv6);
         }
 
@@ -175,6 +177,13 @@ public class Ouranos {
         val done = System.currentTimeMillis();
         val time = done - start;
         log.info("Server started in {} ms", time);
+
+        scheduler.scheduleAtFixedRate(() -> {
+            var newPong = this.config.getPong().toByteBuf();  // 重新获取Pong
+            for (val channel : channels) {
+                channel.config().setOption(RakChannelOption.RAK_ADVERTISEMENT, newPong);
+            }
+        }, 1, 1, TimeUnit.SECONDS);  // 每5分钟重新设置一次Pong
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             Ouranos.this.shutdown(true);
@@ -205,6 +214,7 @@ public class Ouranos {
                 }
             }
         }
+        scheduler.shutdown();
         log.info("Ouranos shutdown gracefully.");
     }
 
