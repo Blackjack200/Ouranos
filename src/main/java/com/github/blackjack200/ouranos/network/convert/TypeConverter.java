@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
+import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
 
@@ -153,5 +154,13 @@ public class TypeConverter {
         }
         //log.error("unknown descriptor {}", descriptor);
         return InvalidDescriptor.INSTANCE;
+    }
+
+    public static CreativeItemData translateCreativeItemData(int input, int output, CreativeItemData itemData) {
+        var item = translateItemData(input, output, itemData.getItem());
+        if (item == null) {
+            return null;
+        }
+        return new CreativeItemData(item,itemData.getNetId(),itemData.getGroupId());
     }
 }

@@ -28,6 +28,7 @@ import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.*;
@@ -92,16 +93,15 @@ public class Translate {
             pk.getContainerMixData().clear();
             pk.setCleanRecipes(true);
         } else if (p instanceof CreativeContentPacket pk) {
-            val contents = pk.getContents();
-            for (int i = 0, iMax = pk.getContents().length; i < iMax; i++) {
-                val item = TypeConverter.translateItemData(input, output, contents[i]);
-                if (item != null) {
-                    contents[i] = (item.toBuilder().build());
-                } else {
-                    contents[i] = ItemData.AIR.toBuilder().netId(i).build();
+            val contents = new ArrayList<CreativeItemData>();
+            for (int i = 0, iMax = pk.getContents().size(); i < iMax; i++) {
+                val item = TypeConverter.translateCreativeItemData(input, output, pk.getContents().get(i));
+                if(item!=null){
+                    contents.add(item);
                 }
             }
-            pk.setContents(contents);
+            pk.getContents().clear();
+            pk.getContents().addAll(contents);
         } else if (p instanceof AddItemEntityPacket pk) {
             pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
         } else if (p instanceof InventorySlotPacket pk) {
