@@ -354,7 +354,7 @@ public class Ouranos {
         var rawExtraData = Convert.toMap(String.class, Object.class, chain.rawIdentityClaims().get("extraData"));
 
         if (identityData.xuid().isEmpty() && this.config.online_mode) {
-            player.disconnect("You must login with xbox");
+            player.disconnect("You need to authenticate to Xbox Live.");
             return null;
         }
 
