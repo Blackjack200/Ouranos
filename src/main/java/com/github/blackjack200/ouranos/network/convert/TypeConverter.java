@@ -13,8 +13,6 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
 
-import java.util.Objects;
-
 @Log4j2
 @UtilityClass
 public class TypeConverter {
@@ -98,26 +96,29 @@ public class TypeConverter {
 
     public int translateBlockRuntimeId(int input, int output, int blockRuntimeId) {
         val inputDict = BlockStateDictionary.getInstance(input);
+        val outputDict = BlockStateDictionary.getInstance(output);
 
-        val stateHash = inputDict.toStateHash(blockRuntimeId);
+        val stateHash = inputDict.toLatestStateHash(blockRuntimeId);
 
-        int fallback = BlockStateDictionary.getInstance(output).getFallback();
         if (stateHash == null) {
             log.error("unknown block runtime id {}", blockRuntimeId);
-            return blockRuntimeId;
+            return outputDict.getFallbackRuntimeId();
         }
 
-        var translated = BlockStateDictionary.getInstance(output).toRuntimeId(stateHash);
+        var translated = outputDict.toRuntimeId(stateHash);
         if (translated == null) {
             //TODO HACK for heads and skulls, this is not a proper way to translate them. currently unusable
             var anyState = inputDict.lookupStateFromStateHash(stateHash);
             if (anyState != null && (anyState.name().endsWith("_head") || anyState.name().endsWith("_skull"))) {
-                Integer skullHash = inputDict.lookupStateIdFromData("minecraft:skeleton_skull", anyState.stateData());
+                Integer skullHash = inputDict.lookupStateIdFromData("minecraft:skeleton_skull", anyState.rawState());
                 if (skullHash != null) {
-                    return Objects.requireNonNullElse(BlockStateDictionary.getInstance(output).toRuntimeId(skullHash), fallback);
+                    Integer rtId = outputDict.toRuntimeId(skullHash);
+                    if (rtId != null) {
+                        return rtId;
+                    }
                 }
             }
-            return fallback;
+            return outputDict.getFallbackRuntimeId();
         }
         return translated;
     }
@@ -161,6 +162,6 @@ public class TypeConverter {
         if (item == null) {
             return null;
         }
-        return new CreativeItemData(item,itemData.getNetId(),itemData.getGroupId());
+        return new CreativeItemData(item, itemData.getNetId(), itemData.getGroupId());
     }
 }

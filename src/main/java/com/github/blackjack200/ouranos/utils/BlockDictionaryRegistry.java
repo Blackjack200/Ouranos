@@ -16,17 +16,17 @@ public class BlockDictionaryRegistry implements DefinitionRegistry<BlockDefiniti
     @Override
     public BlockDefinition getDefinition(int runtimeId) {
         val entry = BlockStateDictionary.getInstance(this.protocol);
-        val hash = entry.toStateHash(runtimeId);
+        val hash = entry.toLatestStateHash(runtimeId);
         val states = entry.lookupStateFromStateHash(hash);
         if (states == null) {
-            return entry::getFallback;
+            return entry::getFallbackRuntimeId;
         }
-        return new SimpleBlockDefinition(states.name(), runtimeId, states.stateData().getCompound("states"));
+        return new SimpleBlockDefinition(states.name(), runtimeId, states.rawState().getCompound("states"));
     }
 
     @Override
     public boolean isRegistered(BlockDefinition blockDefinition) {
-        var id = BlockStateDictionary.getInstance(this.protocol).toStateHash(blockDefinition.getRuntimeId());
+        var id = BlockStateDictionary.getInstance(this.protocol).toLatestStateHash(blockDefinition.getRuntimeId());
         return id != null;
     }
 }

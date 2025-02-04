@@ -18,46 +18,55 @@ import java.util.*;
 @Log4j2
 public final class BlockStateDictionary extends AbstractMapping {
     public static final class Dictionary {
-        private final Map<Integer, BlockEntry> stateHashToEntry = new HashMap<>();
-        private final Map<String, Map<Integer, BlockEntry>> stateIdToMetaToEntry = new HashMap<>();
-        private final Map<Integer, Integer> stateHashToRuntimeId = new HashMap<>();
-        private final Map<Integer, Integer> runtimeToStateHash = new HashMap<>();
+        private final Map<Integer, BlockEntry> latestStateHashToEntry = new HashMap<>();
+        private final Map<Integer, Integer> latestStateHashToCurrent = new HashMap<>();
+        private final Map<String, Map<Integer, BlockEntry>> latestStateHashToMetaToEntry = new HashMap<>();
+        private final Map<Integer, Integer> latestStateHashToRuntimeId = new HashMap<>();
+        private final Map<Integer, Integer> runtimeToLatestStateHash = new HashMap<>();
         @Getter
-        private Integer fallback;
+        private Integer fallbackRuntimeId;
+        @Getter
+        private Integer fallbackCurrentStateHash;
 
         public Dictionary(List<BlockEntry> states) {
             for (int runtimeId = 0, stateIdMax = states.size(); runtimeId < stateIdMax; runtimeId++) {
                 var entry = states.get(runtimeId);
-                this.stateHashToEntry.put(entry.stateHash, entry);
+                this.latestStateHashToEntry.put(entry.latestStateHash, entry);
+                this.latestStateHashToCurrent.put(entry.latestStateHash, entry.currentStateHash);
 
-                this.stateIdToMetaToEntry.computeIfAbsent(entry.name, k -> new HashMap<>());
-                this.stateIdToMetaToEntry.get(entry.name).put(entry.meta, entry);
+                this.latestStateHashToMetaToEntry.computeIfAbsent(entry.name, k -> new HashMap<>());
+                this.latestStateHashToMetaToEntry.get(entry.name).put(entry.meta, entry);
 
-                this.stateHashToRuntimeId.put(entry.stateHash, runtimeId);
-                this.runtimeToStateHash.put(runtimeId, entry.stateHash);
+                this.latestStateHashToRuntimeId.put(entry.latestStateHash, runtimeId);
+                this.runtimeToLatestStateHash.put(runtimeId, entry.latestStateHash);
             }
 
-            for (val v : this.stateHashToEntry.entrySet()) {
+            for (val v : this.latestStateHashToEntry.entrySet()) {
                 if (v.getValue().name.equals("minecraft:info_update")) {
-                    this.fallback = Optional.of(this.toRuntimeId(v.getKey())).get();
+                    this.fallbackRuntimeId = v.getKey();
+                    this.fallbackCurrentStateHash = v.getValue().currentStateHash;
                     break;
                 }
             }
-            if (this.fallback == null) {
+            if (this.fallbackRuntimeId == null) {
                 throw new RuntimeException("no fallback minecraft:info_update found.");
             }
         }
 
-        public Integer toRuntimeId(int hash) {
-            return this.stateHashToRuntimeId.get(hash);
+        public Integer toRuntimeId(int latestStateHash) {
+            return this.latestStateHashToRuntimeId.get(latestStateHash);
         }
 
-        public Integer toStateHash(int runtimeId) {
-            return this.runtimeToStateHash.get(runtimeId);
+        public Integer toLatestStateHash(int runtimeId) {
+            return this.runtimeToLatestStateHash.get(runtimeId);
+        }
+
+        public Integer toCurrentStateHash(int latestStateHash) {
+            return this.latestStateHashToCurrent.get(latestStateHash);
         }
 
         public BlockEntry toBlockState(int runtimeId) {
-            return this.stateHashToEntry.get(this.runtimeToStateHash.get(runtimeId));
+            return this.latestStateHashToEntry.get(this.runtimeToLatestStateHash.get(runtimeId));
         }
 
         /**
@@ -69,44 +78,34 @@ public final class BlockStateDictionary extends AbstractMapping {
          */
         public Integer lookupStateIdFromData(String name, NbtMap state) {
             var stateHash = HashUtils.computeBlockStateHash(name, state);
-            if (stateHashToEntry.containsKey(stateHash)) {
+            if (latestStateHashToEntry.containsKey(stateHash)) {
                 return stateHash;
             }
             return null;
         }
 
         public BlockEntry lookupStateFromStateHash(int stateHash) {
-            return this.stateHashToEntry.get(stateHash);
+            return this.latestStateHashToEntry.get(stateHash);
         }
 
         /**
-         * Returns the blockstate meta value for the given state ID.
-         *
-         * @param networkRuntimeId the state ID.
-         * @return the meta value or null.
-         */
-        public Integer getMetaFromStateId(int networkRuntimeId) {
-            return this.stateHashToEntry.get(this.runtimeToStateHash.get(networkRuntimeId)).meta;
-        }
-
-        /**
-         * Searches for the appropriate state ID which matches the given blockstate ID and meta value.
+         * Searches for the appropriate state which matches the given blockstate ID and meta value.
          *
          * @param id   the blockstate ID.
          * @param meta the blockstate meta value.
          * @return the state ID or null if no match.
          */
-        public Integer lookupStateIdFromIdMeta(String id, int meta) {
-            if (!stateIdToMetaToEntry.containsKey(id)) {
+        public BlockEntry lookupStateIdFromIdMeta(String id, int meta) {
+            if (!latestStateHashToMetaToEntry.containsKey(id)) {
                 return null;
             }
-            if (!stateIdToMetaToEntry.get(id).containsKey(meta)) {
+            if (!latestStateHashToMetaToEntry.get(id).containsKey(meta)) {
                 return null;
             }
-            return stateIdToMetaToEntry.get(id).get(meta).stateHash;
+            return latestStateHashToMetaToEntry.get(id).get(meta);
         }
 
-        public record BlockEntry(String name, int meta, NbtMap stateData, int stateHash) {
+        public record BlockEntry(String name, int meta, NbtMap rawState, int latestStateHash, int currentStateHash) {
         }
 
         @SneakyThrows
@@ -129,12 +128,12 @@ public final class BlockStateDictionary extends AbstractMapping {
                     state = state.toBuilder().putString("name", "minecraft:underwater_tnt").build();
                 }
 
-                var stateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
+                var latestStateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
                 var meta = meta_map.get(i);
                 if (meta == null) {
                     throw new RuntimeException("Missing associated meta value for state " + i + " (" + state + ")");
                 }
-                list.add(new BlockEntry(state.getString("name"), meta, rawState, stateHash));
+                list.add(new BlockEntry(state.getString("name"), meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
                 i++;
             }
             return new Dictionary(list);
