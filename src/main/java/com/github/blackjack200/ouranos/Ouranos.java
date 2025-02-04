@@ -402,8 +402,8 @@ public class Ouranos {
             this.workerGroup.shutdownGracefully(2, 2, TimeUnit.SECONDS);
         } else {
             OuranosPlayer.ouranosPlayers.clear();
-            this.bossGroup.shutdownGracefully().get(1, TimeUnit.MINUTES);
-            this.workerGroup.shutdownGracefully().get(1, TimeUnit.MINUTES);
+            this.bossGroup.shutdownGracefully().get(10, TimeUnit.SECONDS);
+            this.workerGroup.shutdownGracefully().get(10, TimeUnit.SECONDS);
         }
         this.running.set(false);
     }
