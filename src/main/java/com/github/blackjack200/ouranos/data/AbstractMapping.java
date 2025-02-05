@@ -26,12 +26,12 @@ public class AbstractMapping {
     }
 
     protected static String lookupAvailableFile(String file, int protocolId) {
-        var exists = ProtocolInfo.getPacketCodecs().stream().filter(id -> FileUtil.exist("vanilla/v" + id.getProtocolVersion() + "/" + file)).toList();
+        var exists = ProtocolInfo.getPacketCodecs().stream().filter(id -> Ouranos.class.getClassLoader().getResource("vanilla/v" + id.getProtocolVersion() + "/" + file) != null).toList();
         String name = "vanilla/v" + protocolId + "/" + file;
-        if (!FileUtil.exist(name)) {
+        if (Ouranos.class.getClassLoader().getResource(name) == null) {
             name = file;
         }
-        if (!FileUtil.exist(name)) {
+        if (Ouranos.class.getClassLoader().getResource(name) == null) {
             for (var i = exists.size() - 1; i >= 0; i--) {
                 var codecc = exists.get(i);
                 name = "vanilla/v" + protocolId + "/" + file;
@@ -40,7 +40,7 @@ public class AbstractMapping {
                 }
             }
         }
-        if (!FileUtil.exist(name)) {
+        if (Ouranos.class.getClassLoader().getResource(name) == null) {
             name = file;
         }
         return name;
