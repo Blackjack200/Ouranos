@@ -312,7 +312,11 @@ public class Translate {
         }
         if (input < Bedrock_v544.CODEC.getProtocolVersion()) {
             if (p instanceof ModalFormResponsePacket pk) {
-                pk.setCancelReason(Optional.empty());
+                if (pk.getFormData().isEmpty()) {
+                    pk.setCancelReason(Optional.of(ModalFormCancelReason.USER_CLOSED));
+                } else {
+                    pk.setCancelReason(Optional.empty());
+                }
             }
         }
         if (input < Bedrock_v527.CODEC.getProtocolVersion()) {
