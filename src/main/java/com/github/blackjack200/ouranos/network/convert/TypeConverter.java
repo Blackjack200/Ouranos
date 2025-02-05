@@ -80,11 +80,14 @@ public class TypeConverter {
         for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
             PaletteStorage.translatePaletteStorage(input, output, from, buf, (i, o, v) -> v);
         }
-        to.writeBytes(buf);
-        //to.writeBytes(new byte[256]);
-        to.writeByte(from.readByte());
+        if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
+            //TODO implement biome & block entities rewrite
+        } else {
+            to.writeBytes(buf);
+            to.writeByte(from.readByte());
+            rewriteBlockEntities(input, output, from, to);
+        }
         ReferenceCountUtil.release(buf);
-        rewriteBlockEntities(input, output, from, to);
     }
 
     private static void rewriteBlockEntities(int input, int output, ByteBuf from, ByteBuf to) throws IOException {

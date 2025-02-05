@@ -61,6 +61,7 @@ public final class GlobalItemDataHandlers {
             case 486 -> 61;
             case 475 -> 51;
             case 471 -> 51;
+            case 440 -> 41;
             case 431 -> 41;
             default -> throw new RuntimeException("schemaid for protocol " + protocolId + " not found");
         };
