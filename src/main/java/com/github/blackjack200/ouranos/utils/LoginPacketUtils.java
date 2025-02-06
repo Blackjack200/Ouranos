@@ -23,10 +23,7 @@ import java.net.URI;
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.Date;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @UtilityClass
 public class LoginPacketUtils {
@@ -76,6 +73,10 @@ public class LoginPacketUtils {
         }
         clientData.putIfAbsent("IsEditorMode", false);
         clientData.putIfAbsent("SkinGeometryDataEngineVersion", "");
+
+        //TODO AnimatedImageData rewrite
+        clientData.put("AnimatedImageData", List.of());
+        clientData.putIfAbsent("PlayFabId","");
 
         if (login_extra) {
             clientData.put("OuranosXUID", identityData.xuid());

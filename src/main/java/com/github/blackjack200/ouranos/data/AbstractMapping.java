@@ -34,7 +34,7 @@ public class AbstractMapping {
         if (Ouranos.class.getClassLoader().getResource(name) == null) {
             for (var i = exists.size() - 1; i >= 0; i--) {
                 var codecc = exists.get(i);
-                name = "vanilla/v" + protocolId + "/" + file;
+                name = "vanilla/v" + codecc.getProtocolVersion() + "/" + file;
                 if (codecc.getProtocolVersion() <= protocolId) {
                     break;
                 }
