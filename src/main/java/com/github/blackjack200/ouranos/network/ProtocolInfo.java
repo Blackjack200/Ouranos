@@ -5,6 +5,7 @@ import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v419.Bedrock_v419;
 import org.cloudburstmc.protocol.bedrock.codec.v431.Bedrock_v431;
 import org.cloudburstmc.protocol.bedrock.codec.v440.Bedrock_v440;
+import org.cloudburstmc.protocol.bedrock.codec.v448.Bedrock_v448;
 import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
 import org.cloudburstmc.protocol.bedrock.codec.v471.Bedrock_v471;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
@@ -88,6 +89,7 @@ public final class ProtocolInfo {
         // partially playable
         addPacketCodec(Bedrock_v471.CODEC);
         addPacketCodec(Bedrock_v465.CODEC);
+        addPacketCodec(Bedrock_v448.CODEC);
         addPacketCodec(Bedrock_v440.CODEC);
 
         // >= 1.16.100

@@ -2,11 +2,10 @@ package com.github.blackjack200.ouranos.utils.auth;
 
 import cn.hutool.core.io.IoUtil;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.stream.JsonReader;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.io.ByteArrayOutputStream;
@@ -225,7 +224,7 @@ public class Xbox {
         connection.setDoOutput(true);
 
         DataOutputStream dataOutputStream = new DataOutputStream(connection.getOutputStream());
-        dataOutputStream.writeBytes(new Gson().toJson(jsonObject));
+        dataOutputStream.writeBytes(new GsonBuilder().disableHtmlEscaping().create().toJson(jsonObject));
         dataOutputStream.flush();
     }
 
@@ -237,15 +236,23 @@ public class Xbox {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(Xbox.bigIntegerToByteArray(ecPublicKey.getW().getAffineY()));
     }
 
+    private static byte[] toByteArray(long value) {
+        byte[] result = new byte[8];
+
+        for (int i = 7; i >= 0; --i) {
+            result[i] = (byte) ((int) (value & 255L));
+            value >>= 8;
+        }
+
+        return result;
+    }
+
     private void addSignatureHeader(HttpsURLConnection httpsURLConnection, JsonObject postData, ECPrivateKey privateKey) throws Exception {
         long currentTime = this.windowsTimestamp();
         ByteArrayOutputStream bytesToSign = new ByteArrayOutputStream();
 
         bytesToSign.write(new byte[]{0, 0, 0, 1, 0});
-        for (int i = 7; i >= 0; i--) {
-            bytesToSign.write((byte) (currentTime & 0xffL));
-            currentTime >>= 8;
-        }
+        bytesToSign.write(toByteArray(currentTime));
         bytesToSign.write(new byte[]{0});
 
         bytesToSign.write("POST".getBytes());
@@ -262,7 +269,7 @@ public class Xbox {
         }
         bytesToSign.write(authorization.getBytes());
         bytesToSign.write(new byte[]{0});
-        bytesToSign.write(new Gson().toJson(postData).getBytes());
+        bytesToSign.write(new GsonBuilder().disableHtmlEscaping().create().toJson(postData).getBytes());
         bytesToSign.write(new byte[]{0});
 
         Signature signature = Signature.getInstance("SHA256withECDSA");
@@ -272,14 +279,11 @@ public class Xbox {
 
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         byteArrayOutputStream.write(new byte[]{0, 0, 0, 1});
-        for (int i = 7; i >= 0; i--) {
-            byteArrayOutputStream.write((byte) (currentTime & 0xffL));
-            currentTime >>= 8;
-        }
-
+        byteArrayOutputStream.write(toByteArray(currentTime));
         byteArrayOutputStream.write(signatureBytes);
         httpsURLConnection.addRequestProperty("Signature", Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
     }
+
 
     // windowsTimestamp returns a Windows specific timestamp. It has a certain offset from Unix time which must be accounted for.
     private long windowsTimestamp() {

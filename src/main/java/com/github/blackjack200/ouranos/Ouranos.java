@@ -10,6 +10,9 @@ import com.github.blackjack200.ouranos.network.session.Translate;
 import com.github.blackjack200.ouranos.utils.BlockDictionaryRegistry;
 import com.github.blackjack200.ouranos.utils.ItemTypeDictionaryRegistry;
 import com.github.blackjack200.ouranos.utils.LoginPacketUtils;
+import com.github.blackjack200.ouranos.utils.auth.Auth;
+import com.github.blackjack200.ouranos.utils.auth.Xbox;
+import com.github.blackjack200.ouranos.utils.auth.XboxLogin;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -353,6 +356,7 @@ public class Ouranos {
                 .connect(this.config.getRemote());
     }
 
+    @SneakyThrows
     private LoginPacket makeNewLoginPacket(LoginPacket loginPacket, OuranosPlayer player) throws JoseException, NoSuchAlgorithmException, InvalidKeySpecException {
         var chain = EncryptionUtils.validateChain(loginPacket.getChain());
 
@@ -379,6 +383,11 @@ public class Ouranos {
         var skinDataString = LoginPacketUtils.writeClientData(player.getKeyPair(), player, identityData, clientData, this.config.login_extra);
 
         var newLogin = new LoginPacket();
+/*        var x = new Xbox(XboxLogin.getAccessToken("",""));
+        var auth = new Auth();
+        var autrhh = auth.getOnlineChainData(x, player.getKeyPair());
+        newLogin.getChain().clear();
+        newLogin.getChain().addAll(autrhh);*/
         newLogin.getChain().add(chainData);
         newLogin.setExtra(skinDataString);
         newLogin.setProtocolVersion(player.getUpstreamProtocolId());

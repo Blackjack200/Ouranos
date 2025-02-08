@@ -12,11 +12,12 @@ import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Objects;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 //based off https://github.com/Sandertv/gophertunnel/tree/master/minecraft/auth
+
 public class Auth {
 
     private ECPublicKey publicKey;
@@ -25,14 +26,13 @@ public class Auth {
     private UUID identity;
     private String displayName;
 
-    public String getOnlineChainData(KeyPair ecdsa384KeyPair) throws Exception {
-        Gson gson = new Gson();
+    public List<String> getOnlineChainData(Xbox xbox, KeyPair ecdsa384KeyPair) throws Exception {
+        Gson gson = new GsonBuilder().disableHtmlEscaping().create();
 
         KeyPair ecdsa256KeyPair = Auth.createKeyPair();//for xbox live, xbox live requests use, ES256, ECDSA256
         this.publicKey = (ECPublicKey) ecdsa256KeyPair.getPublic();
         this.privateKey = (ECPrivateKey) ecdsa256KeyPair.getPrivate();
 
-        Xbox xbox = new Xbox(Objects.requireNonNull(Live.requestLiveTokenWriter(System.out)).getAccessToken());
         String userToken = xbox.getUserToken(this.publicKey, this.privateKey);
         String deviceToken = xbox.getDeviceToken(this.publicKey, this.privateKey);
         String titleToken = xbox.getTitleToken(this.publicKey, this.privateKey, deviceToken);
@@ -91,7 +91,7 @@ public class Auth {
             this.displayName = extraData.get("displayName").getAsString();
         }
 
-        return gson.toJson(chainDataObject);
+        return chainDataObject.get("chain").getAsJsonArray().asList().stream().map(JsonElement::getAsString).toList();
     }
 
     public String getOfflineChainData(String username) throws Exception {
@@ -100,7 +100,7 @@ public class Auth {
         UUID offlineUUID = UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(StandardCharsets.UTF_8));
         String xuid = Long.toString(offlineUUID.getLeastSignificantBits());
 
-        Gson gson = new Gson();
+        Gson gson = new GsonBuilder().disableHtmlEscaping().create();
         //KeyPair ecdsa256KeyPair = Auth.createKeyPair();//for xbox live, xbox live requests use, ES256, ECDSA256
         KeyPair ecdsa256KeyPair = EncryptionUtils.createKeyPair();
         this.publicKey = (ECPublicKey) ecdsa256KeyPair.getPublic();
