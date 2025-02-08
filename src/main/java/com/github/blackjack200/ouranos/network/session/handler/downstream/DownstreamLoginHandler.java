@@ -40,6 +40,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
         this.clientData = clientData;
 
         this.chainData = LoginPacketUtils.createChainDataJwt(this.keyPair, this.rawExtraData);
+
         connect();
     }
 
@@ -72,10 +73,13 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
                 .connect(Ouranos.getOuranos().getConfig().getRemote());
     }
 
+    @SneakyThrows
     private LoginPacket assembleLoginPacket(OuranosProxySession session) {
         var newClientData = LoginPacketUtils.writeClientData(this.keyPair, session, this.identityData, this.clientData, Ouranos.getOuranos().getConfig().login_extra);
         var newLogin = new LoginPacket();
-        newLogin.getChain().add(this.chainData);
+        /*var lo = XboxLogin.getAccessToken("", "");
+        var x = new Xbox(lo);
+        newLogin.getChain().addAll(new Auth().getOnlineChainData(x, this.keyPair));*/
         newLogin.setExtra(newClientData);
         newLogin.setProtocolVersion(session.upstream.getCodec().getProtocolVersion());
         return newLogin;
