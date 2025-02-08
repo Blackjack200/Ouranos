@@ -1,7 +1,7 @@
 package com.github.blackjack200.ouranos;
 
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
-import com.github.blackjack200.ouranos.network.session.OuranosPlayer;
+import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.BedrockPong;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
@@ -50,7 +50,7 @@ public class ServerConfig {
                 .motd(this.motd)
                 .subMotd(this.sub_motd)
                 .serverId(114514L)
-                .playerCount(OuranosPlayer.ouranosPlayers.size())
+                .playerCount(OuranosProxySession.ouranosPlayers.size())
                 .maximumPlayerCount(this.maximum_player)
                 .gameType("Survival")
                 .version(codec.getMinecraftVersion())

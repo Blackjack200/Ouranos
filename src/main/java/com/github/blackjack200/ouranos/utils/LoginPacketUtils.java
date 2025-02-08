@@ -2,7 +2,7 @@ package com.github.blackjack200.ouranos.utils;
 
 
 import com.github.blackjack200.ouranos.network.session.AuthData;
-import com.github.blackjack200.ouranos.network.session.OuranosPlayer;
+import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
@@ -51,7 +51,7 @@ public class LoginPacketUtils {
         return signedJWT.serialize();
     }
 
-    public static String writeClientData(KeyPair pair, OuranosPlayer player, AuthData identityData, JSONObject clientData, boolean login_extra) {
+    public static String writeClientData(KeyPair pair, OuranosProxySession player, AuthData identityData, JSONObject clientData, boolean login_extra) {
         String publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
 
         JsonWebSignature jws = new JsonWebSignature();

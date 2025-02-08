@@ -45,7 +45,7 @@ import java.util.*;
 @Log4j2
 public class Translate {
 
-    public static Collection<BedrockPacket> translate(int input, int output, OuranosPlayer player, BedrockPacket p) {
+    public static Collection<BedrockPacket> translate(int input, int output, OuranosProxySession player, BedrockPacket p) {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -185,7 +185,7 @@ public class Translate {
         return new ItemDescriptorWithCount(descriptor, i.getCount());
     }
 
-    private static void rewriteProtocol(int input, int output, OuranosPlayer player, BedrockPacket p, Collection<BedrockPacket> list) {
+    private static void rewriteProtocol(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         val provider = new ImmutableVectorProvider();
         if (input < Bedrock_v766.CODEC.getProtocolVersion()) {
             if (p instanceof ResourcePacksInfoPacket pk) {
@@ -374,7 +374,7 @@ public class Translate {
         }
     }
 
-    private static void rewriteBlock(int input, int output, OuranosPlayer player, BedrockPacket p, Collection<BedrockPacket> list) {
+    private static void rewriteBlock(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
             var translated = TypeConverter.translateBlockRuntimeId(input, output, runtimeId);
@@ -417,7 +417,7 @@ public class Translate {
         }
     }
 
-    private static void rewriteChunk(int input, int output, OuranosPlayer player, BedrockPacket p, Collection<BedrockPacket> list) {
+    private static void rewriteChunk(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof LevelChunkPacket packet) {
             try {
                 var from = packet.getData();

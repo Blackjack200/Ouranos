@@ -2,26 +2,26 @@ package com.github.blackjack200.ouranos.network.session;
 
 import lombok.Getter;
 import lombok.SneakyThrows;
-import org.cloudburstmc.protocol.bedrock.BedrockClientSession;
-import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
+import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
-import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 
 import java.security.KeyPair;
 import java.util.Vector;
 
-public class OuranosPlayer {
-    public static Vector<OuranosPlayer> ouranosPlayers = new Vector<>();
-    public final BedrockClientSession upstream;
-    public final BedrockServerSession downstream;
+@Log4j2
+public class OuranosProxySession {
+    public static Vector<OuranosProxySession> ouranosPlayers = new Vector<>();
+    public final ProxyClientSession upstream;
+    public final ProxyServerSession downstream;
     public boolean blockNetworkIdAreHashes = false;
     @Getter
-    private final KeyPair keyPair = EncryptionUtils.createKeyPair();
+    private final KeyPair keyPair;
 
-    public OuranosPlayer(BedrockClientSession upstreamSession, BedrockServerSession downstreamSession) {
+    public OuranosProxySession(KeyPair keyPair, ProxyClientSession upstreamSession, ProxyServerSession downstreamSession) {
+        this.keyPair = keyPair;
         this.upstream = upstreamSession;
         this.downstream = downstreamSession;
-        OuranosPlayer.ouranosPlayers.add(this);
+        OuranosProxySession.ouranosPlayers.add(this);
     }
 
     public int getUpstreamProtocolId() {
@@ -42,16 +42,22 @@ public class OuranosPlayer {
 
     @SneakyThrows
     public void disconnect(String reason, boolean hideReason) {
-        OuranosPlayer.ouranosPlayers.remove(this);
+        OuranosProxySession.ouranosPlayers.remove(this);
         if (this.downstream.isConnected()) {
-            this.downstream.disconnect(reason, hideReason);
-            this.downstream.getPeer().getChannel().flush().closeFuture().get();
-            this.downstream.close(reason);
-            this.downstream.setPacketHandler(new BedrockPacketHandler() {
-            });
+            try {
+                this.downstream.disconnect(reason, hideReason);
+                this.downstream.getPeer().getChannel().flush().closeFuture().get();
+                this.downstream.close(reason);
+                this.downstream.setPacketHandler(new BedrockPacketHandler() {
+                });
+            } catch (Throwable throwable) {
+                log.debug(throwable);
+            }
         }
         if (this.upstream.isConnected()) {
             this.upstream.disconnect(reason, hideReason);
+            this.upstream.getPeer().getChannel().flush().closeFuture().get();
+            this.upstream.close(reason);
             this.downstream.setPacketHandler(new BedrockPacketHandler() {
             });
         }

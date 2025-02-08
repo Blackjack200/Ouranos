@@ -26,7 +26,6 @@ public class BlockDictionaryRegistry implements DefinitionRegistry<BlockDefiniti
 
     @Override
     public boolean isRegistered(BlockDefinition blockDefinition) {
-        var id = BlockStateDictionary.getInstance(this.protocol).toLatestStateHash(blockDefinition.getRuntimeId());
-        return id != null;
+        return true;
     }
 }
