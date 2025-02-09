@@ -1,7 +1,6 @@
 package com.github.blackjack200.ouranos.network.convert;
 
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
-import com.github.blackjack200.ouranos.data.bedrock.item.BlockItemIdMap;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -40,28 +39,29 @@ public class TypeConverter {
         var newMeta = (Integer) i[1];
         //log.info("old_id={}:{} new_id={}:{}", itemData.getDefinition().getIdentifier(), itemData.getDamage(), newStringId, newMeta);
 
-        var networkId = ItemTypeDictionary.getInstance(output).fromStringId(newStringId);
-        if (networkId == null) {
+        var itemDict = ItemTypeDictionary.getInstance(output);
+        var itemTypeInfo = itemDict.getEntries().getOrDefault(newStringId, null);
+        if (itemTypeInfo == null) {
             //log.error("Unknown glk type {}", newStringId);
             return null;
         }
 
-        //downgrade block runtime id
-        var bid = BlockItemIdMap.getInstance().lookupItemId(output, newStringId);
-        if (bid != null && !bid.equals(newStringId)) {
-            log.debug("Inconsistent item id map found for {}=>{}", newStringId, bid);
-            //newStringId = bid;
-        }
-
         var builder = itemData.toBuilder();
-        builder.definition(new SimpleItemDefinition(newStringId, networkId, false))
+        builder.definition(new SimpleItemDefinition(newStringId, itemTypeInfo.runtime_id(), itemTypeInfo.component_based()))
                 .damage(newMeta);
 
-        if (BlockItemIdMap.getInstance().lookupItemId(output, newStringId) != null && itemData.getBlockDefinition() != null) {
-            int trans = translateBlockRuntimeId(input, output, itemData.getBlockDefinition().getRuntimeId());
-            builder.blockDefinition(new SimpleBlockDefinition(trans));
+        if (itemData.getBlockDefinition() != null) {
+            var outputDict = BlockStateDictionary.getInstance(output);
+            var blkInfo = BlockStateDictionary.getInstance(input).toBlockState(itemData.getBlockDefinition().getRuntimeId());
+            if (blkInfo != null) {
+                var x = outputDict.lookupStateFromStateHash(blkInfo.latestStateHash());
+                if (x != null) {
+                    builder.blockDefinition(new org.cloudburstmc.protocol.bedrock.data.definitions.SimpleBlockDefinition(x.name(), outputDict.toRuntimeId(x.latestStateHash()), x.rawState()));
+                }
+            } else {
+                builder.blockDefinition(new SimpleBlockDefinition(outputDict.getFallbackRuntimeId()));
+            }
         }
-
         return builder.build();
     }
 

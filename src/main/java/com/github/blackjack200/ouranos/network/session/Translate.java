@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.network.session;
 
 import com.github.blackjack200.ouranos.network.convert.ChunkRewriteException;
+import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.convert.TypeConverter;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -25,6 +26,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
 import org.cloudburstmc.protocol.bedrock.codec.v748.Bedrock_v748;
 import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.data.*;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
@@ -95,9 +97,14 @@ public class Translate {
         } else if (p instanceof CreativeContentPacket pk) {
             val contents = new ArrayList<CreativeItemData>();
             for (int i = 0, iMax = pk.getContents().size(); i < iMax; i++) {
-                val item = TypeConverter.translateCreativeItemData(input, output, pk.getContents().get(i));
+                var old = pk.getContents().get(i);
+                var item = TypeConverter.translateCreativeItemData(input, output, old);
                 if (item != null) {
                     contents.add(item);
+                } else {
+                    contents.add(new CreativeItemData(
+                            ItemData.builder().netId(old.getNetId()).count(1).damage(0).definition(new SimpleItemDefinition("minecraft:barrier", ItemTypeDictionary.getInstance(output).fromStringId("minecraft:barrier"), false)).build(),
+                            old.getNetId(), old.getGroupId()));
                 }
             }
             pk.getContents().clear();

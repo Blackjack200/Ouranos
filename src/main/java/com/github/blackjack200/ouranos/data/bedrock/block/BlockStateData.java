@@ -4,13 +4,6 @@ import com.github.blackjack200.ouranos.data.bedrock.VersionInfo;
 import org.cloudburstmc.nbt.NbtMap;
 
 public final class BlockStateData {
-
-    // Current version of block state data in a 32-bit format
-    public static final int CURRENT_VERSION = (1 << 24) | // major
-            (21 << 16) | // minor
-            (40 << 8) | // patch
-            1; // revision
-
     public static final String TAG_NAME = "name";
     public static final String TAG_STATES = "states";
     public static final String TAG_VERSION = "version";
@@ -24,11 +17,6 @@ public final class BlockStateData {
         this.name = name;
         this.states = states;
         this.version = version;
-    }
-
-    // Static method to return the current block state data with the latest version
-    public static BlockStateData current(String name, NbtMap states) {
-        return new BlockStateData(name, states, CURRENT_VERSION);
     }
 
     // Getters
