@@ -16,6 +16,8 @@ public class OuranosProxySession {
     public boolean blockNetworkIdAreHashes = false;
     @Getter
     private final KeyPair keyPair;
+    public int lastFormId = -1;
+    public boolean lastPunchAir = false;
 
     public OuranosProxySession(KeyPair keyPair, ProxyClientSession upstreamSession, ProxyServerSession downstreamSession) {
         this.keyPair = keyPair;

@@ -303,6 +303,20 @@ public class Translate {
                 }
             }
         }
+        if (input < Bedrock_v594.CODEC.getProtocolVersion()) {
+            if (p instanceof LevelSoundEventPacket pk) {
+                if (pk.getSound().equals(SoundEvent.ATTACK_NODAMAGE)) {
+                    player.lastPunchAir = true;
+                    list.clear();
+                }
+            }
+            if (p instanceof PlayerAuthInputPacket pk) {
+                if (player.lastPunchAir) {
+                    pk.getInputData().add(PlayerAuthInputData.MISSED_SWING);
+                    player.lastPunchAir = false;
+                }
+            }
+        }
         if (input < Bedrock_v589.CODEC.getProtocolVersion()) {
             if (p instanceof EmotePacket pk) {
                 //FIXME? context based value: xuid platformId
@@ -319,11 +333,11 @@ public class Translate {
         }
         if (input < Bedrock_v544.CODEC.getProtocolVersion()) {
             if (p instanceof ModalFormResponsePacket pk) {
-                if (pk.getFormData().isEmpty()) {
-                    pk.setCancelReason(Optional.of(ModalFormCancelReason.USER_CLOSED));
-                } else {
-                    pk.setCancelReason(Optional.empty());
+                if (player.lastFormId == pk.getFormId()) {
+                    list.clear();
                 }
+                pk.setCancelReason(Optional.empty());
+                player.lastFormId = pk.getFormId();
             }
         }
         if (input < Bedrock_v527.CODEC.getProtocolVersion()) {
