@@ -7,6 +7,9 @@ import com.github.blackjack200.ouranos.network.session.ProxyClientSession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
 import com.github.blackjack200.ouranos.network.session.handler.upstream.UpstreamInitialHandler;
 import com.github.blackjack200.ouranos.utils.LoginPacketUtils;
+import com.github.blackjack200.ouranos.utils.auth.Auth;
+import com.github.blackjack200.ouranos.utils.auth.Xbox;
+import com.github.blackjack200.ouranos.utils.auth.XboxLogin;
 import io.netty.channel.ChannelFuture;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
@@ -20,6 +23,7 @@ import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.jose4j.json.internal.json_simple.JSONObject;
 
 import java.security.KeyPair;
+import java.util.List;
 import java.util.Map;
 
 @Log4j2
@@ -77,9 +81,25 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
     private LoginPacket assembleLoginPacket(OuranosProxySession session) {
         var newClientData = LoginPacketUtils.writeClientData(this.keyPair, session, this.identityData, this.clientData, Ouranos.getOuranos().getConfig().login_extra);
         var newLogin = new LoginPacket();
-        /*var lo = XboxLogin.getAccessToken("", "");
-        var x = new Xbox(lo);
-        newLogin.getChain().addAll(new Auth().getOnlineChainData(x, this.keyPair));*/
+        if (!System.getenv("USE_XBOX").isEmpty()) {
+            var lo = XboxLogin.getAccessToken(System.getenv("XBOX_ACCOUNT"), System.getenv("XBOX_PASSWORD"));
+            var x = new Xbox(lo);
+            List<String> chain = new Auth().getOnlineChainData(x, this.keyPair);
+            newLogin.getChain().addAll(chain);
+            var chainD = EncryptionUtils.validateChain(chain);
+
+            var claims = chainD.identityClaims();
+            var extraData = claims.extraData;
+            session.identity = new AuthData(extraData.displayName,
+                    extraData.identity, extraData.xuid);
+        } else {
+            newLogin.getChain().add(this.chainData);
+            var chainD = EncryptionUtils.validateChain(List.of(this.chainData));
+            var claims = chainD.identityClaims();
+            var extraData = claims.extraData;
+            session.identity = new AuthData(extraData.displayName,
+                    extraData.identity, extraData.xuid);
+        }
         newLogin.setExtra(newClientData);
         newLogin.setProtocolVersion(session.upstream.getCodec().getProtocolVersion());
         return newLogin;

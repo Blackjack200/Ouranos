@@ -18,6 +18,7 @@ public class OuranosProxySession {
     private final KeyPair keyPair;
     public int lastFormId = -1;
     public boolean lastPunchAir = false;
+    public AuthData identity;
 
     public OuranosProxySession(KeyPair keyPair, ProxyClientSession upstreamSession, ProxyServerSession downstreamSession) {
         this.keyPair = keyPair;

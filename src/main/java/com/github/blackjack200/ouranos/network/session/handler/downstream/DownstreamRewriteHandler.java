@@ -4,6 +4,7 @@ import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 import org.cloudburstmc.protocol.bedrock.packet.DisconnectPacket;
+import org.cloudburstmc.protocol.bedrock.packet.TextPacket;
 import org.cloudburstmc.protocol.common.PacketSignal;
 
 @Log4j2
@@ -22,6 +23,13 @@ public class DownstreamRewriteHandler implements BedrockPacketHandler {
     @Override
     public PacketSignal handle(DisconnectPacket packet) {
         this.session.disconnect(packet.getKickMessage(), packet.isMessageSkipped());
+        return PacketSignal.HANDLED;
+    }
+
+    @Override
+    public PacketSignal handle(TextPacket pk) {
+        pk.setSourceName(session.identity.displayName());
+        pk.setXuid(session.identity.xuid());
         return PacketSignal.HANDLED;
     }
 }
