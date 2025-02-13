@@ -34,8 +34,9 @@ public final class GlobalItemDataHandlers {
 
     public static int getSchemaId(int protocolId) {
         return switch (protocolId) {
-            case 768 -> 622;
-            case 767 -> 686;
+            case 776 -> 231;
+            case 768 -> 231;
+            case 767 -> 231;
 
             case 766 -> 231;
             case 748 -> 221;

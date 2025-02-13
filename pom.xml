@@ -103,9 +103,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.github.allaymc</groupId>
+            <groupId>com.github.AllayMC</groupId>
             <artifactId>StateUpdater</artifactId>
-            <version>1.21.50</version>
+            <version>master-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>com.github.CloudburstMC</groupId>
