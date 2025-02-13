@@ -2,6 +2,7 @@ package com.github.blackjack200.ouranos.network.session.handler.upstream;
 
 import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
+import com.github.blackjack200.ouranos.network.session.DropPacketException;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.Translate;
 import com.github.blackjack200.ouranos.network.session.handler.downstream.DownstreamRewriteHandler;
@@ -136,5 +137,11 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
         this.session.downstream.sendPacketImmediately(pk);
         return PacketSignal.HANDLED;
+    }
+
+    @Override
+    public PacketSignal handle(ItemComponentPacket packet) {
+        //TODO
+        throw new DropPacketException();
     }
 }
