@@ -36,6 +36,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
 import org.cloudburstmc.protocol.bedrock.codec.v748.Bedrock_v748;
 import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
+import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 
 import java.util.Collections;
 import java.util.Set;
@@ -48,6 +49,7 @@ public final class ProtocolInfo {
 
     static {
         // 1.21.x
+        addPacketCodec(Bedrock_v776.CODEC);
         addPacketCodec(Bedrock_v766.CODEC);
         addPacketCodec(Bedrock_v748.CODEC);
         addPacketCodec(Bedrock_v729.CODEC);
@@ -102,7 +104,7 @@ public final class ProtocolInfo {
     private static BedrockCodec DEFAULT_PACKET_CODEC;
 
     static {
-        setDefaultPacketCodec(Bedrock_v766.CODEC);
+        setDefaultPacketCodec(Bedrock_v776.CODEC);
     }
 
     public static BedrockCodec getDefaultPacketCodec() {

@@ -13,7 +13,7 @@ import java.util.Objects;
 public class ServerConfig {
     public String motd = "My Proxy";
     public String sub_motd = "Ouranos";
-    public int default_protocol = 766;
+    public int default_protocol = ProtocolInfo.getDefaultProtocolVersion();
 
     public String server_ipv4 = "0.0.0.0";
     public short server_port_v4 = 19132;
