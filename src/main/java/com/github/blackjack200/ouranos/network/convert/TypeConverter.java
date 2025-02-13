@@ -51,15 +51,17 @@ public class TypeConverter {
                 .damage(newMeta);
 
         if (itemData.getBlockDefinition() != null) {
-            var outputDict = BlockStateDictionary.getInstance(output);
-            var blkInfo = BlockStateDictionary.getInstance(input).toBlockState(itemData.getBlockDefinition().getRuntimeId());
-            if (blkInfo != null) {
-                var x = outputDict.lookupStateFromStateHash(blkInfo.latestStateHash());
-                if (x != null) {
-                    builder.blockDefinition(new org.cloudburstmc.protocol.bedrock.data.definitions.SimpleBlockDefinition(x.name(), outputDict.toRuntimeId(x.latestStateHash()), x.rawState()));
+            if (itemData.getBlockDefinition().getRuntimeId() > 0) {
+                var outputDict = BlockStateDictionary.getInstance(output);
+                var blkInfo = BlockStateDictionary.getInstance(input).toBlockState(itemData.getBlockDefinition().getRuntimeId());
+                if (blkInfo != null) {
+                    var x = outputDict.lookupStateFromStateHash(blkInfo.latestStateHash());
+                    if (x != null) {
+                        builder.blockDefinition(new org.cloudburstmc.protocol.bedrock.data.definitions.SimpleBlockDefinition(x.name(), outputDict.toRuntimeId(x.latestStateHash()), x.rawState()));
+                    }
+                } else {
+                    builder.blockDefinition(new SimpleBlockDefinition(outputDict.getFallbackRuntimeId()));
                 }
-            } else {
-                builder.blockDefinition(new SimpleBlockDefinition(outputDict.getFallbackRuntimeId()));
             }
         }
         return builder.build();
