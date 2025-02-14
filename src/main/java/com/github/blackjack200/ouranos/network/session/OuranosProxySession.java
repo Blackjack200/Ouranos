@@ -1,16 +1,16 @@
 package com.github.blackjack200.ouranos.network.session;
 
+import cn.hutool.core.collection.ConcurrentHashSet;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 
 import java.security.KeyPair;
-import java.util.Vector;
 
 @Log4j2
 public class OuranosProxySession {
-    public static Vector<OuranosProxySession> ouranosPlayers = new Vector<>();
+    public static ConcurrentHashSet<OuranosProxySession> ouranosPlayers = new ConcurrentHashSet<>();
     public final ProxyClientSession upstream;
     public final ProxyServerSession downstream;
     public boolean blockNetworkIdAreHashes = false;
