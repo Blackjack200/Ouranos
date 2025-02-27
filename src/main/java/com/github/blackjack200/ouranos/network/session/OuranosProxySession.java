@@ -54,15 +54,19 @@ public class OuranosProxySession {
                 this.downstream.setPacketHandler(new BedrockPacketHandler() {
                 });
             } catch (Throwable throwable) {
-                log.debug(throwable);
+                //  log.debug(throwable);
             }
         }
         if (this.upstream.isConnected()) {
-            this.upstream.disconnect(reason, hideReason);
-            this.upstream.getPeer().getChannel().flush().closeFuture().get();
-            this.upstream.close(reason);
-            this.downstream.setPacketHandler(new BedrockPacketHandler() {
-            });
+            try {
+                this.upstream.disconnect(reason, hideReason);
+                this.upstream.getPeer().getChannel().flush().closeFuture().get();
+                this.upstream.close(reason);
+                this.downstream.setPacketHandler(new BedrockPacketHandler() {
+                });
+            } catch (Throwable throwable) {
+                //  log.debug(throwable);
+            }
         }
     }
 

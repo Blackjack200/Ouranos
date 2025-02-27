@@ -64,7 +64,8 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v622.CODEC);
         addPacketCodec(Bedrock_v618.CODEC);
         addPacketCodec(Bedrock_v594.CODEC);
-        addPacketCodec(Bedrock_v589.CODEC);
+        //TODO add v589 support back
+        //addPacketCodec(Bedrock_v589.CODEC);
 
         // 1.19.x
         addPacketCodec(Bedrock_v582.CODEC);

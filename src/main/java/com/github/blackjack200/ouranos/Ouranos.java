@@ -2,6 +2,7 @@ package com.github.blackjack200.ouranos;
 
 import cn.hutool.core.io.FileUtil;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
+import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
 import com.github.blackjack200.ouranos.network.session.handler.downstream.DownstreamInitialHandler;
@@ -91,13 +92,18 @@ public class Ouranos {
                     }
 
                     @Override
+                    protected CustomPeer createPeer(Channel channel) {
+                        return new CustomPeer(channel, this::createSession);
+                    }
+
+                    @Override
                     protected void initSession(ProxyServerSession session) {
                         if (OuranosProxySession.ouranosPlayers.size() >= Ouranos.this.config.maximum_player) {
                             session.disconnect("Ouranos proxy is full.");
                             return;
                         }
                         log.info("{} connected", session.getPeer().getSocketAddress());
-                        session.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.SERVER);
+                        session.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
                         session.setPacketHandler(new DownstreamInitialHandler(session));
                     }
                 });
@@ -136,28 +142,31 @@ public class Ouranos {
         Scanner scanner = new Scanner(System.in);
 
         while (this.running.get() && !this.bossGroup.isShutdown() && !this.workerGroup.isShutdown()) {
-            if (scanner.hasNextLine()) {
-                String input = scanner.nextLine().toLowerCase().trim();
-                if (input.isEmpty()) {
-                    continue;
-                }
-                switch (input.toLowerCase()) {
-                    case "stop":
-                    case "exit":
-                        this.shutdown(false);
-                        break;
-                    case "gc":
-                        val runtime = Runtime.getRuntime();
-                        val usedMemory = runtime.totalMemory() - runtime.freeMemory();
-                        log.info("Memory used: {} MB", Math.round((usedMemory / 1024d / 1024d)));
-                        System.gc();
-                        val freedMemory = usedMemory - (runtime.totalMemory() - runtime.freeMemory());
-                        log.info("Memory freed: {} MB", Math.round((freedMemory / 1024d / 1024d)));
-                        break;
-                    default:
-                        log.error("Unknown command: {}", input);
-                }
+            if (!scanner.hasNextLine()) {
+                Thread.sleep(50);
+                continue;
             }
+            String input = scanner.nextLine().toLowerCase().trim();
+            if (input.isEmpty()) {
+                continue;
+            }
+            switch (input.toLowerCase()) {
+                case "stop":
+                case "exit":
+                    this.shutdown(false);
+                    break;
+                case "gc":
+                    val runtime = Runtime.getRuntime();
+                    val usedMemory = runtime.totalMemory() - runtime.freeMemory();
+                    log.info("Memory used: {} MB", Math.round((usedMemory / 1024d / 1024d)));
+                    System.gc();
+                    val freedMemory = usedMemory - (runtime.totalMemory() - runtime.freeMemory());
+                    log.info("Memory freed: {} MB", Math.round((freedMemory / 1024d / 1024d)));
+                    break;
+                default:
+                    log.error("Unknown command: {}", input);
+            }
+            Thread.sleep(50);
         }
         scheduler.shutdown();
         log.info("Ouranos shutdown gracefully.");

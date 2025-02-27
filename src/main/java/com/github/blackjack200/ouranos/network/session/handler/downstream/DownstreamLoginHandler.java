@@ -61,7 +61,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
                     protected void initSession(ProxyClientSession upstream) {
                         //TODO: auto determine which codec should be used.
                         upstream.setCodec(Ouranos.REMOTE_CODEC);
-                        upstream.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.CLIENT);
+                        upstream.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
 
                         val session = new OuranosProxySession(keyPair, upstream, downstream);
 

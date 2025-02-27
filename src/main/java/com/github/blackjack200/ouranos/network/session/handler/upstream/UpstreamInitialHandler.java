@@ -11,6 +11,7 @@ import com.github.blackjack200.ouranos.utils.ItemTypeDictionaryRegistry;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.packet.*;
@@ -109,8 +110,8 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
             if (session.downstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
                 var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), session, packet);
                 for (var pk : packets) {
-                    if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket)) {
-                        log.debug("S->C {}", pk.getClass());
+                    if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket)) {
+                        log.debug("S->C {}", pk);
                     }
                     session.downstream.sendPacket(pk);
                 }
@@ -142,6 +143,9 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
     @Override
     public PacketSignal handle(ItemComponentPacket packet) {
         //TODO
-        throw new DropPacketException();
+        if (this.session.getDownstreamProtocolId() < Bedrock_v776.CODEC.getProtocolVersion()) {
+            throw new DropPacketException();
+        }
+        return PacketSignal.HANDLED;
     }
 }

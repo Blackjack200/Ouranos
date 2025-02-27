@@ -1,5 +1,6 @@
 package com.github.blackjack200.ouranos.network.session;
 
+import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.ChunkRewriteException;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.convert.TypeConverter;
@@ -136,6 +137,8 @@ public class Translate {
             pk.setHelmet(TypeConverter.translateItemData(input, output, pk.getHelmet()));
             pk.setBoots(TypeConverter.translateItemData(input, output, pk.getBoots()));
             pk.setLeggings(TypeConverter.translateItemData(input, output, pk.getLeggings()));
+        } else if (p instanceof AddPlayerPacket pk) {
+            pk.setHand(TypeConverter.translateItemData(input, output, pk.getHand()));
         }
     }
 
@@ -277,6 +280,9 @@ public class Translate {
         removeNewEntityData(p, output, Bedrock_v594.CODEC,
                 EntityDataTypes.COLLISION_BOX, EntityDataTypes.PLAYER_HAS_DIED, EntityDataTypes.PLAYER_LAST_DEATH_DIMENSION, EntityDataTypes.PLAYER_LAST_DEATH_POS
         );
+        removeNewEntityData(p, output, Bedrock_v527.CODEC,
+                EntityDataTypes.PLAYER_LAST_DEATH_POS, EntityDataTypes.PLAYER_LAST_DEATH_DIMENSION, EntityDataTypes.PLAYER_HAS_DIED
+        );
         removeNewEntityData(p, output, Bedrock_v503.CODEC,
                 EntityDataTypes.HEARTBEAT_SOUND_EVENT, EntityDataTypes.HEARTBEAT_INTERVAL_TICKS, EntityDataTypes.MOVEMENT_SOUND_DISTANCE_OFFSET
         );
@@ -347,17 +353,15 @@ public class Translate {
                 pk.setResultPosition(pk.getBlockPosition());
             }
         }
-
-        if (output < Bedrock_v594.CODEC.getProtocolVersion()) {
-            if (p instanceof SetEntityDataPacket pk) {
-                pk.getMetadata().remove(EntityDataTypes.COLLISION_BOX);
-            }
+        if (p instanceof PlayerSkinPacket pk) {
+            assert ProtocolInfo.getPacketCodec(output) != null;
+            pk.setSkin(pk.getSkin().toBuilder().geometryDataEngineVersion(ProtocolInfo.getPacketCodec(output).getMinecraftVersion()).build());
         }
-        if (output < Bedrock_v527.CODEC.getProtocolVersion()) {
-            if (p instanceof SetEntityDataPacket pk) {
-                pk.getMetadata().remove(EntityDataTypes.PLAYER_LAST_DEATH_POS);
-                pk.getMetadata().remove(EntityDataTypes.PLAYER_LAST_DEATH_DIMENSION);
-                pk.getMetadata().remove(EntityDataTypes.PLAYER_HAS_DIED);
+        if (p instanceof PlayerListPacket pk) {
+            for (var e : pk.getEntries()) {
+                if (e.getSkin() != null) {
+                    e.setSkin(e.getSkin().toBuilder().geometryDataEngineVersion(ProtocolInfo.getPacketCodec(output).getMinecraftVersion()).build());
+                }
             }
         }
     }

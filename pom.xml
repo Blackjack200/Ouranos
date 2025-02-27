@@ -108,11 +108,11 @@
             <version>master-SNAPSHOT</version>
         </dependency>
 
-            <dependency>
+        <dependency>
             <groupId>com.github.CloudburstMC</groupId>
             <artifactId>Protocol</artifactId>
             <version>3.0-SNAPSHOT</version>
-            </dependency>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/cn.hutool/hutool-core -->
         <dependency>
             <groupId>cn.hutool</groupId>
