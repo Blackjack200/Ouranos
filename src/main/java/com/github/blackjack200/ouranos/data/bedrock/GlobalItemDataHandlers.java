@@ -11,7 +11,6 @@ import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.R12ItemIdToBloc
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import lombok.SneakyThrows;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,21 +22,13 @@ public final class GlobalItemDataHandlers {
     @SneakyThrows
     public static ItemDataUpgrader getUpgrader() {
         if (itemDataUpgrader == null) {
-            try {
-                itemDataUpgrader = new ItemDataUpgrader(
-                        new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas("upgrade_item/id_meta_upgrade_schema", 1 << 30).values()),
-                        LegacyItemIdToStringIdMap.getInstance(),
-                        R12ItemIdToBlockIdMap.getInstance(),
-                        BlockItemIdMap.getInstance()
-                );
-            } catch (IOException e) {
-                itemDataUpgrader = new ItemDataUpgrader(
-                        new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas(Ouranos.class.getClassLoader().getResource("upgrade_item/id_meta_upgrade_schema").getPath(), 1 << 30).values()),
-                        LegacyItemIdToStringIdMap.getInstance(),
-                        R12ItemIdToBlockIdMap.getInstance(),
-                        BlockItemIdMap.getInstance()
-                );
-            }
+            itemDataUpgrader = new ItemDataUpgrader(
+                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas("upgrade_item/id_meta_upgrade_schema", 1 << 30).values()),
+                    LegacyItemIdToStringIdMap.getInstance(),
+                    R12ItemIdToBlockIdMap.getInstance(),
+                    BlockItemIdMap.getInstance()
+            );
+
         }
         return itemDataUpgrader;
     }
