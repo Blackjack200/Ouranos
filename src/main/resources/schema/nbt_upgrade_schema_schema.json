@@ -1,0 +1,192 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$defs": {
+		"blockStateProperty": {
+			"type": "object",
+			"minProperties": 1,
+			"maxProperties": 1,
+			"additionalProperties": false,
+			"properties": {
+				"int": {
+					"type": "integer"
+				},
+				"string": {
+					"type": "string"
+				},
+				"byte": {
+					"type": "integer"
+				}
+			}
+		},
+		"flattenRule": {
+			"type": "object",
+			"required": [
+				"prefix",
+				"flattenedProperty",
+				"suffix"
+			],
+			"properties": {
+				"prefix": {
+					"type": "string"
+				},
+				"flattenedProperty": {
+					"type": "string"
+				},
+				"flattenedPropertyType": {
+					"type": "string",
+					"enum": ["int", "string", "byte"]
+				},
+				"suffix": {
+					"type": "string"
+				},
+				"flattenedValueRemaps": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "string"
+					}
+				}
+			},
+			"additionalProperties": false
+		}
+	},
+	"type": "object",
+	"additionalProperties": false,
+	"required": [
+		"maxVersionMajor",
+		"maxVersionMinor",
+		"maxVersionPatch",
+		"maxVersionRevision"
+	],
+	"properties": {
+		"maxVersionMajor": {
+			"type": "integer",
+			"minimum": 0
+		},
+		"maxVersionMinor": {
+			"type": "integer",
+			"minimum": 0
+		},
+		"maxVersionPatch": {
+			"type": "integer",
+			"minimum": 0
+		},
+		"maxVersionRevision": {
+			"type": "integer",
+			"minimum": 0
+		},
+		"renamedIds": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			}
+		},
+		"renamedProperties": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"additionalProperties": {
+					"type": "string"
+				}
+			}
+		},
+		"addedProperties": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"additionalProperties": {
+					"$ref": "#/$defs/blockStateProperty"
+				}
+			}
+		},
+		"removedProperties": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "array",
+				"items": {
+					"type": "string"
+				}
+			}
+		},
+		"remappedPropertyValues": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"additionalProperties": {
+					"type": "string"
+				}
+			}
+		},
+		"remappedPropertyValuesIndex": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"properties": {
+						"old": {
+							"$ref": "#/$defs/blockStateProperty"
+						},
+						"new": {
+							"$ref": "#/$defs/blockStateProperty"
+						}
+					},
+					"additionalProperties": false
+				}
+			}
+		},
+		"flattenedProperties": {
+			"type": "object",
+			"additionalProperties": {
+				"$ref": "#/$defs/flattenRule"
+			}
+		},
+		"remappedStates": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"required": [
+						"oldState",
+						"newState"
+					],
+					"oneOf": [
+						{
+							"required": ["newName"]
+						},
+						{
+							"required": ["newFlattenedName"]
+						}
+					],
+					"properties": {
+						"oldState": {
+							"type": ["object", "null"],
+							"additionalProperties": {
+								"$ref": "#/$defs/blockStateProperty"
+							}
+						},
+						"newName": {
+							"type": "string"
+						},
+						"newFlattenedName": {
+							"$ref": "#/$defs/flattenRule"
+						},
+						"newState": {
+							"type": ["object", "null"],
+							"additionalProperties": {
+								"$ref": "#/$defs/blockStateProperty"
+							}
+						},
+						"copiedState": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"additionalProperties": false
+				}
+			}
+		}
+	}
+}

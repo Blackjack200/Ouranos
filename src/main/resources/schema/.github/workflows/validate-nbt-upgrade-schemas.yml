@@ -1,0 +1,36 @@
+name: Validate NBT upgrade schemas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+
+    - name: Install ajv-cli
+      run: npm install -g ajv-cli
+
+    - name: Validate NBT upgrade schemas
+      run: |
+        exit_code=0
+
+        for file in $(ls nbt_upgrade_schema); do
+          prefix=$(echo $file | cut -d _ -f1);
+          if [[ $(ls nbt_upgrade_schema | grep ^"$prefix" | wc -l) -gt 1 ]]; then
+            echo "Duplicate prefix $prefix"
+            exit_code=1
+          fi
+        done
+
+        for i in $(ls nbt_upgrade_schema); do
+          ajv validate --allow-union-types -s nbt_upgrade_schema_schema.json -d nbt_upgrade_schema/$i || exit_code=1
+        done
+
+        exit $exit_code

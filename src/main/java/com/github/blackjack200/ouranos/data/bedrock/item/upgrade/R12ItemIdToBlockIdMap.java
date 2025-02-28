@@ -40,9 +40,9 @@ public final class R12ItemIdToBlockIdMap {
 
     private static R12ItemIdToBlockIdMap make() {
         try {
-            val schemaPath = Ouranos.class.getClassLoader().getResource("upgrade_item/1.12.0_item_id_to_block_id_map.json");
+            val schemaPath = Ouranos.class.getClassLoader().getResource("schema/block_legacy_id_map.json");
             if (schemaPath == null) {
-                throw new RuntimeException("Unable to find 1.12.0_item_id_to_block_id_map.json");
+                throw new RuntimeException("Unable to find schema/block_legacy_id_map.json");
             }
             Map<String, String> jsonObject = (new Gson()).fromJson(new InputStreamReader(schemaPath.openStream()), new TypeToken<Map<String, String>>() {
             }.getType());
