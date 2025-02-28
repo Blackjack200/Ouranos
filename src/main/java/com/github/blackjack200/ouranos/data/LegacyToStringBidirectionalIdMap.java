@@ -2,22 +2,24 @@ package com.github.blackjack200.ouranos.data;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
+import it.unimi.dsi.fastutil.objects.Object2IntRBTreeMap;
 import lombok.val;
 
 import java.io.InputStreamReader;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 public abstract class LegacyToStringBidirectionalIdMap extends AbstractMapping {
-    private final Map<Integer, Map<Integer, String>> intToStringMap = new LinkedHashMap<>();
-    private final Map<Integer, Map<String, Integer>> stringToIntMap = new LinkedHashMap<>();
+    private final Int2ObjectArrayMap<Map<Integer, String>> intToStringMap = new Int2ObjectArrayMap<>();
+    private final Int2ObjectArrayMap<Map<String, Integer>> stringToIntMap = new Int2ObjectArrayMap<>();
 
     public LegacyToStringBidirectionalIdMap(String file) {
         load(file, (protocolId, rawData) -> {
             Map<String, Integer> data = (new Gson()).fromJson(new InputStreamReader(rawData), new TypeToken<Map<String, Integer>>() {
             }.getType());
-            val stringToInt = new LinkedHashMap<String, Integer>();
-            val intToString = new LinkedHashMap<Integer, String>();
+            val stringToInt = new Object2IntRBTreeMap<String>();
+            val intToString = new Int2ObjectRBTreeMap<String>();
             data.forEach((stringId, numericId) -> {
                 stringToInt.put(stringId, numericId);
                 intToString.put(numericId, stringId);

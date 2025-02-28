@@ -4,6 +4,7 @@ import com.github.blackjack200.ouranos.data.AbstractMapping;
 import com.github.blackjack200.ouranos.utils.HashUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
@@ -13,28 +14,36 @@ import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 
 import java.io.InputStreamReader;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Log4j2
 public final class BlockStateDictionary extends AbstractMapping {
     public static final class Dictionary {
-        private final Map<Integer, BlockEntry> latestStateHashToEntry = new HashMap<>();
-        private final Map<Integer, Integer> latestStateHashToCurrent = new HashMap<>();
-        private final Map<String, Map<Integer, BlockEntry>> latestStateHashToMetaToEntry = new HashMap<>();
-        private final Map<Integer, Integer> latestStateHashToRuntimeId = new HashMap<>();
-        private final Map<Integer, Integer> runtimeToLatestStateHash = new HashMap<>();
+        private final Map<Integer, BlockEntry> latestStateHashToEntry;
+        private final Map<Integer, Integer> latestStateHashToCurrent;
+        private final Map<String, Map<Integer, BlockEntry>> latestStateHashToMetaToEntry;
+        private final Map<Integer, Integer> latestStateHashToRuntimeId;
+        private final Map<Integer, Integer> runtimeToLatestStateHash;
         @Getter
         private Integer fallbackRuntimeId;
         @Getter
         private Integer fallbackCurrentStateHash;
 
-        public Dictionary(List<BlockEntry> states) {
+        public Dictionary(Int2ObjectRBTreeMap<BlockEntry> states) {
+            this.latestStateHashToEntry = new Int2ObjectRBTreeMap<>();
+            this.latestStateHashToCurrent = new Int2ObjectRBTreeMap<>();
+            this.latestStateHashToMetaToEntry = new HashMap<>();
+            this.latestStateHashToRuntimeId = new Int2ObjectRBTreeMap<>();
+            this.runtimeToLatestStateHash = new Int2ObjectRBTreeMap<>();
+
             for (int runtimeId = 0, stateIdMax = states.size(); runtimeId < stateIdMax; runtimeId++) {
                 var entry = states.get(runtimeId);
                 this.latestStateHashToEntry.put(entry.latestStateHash, entry);
                 this.latestStateHashToCurrent.put(entry.latestStateHash, entry.currentStateHash);
 
-                this.latestStateHashToMetaToEntry.computeIfAbsent(entry.name, k -> new HashMap<>());
+                this.latestStateHashToMetaToEntry.computeIfAbsent(entry.name, k -> new Int2ObjectRBTreeMap<>());
                 this.latestStateHashToMetaToEntry.get(entry.name).put(entry.meta, entry);
 
                 this.latestStateHashToRuntimeId.put(entry.latestStateHash, runtimeId);
@@ -114,7 +123,7 @@ public final class BlockStateDictionary extends AbstractMapping {
             var meta_map = new Gson().fromJson(new InputStreamReader(open(lookupAvailableFile("block_state_meta_map.json", protocolId))), new TypeToken<List<Integer>>() {
             });
             var reader = NbtUtils.createNetworkReader(block_state);
-            var list = new LinkedList<BlockEntry>();
+            var list = new Int2ObjectRBTreeMap<BlockEntry>();
             int i = 0;
             while (block_state.available() > 0) {
                 var rawState = (NbtMap) reader.readTag();
@@ -133,7 +142,7 @@ public final class BlockStateDictionary extends AbstractMapping {
                 if (meta == null) {
                     throw new RuntimeException("Missing associated meta value for state " + i + " (" + state + ")");
                 }
-                list.add(new BlockEntry(state.getString("name"), meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
+                list.put(list.size(), new BlockEntry(state.getString("name"), meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
                 i++;
             }
             return new Dictionary(list);
