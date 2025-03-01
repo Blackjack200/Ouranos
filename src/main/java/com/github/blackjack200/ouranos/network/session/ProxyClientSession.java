@@ -16,7 +16,7 @@ public class ProxyClientSession extends BedrockClientSession {
     @Setter
     public volatile BiConsumer<ProxyClientSession, BedrockPacket> packetRedirect = null;
 
-    public ProxyClientSession(BedrockPeer peer, int subClientId) {
+    public ProxyClientSession(CustomPeer peer, int subClientId) {
         super(peer, subClientId);
     }
 

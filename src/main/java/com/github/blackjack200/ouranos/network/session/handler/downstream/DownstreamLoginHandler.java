@@ -1,15 +1,13 @@
 package com.github.blackjack200.ouranos.network.session.handler.downstream;
 
 import com.github.blackjack200.ouranos.Ouranos;
-import com.github.blackjack200.ouranos.network.session.AuthData;
-import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
-import com.github.blackjack200.ouranos.network.session.ProxyClientSession;
-import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
+import com.github.blackjack200.ouranos.network.session.*;
 import com.github.blackjack200.ouranos.network.session.handler.upstream.UpstreamInitialHandler;
 import com.github.blackjack200.ouranos.utils.LoginPacketUtils;
 import com.github.blackjack200.ouranos.utils.auth.Auth;
 import com.github.blackjack200.ouranos.utils.auth.Xbox;
 import com.github.blackjack200.ouranos.utils.auth.XboxLogin;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
@@ -54,7 +52,12 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
                 .handler(new BedrockChannelInitializer<ProxyClientSession>() {
                     @Override
                     protected ProxyClientSession createSession0(BedrockPeer peer, int subClientId) {
-                        return new ProxyClientSession(peer, subClientId);
+                        return new ProxyClientSession((CustomPeer) peer, subClientId);
+                    }
+
+                    @Override
+                    protected BedrockPeer createPeer(Channel channel) {
+                        return new CustomPeer(channel, this::createSession);
                     }
 
                     @Override

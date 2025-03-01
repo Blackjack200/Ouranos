@@ -3,7 +3,6 @@ package com.github.blackjack200.ouranos.network.session;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
-import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.netty.BedrockPacketWrapper;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
@@ -16,7 +15,7 @@ public class ProxyServerSession extends BedrockServerSession {
     @Setter
     public volatile BiConsumer<ProxyServerSession, BedrockPacket> packetRedirect = null;
 
-    public ProxyServerSession(BedrockPeer peer, int subClientId) {
+    public ProxyServerSession(CustomPeer peer, int subClientId) {
         super(peer, subClientId);
     }
 

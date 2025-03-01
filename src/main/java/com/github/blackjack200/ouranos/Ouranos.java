@@ -91,7 +91,7 @@ public class Ouranos {
                 .childHandler(new BedrockChannelInitializer<ProxyServerSession>() {
                     @Override
                     protected ProxyServerSession createSession0(BedrockPeer peer, int subClientId) {
-                        return new ProxyServerSession(peer, subClientId);
+                        return new ProxyServerSession((CustomPeer) peer, subClientId);
                     }
 
                     @Override
@@ -209,7 +209,7 @@ public class Ouranos {
                 .option(RakChannelOption.RAK_PROTOCOL_VERSION, REMOTE_CODEC.getRaknetProtocolVersion())
                 .option(RakChannelOption.RAK_COMPATIBILITY_MODE, true)
                 .option(RakChannelOption.RAK_AUTO_FLUSH, true)
-                .option(RakChannelOption.RAK_FLUSH_INTERVAL, 1);
+                .option(RakChannelOption.RAK_FLUSH_INTERVAL, 10);
     }
 
     public static void main(String[] args) {
