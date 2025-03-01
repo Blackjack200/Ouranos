@@ -3,6 +3,8 @@ package com.github.blackjack200.ouranos;
 import cn.hutool.core.io.FileUtil;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
+import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
+import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
@@ -104,6 +106,8 @@ public class Ouranos {
             return;
         }
 
+        BlockStateDictionary.getInstance(REMOTE_CODEC.getProtocolVersion());
+        ItemTypeDictionary.getInstance(REMOTE_CODEC.getProtocolVersion());
         GlobalItemDataHandlers.getUpgrader();
 
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
