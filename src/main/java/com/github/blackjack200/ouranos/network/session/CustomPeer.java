@@ -18,7 +18,9 @@ public class CustomPeer extends BedrockPeer {
         super(channel, sessionFactory);
         var rakChannel = (RakChannel) this.getChannel();
         this.packetBuffering = Ouranos.getOuranos().getConfig().packet_buffering;
-        rakChannel.rakPipeline().replace(RakUnhandledMessagesQueue.class, RakUnhandledMessagesQueue.NAME, new RakUnhandledMessagesQueueOverride(rakChannel));
+        if (rakChannel.rakPipeline().get(RakUnhandledMessagesQueue.class) != null) {
+            rakChannel.rakPipeline().replace(RakUnhandledMessagesQueue.class, RakUnhandledMessagesQueue.NAME, new RakUnhandledMessagesQueueOverride(rakChannel));
+        }
     }
 
     @Override

@@ -131,6 +131,7 @@ public class Ouranos {
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
 
         log.info("Supported versions: {}", String.join(", ", ProtocolInfo.getPacketCodecs().stream().sorted(Comparator.comparingInt(BedrockCodec::getProtocolVersion)).map(BedrockCodec::getMinecraftVersion).distinct().toList()));
+        log.info("Packet buffer: {}", this.config.packet_buffering);
 
         val done = System.currentTimeMillis();
         val time = done - start;
