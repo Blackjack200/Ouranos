@@ -76,7 +76,7 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
 
         var clientData = new JSONObject(JsonUtil.parseJson(jws.getPayload()));
 
-        this.downstream.setPacketHandler(new DownstreamLoginHandler(this.downstream, packet, identityData, rawExtraData, clientData));
+        this.downstream.setPacketHandler(new DownstreamLoginHandler(this.downstream, identityData, rawExtraData, clientData));
         return PacketSignal.HANDLED;
     }
 

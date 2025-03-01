@@ -43,6 +43,11 @@ public class OuranosProxySession {
         this.downstream.setPacketHandler(handler);
     }
 
+
+    public boolean isAlive() {
+        return this.upstream.isConnected() && this.downstream.isConnected();
+    }
+
     @SneakyThrows
     public void disconnect(String reason, boolean hideReason) {
         OuranosProxySession.ouranosPlayers.remove(this);

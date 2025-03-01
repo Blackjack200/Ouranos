@@ -48,6 +48,7 @@ public class Ouranos {
 
     @Getter
     private static Ouranos ouranos;
+    @Getter
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     @Getter
     private final EventLoopGroup bossGroup;
@@ -150,7 +151,7 @@ public class Ouranos {
 
         val motdLoading = new AtomicBoolean(false);
         scheduler.scheduleAtFixedRate(() -> {
-            if (!motdLoading.compareAndSet(false, true)) {
+            if (!this.running.get() || !motdLoading.compareAndSet(false, true)) {
                 return;
             }
             PingUtils.ping((p) -> {

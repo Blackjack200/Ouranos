@@ -17,6 +17,7 @@ import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Log4j2
 public final class BlockStateDictionary extends AbstractMapping {
@@ -149,12 +150,10 @@ public final class BlockStateDictionary extends AbstractMapping {
         }
     }
 
-    private static final Map<Integer, Dictionary> entries = new HashMap<>();
+    private static final Map<Integer, Dictionary> entries = new ConcurrentHashMap<>();
+
 
     public static Dictionary getInstance(int protocol) {
-        if (!entries.containsKey(protocol)) {
-            entries.put(protocol, Dictionary.load(protocol));
-        }
-        return entries.get(protocol);
+        return entries.computeIfAbsent(protocol, Dictionary::load);
     }
 }

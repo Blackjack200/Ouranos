@@ -29,6 +29,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Log4j2
 public class UpstreamInitialHandler implements BedrockPacketHandler {
@@ -64,7 +65,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
     @Override
     public PacketSignal handle(ServerToClientHandshakePacket pk) {
-        this.session.upstream.getPeer().getChannel().eventLoop().execute(() -> {
+        CompletableFuture.supplyAsync(() -> {
             try {
                 var jws = new JsonWebSignature();
                 jws.setCompactSerialization(pk.getJwt());
@@ -73,13 +74,26 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                 var serverKey = EncryptionUtils.parseKey(x5u);
                 var key = EncryptionUtils.getSecretKey(this.session.getKeyPair().getPrivate(), serverKey,
                         Base64.getDecoder().decode(JsonUtils.childAsType(saltJwt, "salt", String.class)));
-                this.session.upstream.enableEncryption(key);
+                return key;
             } catch (JoseException | NoSuchAlgorithmException | InvalidKeySpecException |
                      InvalidKeyException e) {
                 throw new RuntimeException(e);
             }
-            val handshake = new ClientToServerHandshakePacket();
-            this.session.upstream.sendPacketImmediately(handshake);
+        }, Ouranos.getOuranos().getScheduler()).thenAcceptAsync(key -> {
+            this.session.upstream.getPeer().getChannel().eventLoop().execute(() -> {
+                if (!this.session.isAlive()) {
+                    return;
+                }
+                this.session.upstream.enableEncryption(key);
+                this.session.upstream.sendPacketImmediately(new ClientToServerHandshakePacket());
+            });
+        }).exceptionally(ex -> {
+            log.error("Error while enabling upstream encryption", ex);
+            if (!this.session.isAlive()) {
+                return null;
+            }
+            this.session.disconnect("Error while enabling upstream encryption: " + ex.getMessage());
+            return null;
         });
         return PacketSignal.HANDLED;
     }

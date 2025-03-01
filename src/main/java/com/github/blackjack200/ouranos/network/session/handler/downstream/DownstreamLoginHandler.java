@@ -1,6 +1,8 @@
 package com.github.blackjack200.ouranos.network.session.handler.downstream;
 
 import com.github.blackjack200.ouranos.Ouranos;
+import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
+import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.*;
 import com.github.blackjack200.ouranos.network.session.handler.upstream.UpstreamInitialHandler;
 import com.github.blackjack200.ouranos.utils.LoginPacketUtils;
@@ -23,26 +25,23 @@ import org.jose4j.json.internal.json_simple.JSONObject;
 import java.security.KeyPair;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Log4j2
 public class DownstreamLoginHandler implements BedrockPacketHandler {
     private final ProxyServerSession downstream;
-    private final LoginPacket login;
     private final KeyPair keyPair = EncryptionUtils.createKeyPair();
     private final AuthData identityData;
     private final Map<String, Object> rawExtraData;
     private final JSONObject clientData;
-    private String chainData;
+    private final String chainData;
 
-    public DownstreamLoginHandler(ProxyServerSession downstream, LoginPacket login, AuthData identityData, Map<String, Object> rawExtraData, JSONObject clientData) {
+    public DownstreamLoginHandler(ProxyServerSession downstream, AuthData identityData, Map<String, Object> rawExtraData, JSONObject clientData) {
         this.downstream = downstream;
-        this.login = login;
         this.identityData = identityData;
         this.rawExtraData = rawExtraData;
         this.clientData = clientData;
-
         this.chainData = LoginPacketUtils.createChainDataJwt(this.keyPair, this.rawExtraData);
-
         connect();
     }
 
@@ -74,7 +73,26 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
                         log.info("{}({}) connected to the remote server, {}=>{}", downstream.getPeer().getSocketAddress(), downstreamProtocolId, downstreamProtocolId, upstreamProtocolId);
 
                         session.setDownstreamHandler(new DownstreamRewriteHandler(session));
-                        session.setUpstreamHandler(new UpstreamInitialHandler(session, assembleLoginPacket(session)));
+
+                        CompletableFuture.supplyAsync(() -> {
+                            BlockStateDictionary.getInstance(downstreamProtocolId);
+                            ItemTypeDictionary.getInstance(downstreamProtocolId);
+                            BlockStateDictionary.getInstance(upstreamProtocolId);
+                            ItemTypeDictionary.getInstance(upstreamProtocolId);
+                            return new UpstreamInitialHandler(session, assembleLoginPacket(session));
+                        }, Ouranos.getOuranos().getScheduler()).thenAcceptAsync(handler -> {
+                            if (!session.isAlive()) {
+                                return;
+                            }
+                            session.upstream.getPeer().getChannel().eventLoop().execute(() -> session.setUpstreamHandler(handler));
+                        }).exceptionally(ex -> {
+                            log.error("Error while initializing data mapping/assemble login packet", ex);
+                            if (!session.isAlive()) {
+                                return null;
+                            }
+                            session.disconnect("Error while initializing data mapping/assemble login packet: " + ex.getMessage());
+                            return null;
+                        });
                     }
                 })
                 .connect(Ouranos.getOuranos().getConfig().getRemote());
