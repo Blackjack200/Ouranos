@@ -9,6 +9,7 @@ import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
 import com.github.blackjack200.ouranos.network.session.handler.downstream.DownstreamInitialHandler;
+import com.github.blackjack200.ouranos.utils.PingUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -50,10 +51,13 @@ public class Ouranos {
     @Getter
     private static Ouranos ouranos;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    @Getter
     private final EventLoopGroup bossGroup;
+    @Getter
     private final EventLoopGroup workerGroup;
 
     public static volatile BedrockCodec REMOTE_CODEC = ProtocolInfo.getDefaultPacketCodec();
+
     @Getter
     private final AtomicBoolean running = new AtomicBoolean(true);
     @Getter
@@ -80,36 +84,55 @@ public class Ouranos {
     @SneakyThrows
     private void start() {
         val start = System.currentTimeMillis();
-        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.ADVANCED);
+        if (System.getenv().containsKey("DEBUG")) {
+            ;
+            ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
+            log.warn("Resource leak detector has enabled");
+        }
+        log.info("Connecting to {}...", this.config.getRemote());
+        var pong = PingUtils.ping(this.config.getRemote(), 1, TimeUnit.SECONDS).get();
+        if (pong == null) {
+            log.fatal("Failed to connect to {}...", this.config.getRemote());
+            this.shutdown(true);
+            return;
+        }
 
-        var boostrap = new ServerBootstrap()
-                .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
-                .option(RakChannelOption.RAK_ADVERTISEMENT, this.config.getPong().toByteBuf())
-                .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
-                .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, ProtocolInfo.getPacketCodecs().stream().mapToInt(BedrockCodec::getRaknetProtocolVersion).distinct().toArray())
-                .group(this.bossGroup, this.workerGroup)
-                .childHandler(new BedrockChannelInitializer<ProxyServerSession>() {
-                    @Override
-                    protected ProxyServerSession createSession0(BedrockPeer peer, int subClientId) {
-                        return new ProxyServerSession((CustomPeer) peer, subClientId);
-                    }
+        REMOTE_CODEC = ProtocolInfo.getPacketCodec(pong.protocolVersion());
 
-                    @Override
-                    protected CustomPeer createPeer(Channel channel) {
-                        return new CustomPeer(channel, this::createSession);
-                    }
+        if (REMOTE_CODEC == null) {
+            log.fatal("Unsupported minecraft version {}({})", pong.version(), pong.protocolVersion());
+            this.shutdown(true);
+            return;
+        }
 
-                    @Override
-                    protected void initSession(ProxyServerSession session) {
-                        if (OuranosProxySession.ouranosPlayers.size() >= Ouranos.this.config.maximum_player) {
-                            session.disconnect("Ouranos proxy is full.");
-                            return;
-                        }
-                        log.info("{} connected", session.getPeer().getSocketAddress());
-                        session.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
-                        session.setPacketHandler(new DownstreamInitialHandler(session));
-                    }
-                });
+        BlockStateDictionary.getInstance(REMOTE_CODEC.getProtocolVersion());
+        ItemTypeDictionary.getInstance(REMOTE_CODEC.getProtocolVersion());
+        GlobalItemDataHandlers.getUpgrader();
+
+        log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
+
+        var boostrap = new ServerBootstrap().channelFactory(RakChannelFactory.server(NioDatagramChannel.class)).option(RakChannelOption.RAK_PACKET_LIMIT, 200).option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, ProtocolInfo.getPacketCodecs().stream().mapToInt(BedrockCodec::getRaknetProtocolVersion).distinct().toArray()).group(this.bossGroup, this.workerGroup).childHandler(new BedrockChannelInitializer<ProxyServerSession>() {
+            @Override
+            protected ProxyServerSession createSession0(BedrockPeer peer, int subClientId) {
+                return new ProxyServerSession((CustomPeer) peer, subClientId);
+            }
+
+            @Override
+            protected CustomPeer createPeer(Channel channel) {
+                return new CustomPeer(channel, this::createSession);
+            }
+
+            @Override
+            protected void initSession(ProxyServerSession session) {
+                if (OuranosProxySession.ouranosPlayers.size() >= Ouranos.this.config.maximum_player) {
+                    session.disconnect("Ouranos proxy is full.");
+                    return;
+                }
+                log.info("{} connected", session.getPeer().getSocketAddress());
+                session.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
+                session.setPacketHandler(new DownstreamInitialHandler(session));
+            }
+        });
 
         var bindv4 = this.config.getBindv4();
         var bindv6 = this.config.getBindv6();
@@ -122,14 +145,6 @@ public class Ouranos {
             log.info("Ouranos started on {}", bindv6);
         }
 
-        REMOTE_CODEC = this.config.getRemoteCodec();
-
-        BlockStateDictionary.getInstance(REMOTE_CODEC.getProtocolVersion());
-        ItemTypeDictionary.getInstance(REMOTE_CODEC.getProtocolVersion());
-        GlobalItemDataHandlers.getUpgrader();
-
-        log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
-
         log.info("Supported versions: {}", String.join(", ", ProtocolInfo.getPacketCodecs().stream().sorted(Comparator.comparingInt(BedrockCodec::getProtocolVersion)).map(BedrockCodec::getMinecraftVersion).distinct().toList()));
         log.info("Packet buffer: {}", this.config.packet_buffering);
 
@@ -137,16 +152,27 @@ public class Ouranos {
         val time = done - start;
         log.info("Server started in {} ms", time);
 
+        val motdLoading = new AtomicBoolean(false);
         scheduler.scheduleAtFixedRate(() -> {
-            var newPong = this.config.getPong().toByteBuf();
-            for (val channel : channels) {
-                channel.config().setOption(RakChannelOption.RAK_ADVERTISEMENT, newPong);
+            if (!motdLoading.compareAndSet(false, true)) {
+                return;
             }
-        }, 1, 1, TimeUnit.SECONDS);
+            PingUtils.ping((p) -> {
+                if (p == null) {
+                    p = this.config.getFallbackPong();
+                }
+                var buf = p.ipv4Port(this.config.server_port_v4).ipv6Port(this.config.server_port_v6).toByteBuf();
+                for (val channel : channels) {
+                    channel.config().setOption(RakChannelOption.RAK_ADVERTISEMENT, buf);
+                }
+                motdLoading.set(false);
+            }, this.config.getRemote(), 5, TimeUnit.SECONDS);
+        }, 0, 1, TimeUnit.SECONDS);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             Ouranos.this.shutdown(true);
         }));
+
         Scanner scanner = new Scanner(System.in);
 
         while (this.running.get() && !this.bossGroup.isShutdown() && !this.workerGroup.isShutdown()) {
@@ -161,6 +187,7 @@ public class Ouranos {
             switch (input.toLowerCase()) {
                 case "stop":
                 case "exit":
+                    log.info("Stopping the server...");
                     this.shutdown(false);
                     break;
                 case "gc":
@@ -185,7 +212,6 @@ public class Ouranos {
         if (!this.running.get()) {
             return;
         }
-        log.info("Stopping the server...");
         val iter = OuranosProxySession.ouranosPlayers.iterator();
         while (iter.hasNext()) {
             val player = iter.next();
@@ -204,8 +230,7 @@ public class Ouranos {
     }
 
     public Bootstrap prepareUpstreamBootstrap() {
-        return new Bootstrap()
-                .group(this.bossGroup)
+        return new Bootstrap().group(this.bossGroup)
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_PROTOCOL_VERSION, REMOTE_CODEC.getRaknetProtocolVersion())
                 .option(RakChannelOption.RAK_COMPATIBILITY_MODE, true)

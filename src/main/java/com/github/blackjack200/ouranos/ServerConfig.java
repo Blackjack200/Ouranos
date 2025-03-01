@@ -1,20 +1,13 @@
 package com.github.blackjack200.ouranos;
 
-import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.BedrockPong;
-import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 
 import java.net.InetSocketAddress;
-import java.util.Objects;
 
 @Log4j2
 public class ServerConfig {
-    public String motd = "My Proxy";
-    public String sub_motd = "Ouranos";
-    public int default_protocol = ProtocolInfo.getDefaultProtocolVersion();
-
     public String server_ipv4 = "0.0.0.0";
     public short server_port_v4 = 19132;
     public boolean server_ipv6_enabled = true;
@@ -45,23 +38,15 @@ public class ServerConfig {
         return new InetSocketAddress(this.remote_host, this.remote_port);
     }
 
-    public BedrockPong getPong() {
-        var codec = getRemoteCodec();
+    public BedrockPong getFallbackPong() {
         return new BedrockPong()
                 .edition("MCPE")
-                .motd(this.motd)
-                .subMotd(this.sub_motd)
-                .serverId(114514L)
+                .motd("Ouranos Proxy")
+                .subMotd("Ouranos")
                 .playerCount(OuranosProxySession.ouranosPlayers.size())
                 .maximumPlayerCount(this.maximum_player)
                 .gameType("Survival")
-                .version(codec.getMinecraftVersion())
-                .protocolVersion(codec.getProtocolVersion())
                 .ipv4Port(this.server_port_v4)
                 .ipv6Port(this.server_port_v6);
-    }
-
-    public BedrockCodec getRemoteCodec() {
-        return Objects.requireNonNull(ProtocolInfo.getPacketCodec(this.default_protocol), "Unsupported protocol: " + this.default_protocol);
     }
 }
