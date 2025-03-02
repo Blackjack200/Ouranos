@@ -233,7 +233,6 @@ public class Ouranos {
     public Bootstrap prepareUpstreamBootstrap() {
         return new Bootstrap().group(this.bossGroup)
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
-                .option(RakChannelOption.RAK_PROTOCOL_VERSION, REMOTE_CODEC.getRaknetProtocolVersion())
                 .option(RakChannelOption.RAK_COMPATIBILITY_MODE, true)
                 .option(RakChannelOption.RAK_AUTO_FLUSH, true)
                 .option(RakChannelOption.RAK_FLUSH_INTERVAL, 10);

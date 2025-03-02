@@ -14,6 +14,7 @@ import io.netty.channel.ChannelFuture;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
@@ -48,6 +49,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
     @SneakyThrows
     private ChannelFuture connect() {
         return Ouranos.getOuranos().prepareUpstreamBootstrap()
+                .option(RakChannelOption.RAK_PROTOCOL_VERSION, Ouranos.REMOTE_CODEC.getRaknetProtocolVersion())
                 .handler(new BedrockChannelInitializer<ProxyClientSession>() {
                     @Override
                     protected ProxyClientSession createSession0(BedrockPeer peer, int subClientId) {
