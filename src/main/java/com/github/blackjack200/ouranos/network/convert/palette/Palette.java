@@ -78,6 +78,11 @@ public final class Palette<V> implements AutoCloseable {
         ByteBuf bitArray = in.readBytes(uint32s(blockSize) * 4);
 
         var paletteCount = VarInts.readInt(in);
+
+        if (paletteCount == -1) {
+            return new Palette<>(0x7F, Collections.emptyList(), null);
+        }
+
         var palette = new ArrayList<V>(paletteCount);
 
         for (int i = 0; i < paletteCount; i++) {

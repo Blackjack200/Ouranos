@@ -451,7 +451,7 @@ public class Translate {
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             } catch (ChunkRewriteException exception) {
-                log.error(exception);
+                log.error("Failed to rewrite chunk: ", exception);
                 player.disconnect("Failed to rewrite chunk: " + exception.getMessage());
             }
             return;
@@ -467,7 +467,7 @@ public class Translate {
                         subChunk.setData(to);
                         ReferenceCountUtil.release(from);
                     } catch (ChunkRewriteException exception) {
-                        log.error(exception);
+                        log.error("Failed to rewrite chunk: ", exception);
                         player.disconnect("Failed to rewrite chunk: " + exception.getMessage());
                     }
                 }

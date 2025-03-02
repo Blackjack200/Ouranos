@@ -39,6 +39,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -106,9 +107,9 @@ public class Ouranos {
             return;
         }
 
-        BlockStateDictionary.getInstance(REMOTE_CODEC.getProtocolVersion());
-        ItemTypeDictionary.getInstance(REMOTE_CODEC.getProtocolVersion());
-        GlobalItemDataHandlers.getUpgrader();
+        CompletableFuture.runAsync(() -> BlockStateDictionary.getInstance(REMOTE_CODEC.getProtocolVersion()));
+        CompletableFuture.runAsync(() -> ItemTypeDictionary.getInstance(REMOTE_CODEC.getProtocolVersion()));
+        CompletableFuture.runAsync(GlobalItemDataHandlers::getUpgrader);
 
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
 
