@@ -1,5 +1,6 @@
 package com.github.blackjack200.ouranos;
 
+import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.BedrockPong;

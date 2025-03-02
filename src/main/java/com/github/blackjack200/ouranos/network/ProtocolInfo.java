@@ -22,7 +22,6 @@ import org.cloudburstmc.protocol.bedrock.codec.v567.Bedrock_v567;
 import org.cloudburstmc.protocol.bedrock.codec.v568.Bedrock_v568;
 import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
 import org.cloudburstmc.protocol.bedrock.codec.v582.Bedrock_v582;
-import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
 import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
 import org.cloudburstmc.protocol.bedrock.codec.v618.Bedrock_v618;
 import org.cloudburstmc.protocol.bedrock.codec.v622.Bedrock_v622;
@@ -100,29 +99,6 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v431.CODEC);
         addPacketCodec(Bedrock_v419.CODEC);
 //        addPacketCodec(Bedrock_v408.CODEC);
-    }
-
-    private static BedrockCodec DEFAULT_PACKET_CODEC;
-
-    static {
-        setDefaultPacketCodec(Bedrock_v776.CODEC);
-    }
-
-    public static BedrockCodec getDefaultPacketCodec() {
-        return DEFAULT_PACKET_CODEC;
-    }
-
-    public static void setDefaultPacketCodec(BedrockCodec packetCodec) {
-        DEFAULT_PACKET_CODEC = packetCodec;
-        PACKET_CODECS.add(DEFAULT_PACKET_CODEC);
-    }
-
-    public static String getDefaultMinecraftVersion() {
-        return DEFAULT_PACKET_CODEC.getMinecraftVersion();
-    }
-
-    public static int getDefaultProtocolVersion() {
-        return DEFAULT_PACKET_CODEC.getProtocolVersion();
     }
 
     public static BedrockCodec getPacketCodec(int protocolVersion) {

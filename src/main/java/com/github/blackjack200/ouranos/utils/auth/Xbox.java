@@ -1,7 +1,7 @@
 package com.github.blackjack200.ouranos.utils.auth;
 
 import cn.hutool.core.io.IoUtil;
-import com.github.blackjack200.ouranos.network.ProtocolInfo;
+import com.github.blackjack200.ouranos.Ouranos;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -213,7 +213,7 @@ public class Xbox {
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setRequestProperty("Authorization", "XBL3.0 x=" + xstsObject.get("DisplayClaims").getAsJsonObject().getAsJsonArray("xui").getAsJsonArray().get(0).getAsJsonObject().get("uhs").getAsString() + ";" + xstsObject.get("Token").getAsString());
         connection.setRequestProperty("User-Agent", "MCPE/UWP");
-        connection.setRequestProperty("Client-Version", ProtocolInfo.getDefaultMinecraftVersion());
+        connection.setRequestProperty("Client-Version", Ouranos.REMOTE_CODEC.getMinecraftVersion());
 
         this.writeJsonObjectToPost(connection, jsonObject);
 

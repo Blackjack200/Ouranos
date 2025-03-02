@@ -57,7 +57,7 @@ public class Ouranos {
     @Getter
     private final EventLoopGroup workerGroup;
 
-    public static volatile BedrockCodec REMOTE_CODEC = ProtocolInfo.getDefaultPacketCodec();
+    public static volatile BedrockCodec REMOTE_CODEC;
 
     @Getter
     private final AtomicBoolean running = new AtomicBoolean(true);
