@@ -36,6 +36,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
     private final Map<String, Object> rawExtraData;
     private final JSONObject clientData;
     private final String chainData;
+    private String accessToken;
 
     public DownstreamLoginHandler(ProxyServerSession downstream, AuthData identityData, Map<String, Object> rawExtraData, JSONObject clientData) {
         this.downstream = downstream;
@@ -43,6 +44,13 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
         this.rawExtraData = rawExtraData;
         this.clientData = clientData;
         this.chainData = LoginPacketUtils.createChainDataJwt(this.keyPair, this.rawExtraData);
+        if (System.getenv("USE_XBOX") != null) {
+            try {
+                accessToken = XboxLogin.getAccessToken(System.getenv("XBOX_ACCOUNT"), System.getenv("XBOX_PASSWORD"));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
         connect();
     }
 
@@ -105,8 +113,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
         var newClientData = LoginPacketUtils.writeClientData(this.keyPair, session, this.identityData, this.clientData, Ouranos.getOuranos().getConfig().login_extra);
         var newLogin = new LoginPacket();
         if (System.getenv("USE_XBOX") != null) {
-            var lo = XboxLogin.getAccessToken(System.getenv("XBOX_ACCOUNT"), System.getenv("XBOX_PASSWORD"));
-            var x = new Xbox(lo);
+            var x = new Xbox(accessToken);
             List<String> chain = new Auth().getOnlineChainData(x, this.keyPair);
             newLogin.getChain().addAll(chain);
             var chainD = EncryptionUtils.validateChain(chain);

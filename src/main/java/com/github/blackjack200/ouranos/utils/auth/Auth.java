@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.utils.auth;
 
 import com.google.gson.*;
+import lombok.extern.slf4j.Slf4j;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -14,10 +15,12 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 //based off https://github.com/Sandertv/gophertunnel/tree/master/minecraft/auth
 
+@Slf4j
 public class Auth {
 
     private ECPublicKey publicKey;
@@ -33,11 +36,41 @@ public class Auth {
         this.publicKey = (ECPublicKey) ecdsa256KeyPair.getPublic();
         this.privateKey = (ECPrivateKey) ecdsa256KeyPair.getPrivate();
 
-        String userToken = xbox.getUserToken(this.publicKey, this.privateKey);
-        String deviceToken = xbox.getDeviceToken(this.publicKey, this.privateKey);
-        String titleToken = xbox.getTitleToken(this.publicKey, this.privateKey, deviceToken);
-        String xsts = xbox.getXstsToken(userToken, deviceToken, titleToken, this.publicKey, this.privateKey);
+        var userTokenFuture = CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return xbox.getUserToken(publicKey, privateKey);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+        var deviceTokenFuture = CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return xbox.getDeviceToken(publicKey, privateKey);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
 
+        var titleTokenFuture = deviceTokenFuture.thenApplyAsync(
+                deviceToken -> {
+                    try {
+                        return xbox.getTitleToken(publicKey, privateKey, deviceToken);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+
+        CompletableFuture.allOf(userTokenFuture, deviceTokenFuture, titleTokenFuture).join();
+
+        String userToken = userTokenFuture.join();
+        String deviceToken = deviceTokenFuture.join();
+        String titleToken = titleTokenFuture.join();
+        String xsts = xbox.getXstsToken(userToken, deviceToken, titleToken, this.publicKey, this.privateKey);
         this.publicKey = (ECPublicKey) ecdsa384KeyPair.getPublic();
         this.privateKey = (ECPrivateKey) ecdsa384KeyPair.getPrivate();
 
