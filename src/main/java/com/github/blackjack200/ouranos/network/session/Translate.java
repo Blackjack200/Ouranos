@@ -49,6 +49,9 @@ import java.util.*;
 public class Translate {
 
     public static Collection<BedrockPacket> translate(int input, int output, OuranosProxySession player, BedrockPacket p) {
+        if (input == output) {
+            return Collections.singletonList(p);
+        }
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {

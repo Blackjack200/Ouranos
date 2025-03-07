@@ -109,9 +109,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.CloudburstMC</groupId>
-            <artifactId>Protocol</artifactId>
-            <version>3.0-SNAPSHOT</version>
+            <groupId>org.cloudburstmc.protocol</groupId>
+            <artifactId>bedrock-connection</artifactId>
+            <version>3.0.0.Beta6-SNAPSHOT</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/cn.hutool/hutool-core -->
         <dependency>

@@ -45,7 +45,7 @@ public class OuranosProxySession {
 
 
     public boolean isAlive() {
-        return this.upstream.isConnected() && this.downstream.isConnected();
+        return this.upstream.getCodec() != null && this.downstream.getCodec() != null && this.upstream.isConnected() && this.downstream.isConnected();
     }
 
     @SneakyThrows
