@@ -1,9 +1,9 @@
 package com.github.blackjack200.ouranos;
 
-import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.BedrockPong;
+import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 
 import java.net.InetSocketAddress;
 
@@ -44,9 +44,12 @@ public class ServerConfig {
                 .edition("MCPE")
                 .motd("Ouranos Proxy")
                 .subMotd("Ouranos")
+                .version("1.18.30")
+                .protocolVersion(Bedrock_v503.CODEC.getProtocolVersion())
                 .playerCount(OuranosProxySession.ouranosPlayers.size())
                 .maximumPlayerCount(this.maximum_player)
                 .gameType("Survival")
+                .serverId(114514L)
                 .ipv4Port(this.server_port_v4)
                 .ipv6Port(this.server_port_v6);
     }

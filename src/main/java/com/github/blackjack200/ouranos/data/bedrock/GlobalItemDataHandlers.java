@@ -1,6 +1,5 @@
 package com.github.blackjack200.ouranos.data.bedrock;
 
-import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.data.LegacyItemIdToStringIdMap;
 import com.github.blackjack200.ouranos.data.bedrock.item.BlockItemIdMap;
 import com.github.blackjack200.ouranos.data.bedrock.item.downgrade.ItemIdMetaDowngrader;
@@ -13,6 +12,7 @@ import lombok.SneakyThrows;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class GlobalItemDataHandlers {
     private static ItemDataUpgrader itemDataUpgrader = null;
@@ -33,42 +33,14 @@ public final class GlobalItemDataHandlers {
         return itemDataUpgrader;
     }
 
+    public static Map<Integer, Integer> SCHEMA_ID = new ConcurrentHashMap<>();
+
     public static int getSchemaId(int protocolId) {
-        return switch (protocolId) {
-            case 776 -> 231;
-            case 768 -> 231;
-            case 767 -> 231;
-
-            case 766 -> 231;
-            case 748 -> 221;
-            case 729 -> 211;
-            case 712 -> 201;
-            case 686 -> 191;
-            case 685 -> 191;
-            case 671 -> 181;
-            case 662 -> 171;
-            case 649 -> 161;
-            case 630 -> 151;
-            case 618 -> 141;
-            case 594 -> 121;
-            case 589 -> 111;
-
-            case 582 -> 101;
-            case 575 -> 91;
-            case 567 -> 91;
-            case 560 -> 91;
-            case 557 -> 81;
-            case 527 -> 81;
-            case 503 -> 71;
-            case 486 -> 61;
-            case 475 -> 51;
-            case 471 -> 51;
-            case 448 -> 41;
-            case 440 -> 41;
-            case 431 -> 41;
-            case 419 -> 31;
-            default -> throw new RuntimeException("schemaid for protocol " + protocolId + " not found");
-        };
+        var id = SCHEMA_ID.getOrDefault(protocolId, null);
+        if (id == null) {
+            throw new RuntimeException("schemaid for protocol " + protocolId + " not found");
+        }
+        return id;
     }
 
     public static ItemIdMetaDowngrader getItemIdMetaDowngrader(int protocolId) {
