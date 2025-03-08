@@ -19,7 +19,7 @@ public class ItemIdMetaDowngrader {
             int id = entry.getKey();
             var schema = entry.getValue();
 
-            if (id <= schemaId) {
+            if (id < schemaId) {
                 continue;
             }
 
