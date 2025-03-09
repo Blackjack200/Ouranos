@@ -87,7 +87,7 @@ public class TypeConverter {
             //TODO implement biome & block entities rewrite
         } else {
             //TODO wtf this may crashes the client
-            if (Ouranos.getOuranos().getConfig().crop_chunk_biome) {
+            if (!Ouranos.getOuranos().getConfig().crop_chunk_biome) {
                 to.writeBytes(buf);
             }
             to.writeByte(from.readByte());
