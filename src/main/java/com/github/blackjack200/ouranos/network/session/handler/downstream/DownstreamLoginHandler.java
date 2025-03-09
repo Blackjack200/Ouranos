@@ -96,10 +96,10 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
                             }
                             session.upstream.getPeer().getChannel().eventLoop().execute(() -> session.setUpstreamHandler(handler));
                         }).exceptionally(ex -> {
-                            log.error("Error while initializing data mapping/assemble login packet", ex);
                             if (!session.isAlive()) {
                                 return null;
                             }
+                            log.error("Error while initializing data mapping/assemble login packet", ex);
                             session.disconnect("Error while initializing data mapping/assemble login packet: " + ex.getMessage());
                             return null;
                         });
