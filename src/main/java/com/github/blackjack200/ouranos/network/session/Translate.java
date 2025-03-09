@@ -103,13 +103,9 @@ public class Translate {
             for (int i = 0, iMax = pk.getContents().size(); i < iMax; i++) {
                 var old = pk.getContents().get(i);
                 var item = TypeConverter.translateCreativeItemData(input, output, old);
-                if (item != null) {
-                    contents.add(item);
-                } else {
-                    contents.add(new CreativeItemData(
-                            ItemData.builder().netId(old.getNetId()).count(1).damage(0).definition(new SimpleItemDefinition("minecraft:barrier", ItemTypeDictionary.getInstance(output).fromStringId("minecraft:barrier"), false)).build(),
-                            old.getNetId(), old.getGroupId()));
-                }
+                contents.add(Objects.requireNonNullElseGet(item, () -> new CreativeItemData(
+                        ItemData.builder().netId(old.getNetId()).count(1).damage(0).definition(new SimpleItemDefinition("minecraft:barrier", ItemTypeDictionary.getInstance(output).fromStringId("minecraft:barrier"), false)).build(),
+                        old.getNetId(), old.getGroupId())));
             }
             pk.getContents().clear();
             pk.getContents().addAll(contents);

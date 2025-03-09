@@ -11,7 +11,6 @@ import com.github.blackjack200.ouranos.utils.ItemTypeDictionaryRegistry;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
-import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
@@ -126,7 +125,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                 var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), session, packet);
                 for (var pk : packets) {
                     if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket)) {
-                        log.debug("S->C {}", pk);
+                        log.debug("S->C {}", pk.getClass());
                     }
                     session.downstream.sendPacket(pk);
                 }

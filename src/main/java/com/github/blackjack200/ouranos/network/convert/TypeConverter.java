@@ -85,7 +85,8 @@ public class TypeConverter {
         if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
             //TODO implement biome & block entities rewrite
         } else {
-            to.writeBytes(buf);
+            //TODO wtf this may crashes the client
+            //to.writeBytes(buf);
             to.writeByte(from.readByte());
             rewriteBlockEntities(input, output, from, to);
         }
@@ -153,7 +154,6 @@ public class TypeConverter {
 
         var translated = outputDict.toRuntimeId(stateHash);
         if (translated == null) {
-            //TODO HACK for heads and skulls, this is not a proper way to translate them. currently unusable
             var anyState = inputDict.lookupStateFromStateHash(stateHash);
             if (anyState != null && (anyState.name().endsWith("_head") || anyState.name().endsWith("_skull"))) {
                 Integer skullHash = inputDict.lookupStateIdFromData("minecraft:skeleton_skull", anyState.rawState());
