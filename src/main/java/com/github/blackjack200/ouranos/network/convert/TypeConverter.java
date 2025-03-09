@@ -1,5 +1,6 @@
 package com.github.blackjack200.ouranos.network.convert;
 
+import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.ByteBuf;
@@ -86,7 +87,9 @@ public class TypeConverter {
             //TODO implement biome & block entities rewrite
         } else {
             //TODO wtf this may crashes the client
-            //to.writeBytes(buf);
+            if (Ouranos.getOuranos().getConfig().crop_chunk_biome) {
+                to.writeBytes(buf);
+            }
             to.writeByte(from.readByte());
             rewriteBlockEntities(input, output, from, to);
         }
