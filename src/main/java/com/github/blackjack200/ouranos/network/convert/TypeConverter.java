@@ -1,6 +1,5 @@
 package com.github.blackjack200.ouranos.network.convert;
 
-import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.ByteBuf;
@@ -80,16 +79,24 @@ public class TypeConverter {
         }
 
         var buf = ByteBufAllocator.DEFAULT.buffer().touch();
+        int diff = getDimensionChunkBounds(input, dimension) - getDimensionChunkBounds(output, dimension);
         for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
+            if (diff > 0 && x == diff) {
+                buf.clear();
+            }
             PaletteStorage.translatePaletteStorage(input, output, from, buf, (i, o, v) -> v);
+        }
+        if (diff < 0) {
+            diff = -diff;
+            for (int i = 0; i < diff; i++) {
+                buf.writeByte(8);
+                buf.writeByte(0);
+            }
         }
         if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
             //TODO implement biome & block entities rewrite
         } else {
-            //TODO wtf this may crashes the client
-            if (!Ouranos.getOuranos().getConfig().crop_chunk_biome) {
-                to.writeBytes(buf);
-            }
+            to.writeBytes(buf);
             to.writeByte(from.readByte());
             rewriteBlockEntities(input, output, from, to);
         }
@@ -108,14 +115,14 @@ public class TypeConverter {
     private int getDimensionChunkBounds(int protocol, int dimension) {
         switch (dimension) {
             case 0://overworld
-                return protocol <= Bedrock_v503.CODEC.getProtocolVersion() ? 25 : 24;
+                return protocol >= Bedrock_v503.CODEC.getProtocolVersion() ? 24 : 25;
             case 1://nether
                 return 8;
             case 2://the_end
                 return 16;
             default:
                 log.debug("Unknown dimension for chunk bounds: {}", dimension);
-                return protocol <= Bedrock_v503.CODEC.getProtocolVersion() ? 25 : 24;
+                return protocol >= Bedrock_v503.CODEC.getProtocolVersion() ? 24 : 25;
         }
     }
 
@@ -124,8 +131,8 @@ public class TypeConverter {
         to.writeByte(version);
         switch (version) {
             case 0, 4, 139 -> {
-                to.writeBytes(from);
-                return true;
+                to.writeBytes(from.readBytes(4096 + 2048));
+                return false;
             }
             case 8, 9 -> { // New form chunk, baked-in palette
                 var storageCount = from.readUnsignedByte();

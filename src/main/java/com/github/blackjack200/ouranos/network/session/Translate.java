@@ -11,6 +11,7 @@ import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
+import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
@@ -49,9 +50,6 @@ import java.util.*;
 public class Translate {
 
     public static Collection<BedrockPacket> translate(int input, int output, OuranosProxySession player, BedrockPacket p) {
-        if (input == output) {
-            return Collections.singletonList(p);
-        }
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -66,7 +64,7 @@ public class Translate {
         rewriteProtocol(input, output, player, p, list);
         rewriteChunk(input, output, player, p, list);
         if (p instanceof LevelChunkPacket) {
-            //list.clear();
+//            list.clear();
         }
         rewriteBlock(input, output, player, p, list);
 
@@ -196,6 +194,14 @@ public class Translate {
 
     private static void rewriteProtocol(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         val provider = new ImmutableVectorProvider();
+        if (p instanceof StartGamePacket pk) {
+            pk.setServerId(Optional.ofNullable(pk.getServerId()).orElse(""));
+            pk.setWorldId(Optional.ofNullable(pk.getWorldId()).orElse(""));
+            pk.setScenarioId(Optional.ofNullable(pk.getScenarioId()).orElse(""));
+            pk.setChatRestrictionLevel(Optional.ofNullable(pk.getChatRestrictionLevel()).orElse(ChatRestrictionLevel.NONE));
+            pk.setPlayerPropertyData(Optional.ofNullable(pk.getPlayerPropertyData()).orElse(NbtMap.EMPTY));
+            pk.setWorldTemplateId(Optional.ofNullable(pk.getWorldTemplateId()).orElse(UUID.randomUUID()));
+        }
         if (input < Bedrock_v766.CODEC.getProtocolVersion()) {
             if (p instanceof ResourcePacksInfoPacket pk) {
                 pk.setWorldTemplateId(UUID.randomUUID());

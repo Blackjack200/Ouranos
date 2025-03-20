@@ -40,9 +40,13 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         this.session = session;
         this.loginPacket = loginPacket;
 
-        val packet = new RequestNetworkSettingsPacket();
-        packet.setProtocolVersion(session.getUpstreamProtocolId());
-        session.upstream.sendPacketImmediately(packet);
+        if (session.upstream.getCodec().getPacketDefinition(RequestNetworkSettingsPacket.class) != null) {
+            val packet = new RequestNetworkSettingsPacket();
+            packet.setProtocolVersion(session.getUpstreamProtocolId());
+            session.upstream.sendPacketImmediately(packet);
+        } else {
+            this.session.upstream.sendPacketImmediately(this.loginPacket);
+        }
     }
 
     @Override
@@ -109,24 +113,24 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
     private void setupRedirect() {
         session.downstream.setPacketRedirect((_upstream, packet) -> {
             ReferenceCountUtil.retain(ReferenceCountUtil.touch(packet));
-            if (session.upstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
-                var packets = Translate.translate(session.getDownstreamProtocolId(), session.getUpstreamProtocolId(), session, packet);
-                for (var pk : packets) {
-                    if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket)) {
-                        log.debug("C->S {}", pk.getClass());
-                    }
+            var packets = Translate.translate(session.getDownstreamProtocolId(), session.getUpstreamProtocolId(), session, packet);
+            for (var pk : packets) {
+                if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket)) {
+                    log.debug("C->S {}", pk.getClass());
+                }
+                if (session.upstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
                     session.upstream.sendPacket(pk);
                 }
             }
         });
         session.upstream.setPacketRedirect((_downstream, packet) -> {
             ReferenceCountUtil.retain(ReferenceCountUtil.touch(packet));
-            if (session.downstream.getCodec().getPacketDefinition(packet.getClass()) != null) {
-                var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), session, packet);
-                for (var pk : packets) {
-                    if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket)) {
-                        log.debug("S->C {}", pk.getClass());
-                    }
+            var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), session, packet);
+            for (var pk : packets) {
+                if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket)) {
+                    log.debug("S->C {}", pk.getClass());
+                }
+                if (session.downstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
                     session.downstream.sendPacket(pk);
                 }
             }
