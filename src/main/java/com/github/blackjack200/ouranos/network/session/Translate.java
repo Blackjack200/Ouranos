@@ -272,13 +272,18 @@ public class Translate {
                 newPk.setPlayerPermission(packet.getPlayerPermission());
                 newPk.setCommandPermission(packet.getCommandPermission());
                 newPk.setAbilityLayers(new ArrayList<>(AbilityLayer.Type.BASE.ordinal()));
-                val x = packet.getSettings();
+
                 var newPk2 = new UpdateAdventureSettingsPacket();
-                //TODO implement this properly
-                //newPk2.setAutoJump(packet.getSettings());
+                var settings = packet.getSettings();
+                newPk2.setAutoJump(settings.contains(AdventureSetting.AUTO_JUMP));
+                newPk2.setImmutableWorld(settings.contains(AdventureSetting.WORLD_IMMUTABLE));
+                newPk2.setNoMvP(settings.contains(AdventureSetting.NO_MVP));
+                newPk2.setNoPvM(settings.contains(AdventureSetting.NO_PVM));
+                newPk2.setShowNameTags(settings.contains(AdventureSetting.SHOW_NAME_TAGS));
+
                 list.removeIf((bedrockPacket -> bedrockPacket instanceof AdventureSettingsPacket));
-                //list.add(newPk);
-                //list.add(newPk2);
+                list.add(newPk);
+                list.add(newPk2);
             }
         }
         removeNewEntityData(p, output, Bedrock_v685.CODEC, EntityDataTypes.VISIBLE_MOB_EFFECTS);
@@ -415,9 +420,10 @@ public class Translate {
                 return;
             }
             var data = packet.getData();
-            var high = data & 0xFFFF0000;
-            var blockID = TypeConverter.translateBlockRuntimeId(input, output, data & 0xFFFF) & 0xFFFF;
-            packet.setData(high | blockID);
+            if (data != -1){
+                data = TypeConverter.translateBlockRuntimeId(input, output, data);
+            }
+            packet.setData(data);
         } else if (p instanceof LevelSoundEventPacket pk) {
             var sound = pk.getSound();
             if (sound == SoundEvent.PLACE || sound == SoundEvent.HIT || sound == SoundEvent.ITEM_USE_ON || sound == SoundEvent.LAND || sound == SoundEvent.BREAK) {

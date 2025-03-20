@@ -19,6 +19,7 @@ import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
+import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.io.IOException;
 
@@ -26,7 +27,7 @@ import java.io.IOException;
 @UtilityClass
 public class TypeConverter {
     public ItemData translateItemData(int input, int output, ItemData itemData) {
-        if (itemData.isNull() || !itemData.isValid()) {
+        if (itemData == null || itemData.isNull() || !itemData.isValid()) {
             return itemData;
         }
 
@@ -89,8 +90,8 @@ public class TypeConverter {
         if (diff < 0) {
             diff = -diff;
             for (int i = 0; i < diff; i++) {
-                buf.writeByte(8);
-                buf.writeByte(0);
+                buf.writeByte(1);
+                VarInts.writeInt(buf, 0);
             }
         }
         if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
@@ -131,7 +132,7 @@ public class TypeConverter {
         to.writeByte(version);
         switch (version) {
             case 0, 4, 139 -> {
-                to.writeBytes(from.readBytes(4096 + 2048));
+                to.writeBytes(from, 4096 + 2048);
                 return false;
             }
             case 8, 9 -> { // New form chunk, baked-in palette
