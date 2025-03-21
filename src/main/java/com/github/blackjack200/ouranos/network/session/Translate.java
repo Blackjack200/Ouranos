@@ -129,7 +129,9 @@ public class Translate {
         } else if (p instanceof MobEquipmentPacket pk) {
             pk.setItem(TypeConverter.translateItemData(input, output, pk.getItem()));
         } else if (p instanceof MobArmorEquipmentPacket pk) {
-            pk.setBody(TypeConverter.translateItemData(input, output, pk.getBody()));
+            if (pk.getBody() != null) {
+                pk.setBody(TypeConverter.translateItemData(input, output, pk.getBody()));
+            }
             pk.setChestplate(TypeConverter.translateItemData(input, output, pk.getChestplate()));
             pk.setHelmet(TypeConverter.translateItemData(input, output, pk.getHelmet()));
             pk.setBoots(TypeConverter.translateItemData(input, output, pk.getBoots()));
@@ -201,6 +203,9 @@ public class Translate {
             pk.setChatRestrictionLevel(Optional.ofNullable(pk.getChatRestrictionLevel()).orElse(ChatRestrictionLevel.NONE));
             pk.setPlayerPropertyData(Optional.ofNullable(pk.getPlayerPropertyData()).orElse(NbtMap.EMPTY));
             pk.setWorldTemplateId(Optional.ofNullable(pk.getWorldTemplateId()).orElse(UUID.randomUUID()));
+        }
+        if (p instanceof AddPlayerPacket pk) {
+            pk.setGameType(Optional.ofNullable(pk.getGameType()).orElse(GameType.DEFAULT));
         }
         if (input < Bedrock_v766.CODEC.getProtocolVersion()) {
             if (p instanceof ResourcePacksInfoPacket pk) {
@@ -420,7 +425,7 @@ public class Translate {
                 return;
             }
             var data = packet.getData();
-            if (data != -1){
+            if (data != -1) {
                 data = TypeConverter.translateBlockRuntimeId(input, output, data);
             }
             packet.setData(data);

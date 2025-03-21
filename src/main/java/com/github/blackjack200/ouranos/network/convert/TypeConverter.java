@@ -1,5 +1,6 @@
 package com.github.blackjack200.ouranos.network.convert;
 
+import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.ByteBuf;
@@ -27,7 +28,7 @@ import java.io.IOException;
 @UtilityClass
 public class TypeConverter {
     public ItemData translateItemData(int input, int output, ItemData itemData) {
-        if (itemData == null || itemData.isNull() || !itemData.isValid()) {
+        if (itemData.isNull() || !itemData.isValid()) {
             return itemData;
         }
 
@@ -74,32 +75,37 @@ public class TypeConverter {
             if (output < Bedrock_v475.CODEC.getProtocolVersion() && section == 4) {
                 to.clear();
             }
-            if (rewriteSubChunk(input, output, from, to)) {
-                return;
-            }
+            rewriteSubChunk(input, output, from, to);
         }
 
         var buf = ByteBufAllocator.DEFAULT.buffer().touch();
         int diff = getDimensionChunkBounds(input, dimension) - getDimensionChunkBounds(output, dimension);
         for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
-            if (diff > 0 && x == diff) {
+            if (x == diff) {
                 buf.clear();
             }
             PaletteStorage.translatePaletteStorage(input, output, from, buf, (i, o, v) -> v);
         }
-        if (diff < 0) {
-            diff = -diff;
-            for (int i = 0; i < diff; i++) {
-                buf.writeByte(1);
-                VarInts.writeInt(buf, 0);
-            }
-        }
+
         if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
             //TODO implement biome & block entities rewrite
         } else {
-            to.writeBytes(buf);
-            to.writeByte(from.readByte());
-            rewriteBlockEntities(input, output, from, to);
+            if (!Ouranos.getOuranos().getConfig().crop_chunk_biome) {
+                to.writeBytes(buf);
+                if (diff < 0) {
+                    diff = -diff;
+                    for (int i = 0; i < diff; i++) {
+                        buf.writeByte(1);
+                        VarInts.writeInt(buf, 0);
+                    }
+                }
+            }
+            var borderBlocks = from.readByte();
+            to.writeByte(borderBlocks);
+            to.writeBytes(from, borderBlocks);
+            if (!Ouranos.getOuranos().getConfig().crop_chunk_tile) {
+                rewriteBlockEntities(input, output, from, to);
+            }
         }
         ReferenceCountUtil.release(buf);
     }
@@ -127,14 +133,13 @@ public class TypeConverter {
         }
     }
 
-    public static boolean rewriteSubChunk(int input, int output, ByteBuf from, ByteBuf to) throws ChunkRewriteException {
+    public static void rewriteSubChunk(int input, int output, ByteBuf from, ByteBuf to) throws ChunkRewriteException {
         var version = from.readUnsignedByte();
         to.writeByte(version);
         switch (version) {
-            case 0, 4, 139 -> {
-                to.writeBytes(from, 4096 + 2048);
-                return false;
-            }
+            case 0, 4, 139 -> to.writeBytes(from, 4096 + 2048);
+            case 1 ->
+                    PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
             case 8, 9 -> { // New form chunk, baked-in palette
                 var storageCount = from.readUnsignedByte();
                 to.writeByte(storageCount);
@@ -145,11 +150,9 @@ public class TypeConverter {
                     PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
                 }
             }
-            default -> { // Unsupported
-                throw new ChunkRewriteException("ChunkDataRewrite: Unknown subchunk format " + version);
-            }
+            default -> // Unsupported
+                    throw new ChunkRewriteException("ChunkDataRewrite: Unknown subchunk format " + version);
         }
-        return false;
     }
 
     public int translateBlockRuntimeId(int input, int output, int blockRuntimeId) {

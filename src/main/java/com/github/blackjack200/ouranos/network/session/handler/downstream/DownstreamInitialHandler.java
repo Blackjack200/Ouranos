@@ -93,7 +93,6 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
         pk.setCompressionAlgorithm(PacketCompressionAlgorithm.ZLIB);
 
         this.downstream.sendPacketImmediately(pk);
-
         this.downstream.setCompression(PacketCompressionAlgorithm.ZLIB);
         return PacketSignal.HANDLED;
     }
