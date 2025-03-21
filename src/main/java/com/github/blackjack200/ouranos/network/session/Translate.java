@@ -45,6 +45,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTrans
 import org.cloudburstmc.protocol.bedrock.packet.*;
 
 import java.util.*;
+import java.util.function.BiFunction;
 
 @Log4j2
 public class Translate {
@@ -270,24 +271,76 @@ public class Translate {
                 pk.getRequests().addAll(newRequests);
             }
         }
+        if (output < Bedrock_v554.CODEC.getProtocolVersion()) {
+            if (p instanceof UpdateAbilitiesPacket pk) {
+                var newPk = new AdventureSettingsPacket();
+                newPk.setUniqueEntityId(pk.getUniqueEntityId());
+                newPk.setCommandPermission(pk.getCommandPermission());
+                newPk.setPlayerPermission(pk.getPlayerPermission());
+                newPk.getSettings().clear();
+                var abilities = pk.getAbilityLayers().get(0).getAbilityValues();
+                BiFunction<Ability, AdventureSetting, Void> f = (Ability b1, AdventureSetting b) -> {
+                    if (abilities.contains(b1)) {
+                        newPk.getSettings().add(b);
+                    }
+                    return null;
+                };
+                f.apply(Ability.MINE, AdventureSetting.MINE);
+                f.apply(Ability.DOORS_AND_SWITCHES, AdventureSetting.DOORS_AND_SWITCHES);
+                f.apply(Ability.OPEN_CONTAINERS, AdventureSetting.OPEN_CONTAINERS);
+                f.apply(Ability.ATTACK_PLAYERS, AdventureSetting.ATTACK_PLAYERS);
+                f.apply(Ability.ATTACK_MOBS, AdventureSetting.ATTACK_MOBS);
+                f.apply(Ability.OPERATOR_COMMANDS, AdventureSetting.OPERATOR);
+                f.apply(Ability.TELEPORT, AdventureSetting.TELEPORT);
+                f.apply(Ability.BUILD, AdventureSetting.BUILD);
+                if (!abilities.contains(Ability.MINE) && !abilities.contains(Ability.BUILD)) {
+                    newPk.getSettings().add(AdventureSetting.WORLD_IMMUTABLE);
+                    newPk.getSettings().remove(AdventureSetting.BUILD);
+                    newPk.getSettings().remove(AdventureSetting.MINE);
+                }
+                list.add(newPk);
+            }
+        }
         if (output > Bedrock_v554.CODEC.getProtocolVersion()) {
-            if (p instanceof AdventureSettingsPacket packet) {
+            if (p instanceof AdventureSettingsPacket pk) {
                 var newPk = new UpdateAbilitiesPacket();
-                newPk.setUniqueEntityId(packet.getUniqueEntityId());
-                newPk.setPlayerPermission(packet.getPlayerPermission());
-                newPk.setCommandPermission(packet.getCommandPermission());
-                newPk.setAbilityLayers(new ArrayList<>(AbilityLayer.Type.BASE.ordinal()));
+                newPk.setUniqueEntityId(pk.getUniqueEntityId());
+                newPk.setPlayerPermission(pk.getPlayerPermission());
+                newPk.setCommandPermission(pk.getCommandPermission());
+                var layer = new AbilityLayer();
+                layer.setLayerType(AbilityLayer.Type.BASE);
+                layer.setFlySpeed(0.05f);
+                layer.setWalkSpeed(0.1f);
+
+                var settings = pk.getSettings();
+                Collections.addAll(layer.getAbilitiesSet(), Ability.values());
+                newPk.setAbilityLayers(List.of(layer));
+                BiFunction<AdventureSetting, Ability, Void> f = (AdventureSetting b, Ability b1) -> {
+                    if (settings.contains(b)) {
+                        layer.getAbilityValues().add(b1);
+                    }
+                    return null;
+                };
+                f.apply(AdventureSetting.BUILD, Ability.BUILD);
+                f.apply(AdventureSetting.MINE, Ability.MINE);
+                f.apply(AdventureSetting.DOORS_AND_SWITCHES, Ability.DOORS_AND_SWITCHES);
+                f.apply(AdventureSetting.OPEN_CONTAINERS, Ability.OPEN_CONTAINERS);
+                f.apply(AdventureSetting.ATTACK_PLAYERS, Ability.ATTACK_PLAYERS);
+                f.apply(AdventureSetting.ATTACK_MOBS, Ability.ATTACK_MOBS);
+                f.apply(AdventureSetting.OPERATOR, Ability.OPERATOR_COMMANDS);
+                f.apply(AdventureSetting.TELEPORT, Ability.TELEPORT);
+                f.apply(AdventureSetting.FLYING, Ability.FLYING);
+                f.apply(AdventureSetting.MAY_FLY, Ability.MAY_FLY);
+                f.apply(AdventureSetting.MUTED, Ability.MUTED);
+                f.apply(AdventureSetting.WORLD_BUILDER, Ability.WORLD_BUILDER);
+                list.add(newPk);
 
                 var newPk2 = new UpdateAdventureSettingsPacket();
-                var settings = packet.getSettings();
                 newPk2.setAutoJump(settings.contains(AdventureSetting.AUTO_JUMP));
                 newPk2.setImmutableWorld(settings.contains(AdventureSetting.WORLD_IMMUTABLE));
                 newPk2.setNoMvP(settings.contains(AdventureSetting.NO_MVP));
                 newPk2.setNoPvM(settings.contains(AdventureSetting.NO_PVM));
                 newPk2.setShowNameTags(settings.contains(AdventureSetting.SHOW_NAME_TAGS));
-
-                list.removeIf((bedrockPacket -> bedrockPacket instanceof AdventureSettingsPacket));
-                list.add(newPk);
                 list.add(newPk2);
             }
         }

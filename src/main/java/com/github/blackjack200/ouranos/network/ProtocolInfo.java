@@ -80,7 +80,7 @@ public final class ProtocolInfo {
         // 1.18.x
         addPacketCodec(Bedrock_v503.CODEC, 141);
         addPacketCodec(Bedrock_v486.CODEC, 131);
-        addPacketCodec(Bedrock_v475.CODEC, 121);
+        addPacketCodec(Bedrock_v475.CODEC, 111);
     }
 
     public static BedrockCodec getPacketCodec(int protocolVersion) {
