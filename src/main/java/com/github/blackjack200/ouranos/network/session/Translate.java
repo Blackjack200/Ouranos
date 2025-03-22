@@ -27,14 +27,13 @@ import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
 import org.cloudburstmc.protocol.bedrock.codec.v748.Bedrock_v748;
 import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
+import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.*;
+import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
-import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
-import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
-import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
-import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.data.inventory.*;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.*;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescriptorWithCount;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
@@ -65,7 +64,7 @@ public class Translate {
         rewriteProtocol(input, output, player, p, list);
         rewriteChunk(input, output, player, p, list);
         if (p instanceof LevelChunkPacket) {
-//            list.clear();
+            //list.clear();
         }
         rewriteBlock(input, output, player, p, list);
 
@@ -107,7 +106,18 @@ public class Translate {
                         old.getNetId(), old.getGroupId())));
             }
             pk.getContents().clear();
-            pk.getContents().addAll(contents);
+            if (input < output && output < Bedrock_v776.CODEC.getProtocolVersion()) {
+                pk.getContents().addAll(contents);
+            }
+            if (input >= output) {
+                pk.getContents().addAll(contents);
+            }
+            val groups = new ArrayList<CreativeItemGroup>();
+            for (var group : pk.getGroups()) {
+                groups.add(group.toBuilder().icon(TypeConverter.translateItemData(input, output, group.getIcon())).build());
+            }
+            pk.getGroups().clear();
+            pk.getGroups().addAll(groups);
         } else if (p instanceof AddItemEntityPacket pk) {
             pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
         } else if (p instanceof InventorySlotPacket pk) {
@@ -204,6 +214,11 @@ public class Translate {
             pk.setChatRestrictionLevel(Optional.ofNullable(pk.getChatRestrictionLevel()).orElse(ChatRestrictionLevel.NONE));
             pk.setPlayerPropertyData(Optional.ofNullable(pk.getPlayerPropertyData()).orElse(NbtMap.EMPTY));
             pk.setWorldTemplateId(Optional.ofNullable(pk.getWorldTemplateId()).orElse(UUID.randomUUID()));
+            var newPk = new ItemComponentPacket();
+
+            List<ItemDefinition> def = ItemTypeDictionary.getInstance(output).getEntries().entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
+            newPk.getItems().addAll(def);
+            list.add(newPk);
         }
         if (p instanceof AddPlayerPacket pk) {
             pk.setGameType(Optional.ofNullable(pk.getGameType()).orElse(GameType.DEFAULT));
