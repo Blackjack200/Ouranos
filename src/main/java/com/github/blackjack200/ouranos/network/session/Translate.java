@@ -208,6 +208,21 @@ public class Translate {
         if (p instanceof AddPlayerPacket pk) {
             pk.setGameType(Optional.ofNullable(pk.getGameType()).orElse(GameType.DEFAULT));
         }
+        if (p instanceof ModalFormResponsePacket pk) {
+            if (pk.getFormData() == null) {
+                pk.setFormData("null");
+            }
+        }
+        if (p instanceof NetworkStackLatencyPacket pk) {
+            var newPk = new NetworkStackLatencyPacket();
+            newPk.setFromServer(false);
+            newPk.setTimestamp(pk.getTimestamp() / 1000000L);
+            list.add(newPk);
+            var newPk2 = new NetworkStackLatencyPacket();
+            newPk2.setFromServer(false);
+            newPk2.setTimestamp(pk.getTimestamp() * 1000000L);
+            list.add(newPk2);
+        }
         if (input < Bedrock_v766.CODEC.getProtocolVersion()) {
             if (p instanceof ResourcePacksInfoPacket pk) {
                 pk.setWorldTemplateId(UUID.randomUUID());
@@ -333,6 +348,7 @@ public class Translate {
                 f.apply(AdventureSetting.MAY_FLY, Ability.MAY_FLY);
                 f.apply(AdventureSetting.MUTED, Ability.MUTED);
                 f.apply(AdventureSetting.WORLD_BUILDER, Ability.WORLD_BUILDER);
+                f.apply(AdventureSetting.NO_CLIP, Ability.NO_CLIP);
                 list.add(newPk);
 
                 var newPk2 = new UpdateAdventureSettingsPacket();
