@@ -163,6 +163,9 @@ public class Ouranos {
                 if (p == null) {
                     p = this.config.getFallbackPong();
                 }
+                if (p.subMotd().isEmpty()) {
+                    p = p.subMotd("Ouranos");
+                }
                 var buf = p.ipv4Port(this.config.server_port_v4).ipv6Port(this.config.server_port_v6).toByteBuf();
                 for (val channel : channels) {
                     channel.config().setOption(RakChannelOption.RAK_ADVERTISEMENT, buf);
