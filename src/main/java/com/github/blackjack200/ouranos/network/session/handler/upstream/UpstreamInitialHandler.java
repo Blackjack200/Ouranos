@@ -113,7 +113,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
     private void setupRedirect() {
         session.downstream.setPacketRedirect((_upstream, packet) -> {
             ReferenceCountUtil.retain(ReferenceCountUtil.touch(packet));
-            var packets = Translate.translate(session.getDownstreamProtocolId(), session.getUpstreamProtocolId(), session, packet);
+            var packets = Translate.translate(session.getDownstreamProtocolId(), session.getUpstreamProtocolId(), false, session, packet);
             for (var pk : packets) {
                 if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket)) {
                     log.debug("C->S {}", pk.getClass());
@@ -125,7 +125,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         });
         session.upstream.setPacketRedirect((_downstream, packet) -> {
             ReferenceCountUtil.retain(ReferenceCountUtil.touch(packet));
-            var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), session, packet);
+            var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), true, session, packet);
             for (var pk : packets) {
                 if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket)) {
                     log.debug("S->C {}", pk.getClass());

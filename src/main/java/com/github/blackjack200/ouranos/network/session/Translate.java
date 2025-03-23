@@ -13,6 +13,7 @@ import lombok.val;
 import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
 import org.cloudburstmc.protocol.bedrock.codec.v544.Bedrock_v544;
@@ -49,7 +50,7 @@ import java.util.function.BiFunction;
 @Log4j2
 public class Translate {
 
-    public static Collection<BedrockPacket> translate(int input, int output, OuranosProxySession player, BedrockPacket p) {
+    public static Collection<BedrockPacket> translate(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p) {
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -61,7 +62,7 @@ public class Translate {
         list.add(p);
 
         rewriteItem(input, output, p, list);
-        rewriteProtocol(input, output, player, p, list);
+        rewriteProtocol(input, output, fromServer, player, p, list);
         rewriteChunk(input, output, player, p, list);
         if (p instanceof LevelChunkPacket) {
             //list.clear();
@@ -205,7 +206,7 @@ public class Translate {
         return new ItemDescriptorWithCount(descriptor, i.getCount());
     }
 
-    private static void rewriteProtocol(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
+    private static void rewriteProtocol(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         val provider = new ImmutableVectorProvider();
         if (p instanceof StartGamePacket pk) {
             pk.setServerId(Optional.ofNullable(pk.getServerId()).orElse(""));
@@ -214,11 +215,13 @@ public class Translate {
             pk.setChatRestrictionLevel(Optional.ofNullable(pk.getChatRestrictionLevel()).orElse(ChatRestrictionLevel.NONE));
             pk.setPlayerPropertyData(Optional.ofNullable(pk.getPlayerPropertyData()).orElse(NbtMap.EMPTY));
             pk.setWorldTemplateId(Optional.ofNullable(pk.getWorldTemplateId()).orElse(UUID.randomUUID()));
-            var newPk = new ItemComponentPacket();
+            if (output >= Bedrock_v776.CODEC.getProtocolVersion()) {
+                var newPk = new ItemComponentPacket();
 
-            List<ItemDefinition> def = ItemTypeDictionary.getInstance(output).getEntries().entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
-            newPk.getItems().addAll(def);
-            list.add(newPk);
+                List<ItemDefinition> def = ItemTypeDictionary.getInstance(output).getEntries().entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
+                newPk.getItems().addAll(def);
+                list.add(newPk);
+            }
         }
         if (p instanceof AddPlayerPacket pk) {
             pk.setGameType(Optional.ofNullable(pk.getGameType()).orElse(GameType.DEFAULT));
@@ -302,7 +305,7 @@ public class Translate {
             }
         }
         if (output < Bedrock_v554.CODEC.getProtocolVersion()) {
-            if (p instanceof UpdateAbilitiesPacket pk) {
+            if (fromServer && p instanceof UpdateAbilitiesPacket pk) {
                 var newPk = new AdventureSettingsPacket();
                 newPk.setUniqueEntityId(pk.getUniqueEntityId());
                 newPk.setCommandPermission(pk.getCommandPermission());
@@ -315,6 +318,7 @@ public class Translate {
                     }
                     return null;
                 };
+                f.apply(Ability.BUILD, AdventureSetting.BUILD);
                 f.apply(Ability.MINE, AdventureSetting.MINE);
                 f.apply(Ability.DOORS_AND_SWITCHES, AdventureSetting.DOORS_AND_SWITCHES);
                 f.apply(Ability.OPEN_CONTAINERS, AdventureSetting.OPEN_CONTAINERS);
@@ -322,7 +326,11 @@ public class Translate {
                 f.apply(Ability.ATTACK_MOBS, AdventureSetting.ATTACK_MOBS);
                 f.apply(Ability.OPERATOR_COMMANDS, AdventureSetting.OPERATOR);
                 f.apply(Ability.TELEPORT, AdventureSetting.TELEPORT);
-                f.apply(Ability.BUILD, AdventureSetting.BUILD);
+                f.apply(Ability.FLYING, AdventureSetting.FLYING);
+                f.apply(Ability.MAY_FLY, AdventureSetting.MAY_FLY);
+                f.apply(Ability.MUTED, AdventureSetting.MUTED);
+                f.apply(Ability.WORLD_BUILDER, AdventureSetting.WORLD_BUILDER);
+                f.apply(Ability.NO_CLIP, AdventureSetting.NO_CLIP);
                 if (!abilities.contains(Ability.MINE) && !abilities.contains(Ability.BUILD)) {
                     newPk.getSettings().add(AdventureSetting.WORLD_IMMUTABLE);
                     newPk.getSettings().remove(AdventureSetting.BUILD);
@@ -332,7 +340,7 @@ public class Translate {
             }
         }
         if (output > Bedrock_v554.CODEC.getProtocolVersion()) {
-            if (p instanceof AdventureSettingsPacket pk) {
+            if (fromServer && p instanceof AdventureSettingsPacket pk) {
                 var newPk = new UpdateAbilitiesPacket();
                 newPk.setUniqueEntityId(pk.getUniqueEntityId());
                 newPk.setPlayerPermission(pk.getPlayerPermission());
@@ -450,6 +458,15 @@ public class Translate {
                 pk.setInputInteractionModel(Optional.ofNullable(pk.getInputInteractionModel()).orElse(InputInteractionModel.CLASSIC));
             } else if (p instanceof PlayerActionPacket pk) {
                 pk.setResultPosition(pk.getBlockPosition());
+            } else if (p instanceof AdventureSettingsPacket pk) {
+                if (output >= Bedrock_v527.CODEC.getProtocolVersion()) {
+                    var newPk = new RequestAbilityPacket();
+                    newPk.setAbility(Ability.FLYING);
+                    newPk.setType(Ability.Type.BOOLEAN);
+                    newPk.setBoolValue(pk.getSettings().contains(AdventureSetting.FLYING));
+                    list.removeIf((pp) -> pp instanceof AdventureSettingsPacket);
+                    list.add(newPk);
+                }
             }
         }
         if (p instanceof PlayerSkinPacket pk) {
@@ -571,6 +588,9 @@ public class Translate {
                         player.disconnect("Failed to rewrite chunk: " + exception.getMessage());
                     }
                 }
+            }
+            if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
+                packet.getSubChunks().subList(0, 4).clear();
             }
         }
     }
