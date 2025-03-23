@@ -580,6 +580,7 @@ public class Translate {
                     try {
                         var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
                         TypeConverter.rewriteSubChunk(input, output, from, to);
+                        TypeConverter.rewriteBlockEntities(input, output, from, to);
                         to.writeBytes(from);
                         subChunk.setData(to);
                         ReferenceCountUtil.release(from);

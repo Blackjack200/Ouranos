@@ -22,8 +22,6 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
-import java.io.IOException;
-
 @Log4j2
 @UtilityClass
 public class TypeConverter {
@@ -78,39 +76,41 @@ public class TypeConverter {
             rewriteSubChunk(input, output, from, to);
         }
 
-        var buf = ByteBufAllocator.DEFAULT.buffer().touch();
-        int diff = getDimensionChunkBounds(input, dimension) - getDimensionChunkBounds(output, dimension);
-        for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
-            if (x == diff) {
-                buf.clear();
+        var biomeBuf = ByteBufAllocator.DEFAULT.buffer().touch();
+        if (input > Bedrock_v475.CODEC.getProtocolVersion()) {
+            int diff = getDimensionChunkBounds(input, dimension) - getDimensionChunkBounds(output, dimension);
+            for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
+                if (x == diff) {
+                    biomeBuf.clear();
+                }
+                PaletteStorage.translatePaletteStorage(input, output, from, biomeBuf, (i, o, v) -> v);
             }
-            PaletteStorage.translatePaletteStorage(input, output, from, buf, (i, o, v) -> v);
-        }
-
-        if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
-            //TODO implement biome & block entities rewrite
-        } else {
-            if (!Ouranos.getOuranos().getConfig().crop_chunk_biome) {
-                to.writeBytes(buf);
-                if (diff < 0) {
-                    diff = -diff;
-                    for (int i = 0; i < diff; i++) {
-                        buf.writeByte(1);
-                        VarInts.writeInt(buf, 0);
-                    }
+            if (diff < 0) {
+                diff = -diff;
+                for (int i = 0; i < diff; i++) {
+                    biomeBuf.writeByte(1);
+                    VarInts.writeInt(biomeBuf, 0);
                 }
             }
-            var borderBlocks = from.readByte();
-            to.writeByte(borderBlocks);
-            to.writeBytes(from, borderBlocks);
-            if (!Ouranos.getOuranos().getConfig().crop_chunk_tile) {
-                rewriteBlockEntities(input, output, from, to);
-            }
+        } else {
+            from.readBytes(256);
+            //TODO implement biome & block entities rewrite
         }
-        ReferenceCountUtil.release(buf);
+
+        if (!Ouranos.getOuranos().getConfig().crop_chunk_biome) {
+            to.writeBytes(biomeBuf);
+        }
+        var borderBlocks = from.readByte();
+        to.writeByte(borderBlocks);
+        to.writeBytes(from, borderBlocks);
+        if (!Ouranos.getOuranos().getConfig().crop_chunk_tile) {
+            rewriteBlockEntities(input, output, from, to);
+        }
+        ReferenceCountUtil.release(biomeBuf);
     }
 
-    private static void rewriteBlockEntities(int input, int output, ByteBuf from, ByteBuf to) throws IOException {
+    @SneakyThrows
+    public static void rewriteBlockEntities(int input, int output, ByteBuf from, ByteBuf to) {
         var inp = new ByteBufInputStream(from);
         var reader = NbtUtils.createNetworkReader(inp);
         var rd = NbtUtils.createNetworkWriter(new ByteBufOutputStream(to));
