@@ -140,6 +140,9 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
     @Override
     public PacketSignal handle(StartGamePacket pk) {
+        this.session.uniqueEntityId = pk.getUniqueEntityId();
+        this.session.runtimeEntityId = pk.getRuntimeEntityId();
+
         var upstreamProtocolId = this.session.getUpstreamProtocolId();
         var downstreamProtocolId = this.session.getDownstreamProtocolId();
         this.session.upstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamProtocolId));

@@ -17,6 +17,8 @@ public class OuranosProxySession {
     @Getter
     private final KeyPair keyPair;
     public int lastFormId = -1;
+    public long uniqueEntityId;
+    public long runtimeEntityId;
     public boolean lastPunchAir = false;
     public AuthData identity;
 
