@@ -103,9 +103,15 @@ public class Translate {
             for (int i = 0, iMax = pk.getContents().size(); i < iMax; i++) {
                 var old = pk.getContents().get(i);
                 var item = TypeConverter.translateCreativeItemData(input, output, old);
-                contents.add(Objects.requireNonNullElseGet(item, () -> new CreativeItemData(
-                        ItemData.builder().netId(old.getNetId()).count(1).damage(0).definition(new SimpleItemDefinition("minecraft:barrier", ItemTypeDictionary.getInstance(output).fromStringId("minecraft:barrier"), false)).build(),
-                        old.getNetId(), old.getGroupId())));
+                contents.add(Objects.requireNonNullElseGet(item, () -> {
+                    var polyfillItem = ItemData.builder().netId(old.getNetId()).count(1).damage(0).definition(new SimpleItemDefinition("minecraft:barrier", ItemTypeDictionary.getInstance(output).fromStringId("minecraft:barrier"), false));
+                    var m = NbtMap.builder();
+                    m.putCompound("display", NbtMap.builder().putString("Name", old.getItem().getDefinition().getIdentifier()).build());
+                    polyfillItem.tag(m.build());
+                    return new CreativeItemData(
+                            polyfillItem.build(),
+                            old.getNetId(), old.getGroupId());
+                }));
             }
             pk.getContents().clear();
             if (input < output && output < Bedrock_v776.CODEC.getProtocolVersion()) {
