@@ -23,7 +23,7 @@ public final class GlobalItemDataHandlers {
     public static ItemDataUpgrader getUpgrader() {
         if (itemDataUpgrader == null) {
             itemDataUpgrader = new ItemDataUpgrader(
-                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas("schema/nbt_upgrade_schema", 1 << 30).values()),
+                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas("schema/id_meta_upgrade_schema", 1 << 30).values()),
                     LegacyItemIdToStringIdMap.getInstance(),
                     R12ItemIdToBlockIdMap.getInstance(),
                     BlockItemIdMap.getInstance()

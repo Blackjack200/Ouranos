@@ -115,7 +115,8 @@ public final class BlockStateDictionary extends AbstractMapping {
             return latestStateHashToMetaToEntry.get(id).get(meta);
         }
 
-        public record BlockEntry(String name, int meta, NbtMap rawState, int latestStateHash, int currentStateHash) {
+        public record BlockEntry(String name, String newName, int meta, NbtMap rawState, int latestStateHash,
+                                 int currentStateHash) {
         }
 
         @SneakyThrows
@@ -129,7 +130,6 @@ public final class BlockStateDictionary extends AbstractMapping {
             while (block_state.available() > 0) {
                 var rawState = (NbtMap) reader.readTag();
                 var state = BlockStateUpdaters.updateBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
-
                 //TODO HACK! blame on BlockStateUpdaters
                 if (state.getString("name").equals("minecraft:0tnt")) {
                     state = state.toBuilder().putString("name", "minecraft:tnt").build();
@@ -143,7 +143,7 @@ public final class BlockStateDictionary extends AbstractMapping {
                 if (meta == null) {
                     throw new RuntimeException("Missing associated meta value for state " + i + " (" + state + ")");
                 }
-                list.put(list.size(), new BlockEntry(state.getString("name"), meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
+                list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
                 i++;
             }
             return new Dictionary(list);

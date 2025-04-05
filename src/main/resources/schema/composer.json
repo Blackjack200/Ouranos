@@ -1,6 +1,6 @@
 {
-    "name": "pocketmine/bedrock-block-upgrade-schema",
-    "description": "Schemas describing how to upgrade saved block data in older Minecraft: Bedrock Edition world saves",
+    "name": "pocketmine/bedrock-item-upgrade-schema",
+    "description": "JSON schemas for upgrading items found in older Minecraft: Bedrock world saves",
     "type": "library",
     "license": "CC0-1.0",
     "require": {}

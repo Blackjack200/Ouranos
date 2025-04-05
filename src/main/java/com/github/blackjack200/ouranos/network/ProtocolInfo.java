@@ -48,52 +48,52 @@ public final class ProtocolInfo {
 
     static {
         // 1.21.x
-        addPacketCodec(Bedrock_v786.CODEC, 321);
-        addPacketCodec(Bedrock_v776.CODEC, 321);
-        addPacketCodec(Bedrock_v766.CODEC, 311);
-        addPacketCodec(Bedrock_v748.CODEC, 311);
-        addPacketCodec(Bedrock_v729.CODEC, 311);
-        addPacketCodec(Bedrock_v712.CODEC, 301);
-        addPacketCodec(Bedrock_v686.CODEC, 291);
-        addPacketCodec(Bedrock_v685.CODEC, 291);
+        addPacketCodec(Bedrock_v786.CODEC, 231);
+        addPacketCodec(Bedrock_v776.CODEC, 231);
+        addPacketCodec(Bedrock_v766.CODEC, 231);
+        addPacketCodec(Bedrock_v748.CODEC, 221);
+        addPacketCodec(Bedrock_v729.CODEC, 211);
+        addPacketCodec(Bedrock_v712.CODEC, 201);
+        addPacketCodec(Bedrock_v686.CODEC, 201);
+        addPacketCodec(Bedrock_v685.CODEC, 191);
         // 1.20.x
-        addPacketCodec(Bedrock_v671.CODEC, 281);
-        addPacketCodec(Bedrock_v662.CODEC, 271);
-        addPacketCodec(Bedrock_v649.CODEC, 261);
-        addPacketCodec(Bedrock_v630.CODEC, 251);
-        addPacketCodec(Bedrock_v622.CODEC, 241);
-        addPacketCodec(Bedrock_v618.CODEC, 231);
-        addPacketCodec(Bedrock_v594.CODEC, 211);
+        addPacketCodec(Bedrock_v671.CODEC, 181);
+        addPacketCodec(Bedrock_v662.CODEC, 171);
+        addPacketCodec(Bedrock_v649.CODEC, 161);
+        addPacketCodec(Bedrock_v630.CODEC, 151);
+        addPacketCodec(Bedrock_v622.CODEC, 141);
+        addPacketCodec(Bedrock_v618.CODEC, 131);
+        addPacketCodec(Bedrock_v594.CODEC, 121);
         //TODO add v589 support back
         //addPacketCodec(Bedrock_v589.CODEC);
 
         // 1.19.x
-        addPacketCodec(Bedrock_v582.CODEC, 191);
-        addPacketCodec(Bedrock_v575.CODEC, 181);
-        addPacketCodec(Bedrock_v568.CODEC, 171);
-        addPacketCodec(Bedrock_v567.CODEC, 171);
+        addPacketCodec(Bedrock_v582.CODEC, 101);
+        addPacketCodec(Bedrock_v575.CODEC, 91);
+        addPacketCodec(Bedrock_v568.CODEC, 81);
+        addPacketCodec(Bedrock_v567.CODEC, 81);
 
-        addPacketCodec(Bedrock_v560.CODEC, 161);
+        addPacketCodec(Bedrock_v560.CODEC, 81);
 
-        addPacketCodec(Bedrock_v557.CODEC, 151);
-        addPacketCodec(Bedrock_v554.CODEC, 151);
+        addPacketCodec(Bedrock_v557.CODEC, 81);
+        addPacketCodec(Bedrock_v554.CODEC, 81);
 
-        addPacketCodec(Bedrock_v545.CODEC, 151);
-        addPacketCodec(Bedrock_v544.CODEC, 151);
-        addPacketCodec(Bedrock_v534.CODEC, 151);
-        addPacketCodec(Bedrock_v527.CODEC, 151);
+        addPacketCodec(Bedrock_v545.CODEC, 71);
+        addPacketCodec(Bedrock_v544.CODEC, 71);
+        addPacketCodec(Bedrock_v534.CODEC, 71);
+        addPacketCodec(Bedrock_v527.CODEC, 71);
 
         // 1.18.x
-        addPacketCodec(Bedrock_v503.CODEC, 141);
-        addPacketCodec(Bedrock_v486.CODEC, 131);
-        addPacketCodec(Bedrock_v475.CODEC, 111);
+        addPacketCodec(Bedrock_v503.CODEC, 71);
+        addPacketCodec(Bedrock_v486.CODEC, 61);
+        addPacketCodec(Bedrock_v475.CODEC, 51);
 
         // 1.17.x
         // partially playable
-        addPacketCodec(Bedrock_v471.CODEC, 111);
-        addPacketCodec(Bedrock_v465.CODEC, 101);
-        addPacketCodec(Bedrock_v448.CODEC, 91);
-        addPacketCodec(Bedrock_v440.CODEC, 91);
+        addPacketCodec(Bedrock_v471.CODEC, 41);
+        addPacketCodec(Bedrock_v465.CODEC, 31);
+        addPacketCodec(Bedrock_v448.CODEC, 31);
+        addPacketCodec(Bedrock_v440.CODEC, 31);
     }
 
     public static BedrockCodec getPacketCodec(int protocolVersion) {

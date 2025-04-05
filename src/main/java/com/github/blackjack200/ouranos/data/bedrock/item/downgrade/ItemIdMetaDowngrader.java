@@ -30,11 +30,8 @@ public class ItemIdMetaDowngrader {
                 if (networkIds.containsKey(oldId)) {
                     networkIds.put(newStringId, networkIds.get(oldId));
                 } else {
-                    try {
-                        dictionary.fromStringId(oldId);
+                    if (dictionary.fromStringId(oldId) != null) {
                         networkIds.put(newStringId, oldId);
-                    } catch (IllegalArgumentException e) {
-                        // ignore
                     }
                 }
             }
@@ -50,15 +47,12 @@ public class ItemIdMetaDowngrader {
                         networkIds.put(newStringId, new Object[]{networkIds.get(oldId), oldMeta});
                     }
                 } else {
-                    try {
-                        dictionary.fromStringId(oldId);
+                    if (dictionary.fromStringId(oldId) != null) {
                         for (var metaEntry : metaToNewId.entrySet()) {
                             String oldMeta = metaEntry.getKey().toString();
                             String newStringId = metaEntry.getValue();
                             networkIds.put(newStringId, new String[]{oldId, oldMeta});
                         }
-                    } catch (IllegalArgumentException e) {
-                        // ignore
                     }
                 }
             }

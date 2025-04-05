@@ -1,72 +1,49 @@
-# BlockStateUpgradeSchema
-JSON schemas and other data needed for upgrading blockstates found in older Minecraft: Bedrock worlds
+# BedrockItemUpgradeSchema
 
-## Motivation
+JSON schemas for upgrading items found in older Minecraft: Bedrock world saves
 
-Since Minecraft Bedrock doesn't auto-upgrade terrain or inventories unless they've been loaded during a game session, any software that supports Minecraft Bedrock worlds has to accommodate all of the old blockstates all the way back to the first versions that used them, and many backwards-incompatible changes were made since then.
-If they do not, they may randomly fail to load chunks in older worlds that work just fine in latest Bedrock.
+## Background
 
-Projects such as [CloudburstMC/BlockStateUpdater](https://github.com/CloudburstMC/BlockStateUpdater) solve this with code. However, this approach has several disadvantages:
-- Non-portable - can't be used by a non-JVM language
-- Relies on manual analysis of the Minecraft server binary
-- Created manually by humans, which is naturally an error-prone process
-- Some changes may be missed (especially those which Minecraft itself doesn't account for, e.g. the addition of `item_frame_photo_bit`)
+As with blocks, Bedrock doesn't auto upgrade items (e.g. in inventories, item frames, dropped items, etc) unless the chunk they were in has been loaded and saved.
 
-This project instead provides data that describes how to upgrade without binding the information to any particular language.
+This means that any program that wants to support all Minecraft: Bedrock worlds needs to know how to upgrade this old data.
 
-It has the following advantages:
-- Not bound to any language, interpreter or project
-- Data quality is at least as good as Bedrock's own, due to being generated from information created by BDS (and amended manually where Mojang themselves made mistakes)
-- All changes are accounted for, including those which aren't obvious from analysing the game code
-- No dependent code changes required to support new Minecraft versions - just bumping your required version of BedrockBlockUpgradeSchema
+## Repository contents
 
-## `nbt_upgrade_schema/*.json`
-These schemas describe how to upgrade blockstate NBT from one version to the next. The structure of the schema is described in `nbt_upgrade_schema_schema.json`. An example implementation can be seen [in PocketMine-MP 5.21.0](https://github.com/pmmp/PocketMine-MP/blob/5.21.0/src/data/bedrock/block/upgrade/BlockStateUpgrader.php).
+- `id_meta_upgrade_schema` subdirectory contains a list of JSON schemas for upgrading from version to version incrementally.
+- `item_legacy_id_map.json` contains a mapping of legacy numeric IDs to their string ID counterparts (up to 1.16, although numeric IDs haven't been used in vanilla world saves since 1.5)
+- `1.12.0_item_id_to_block_id_map.json` contains a mapping of item IDs to corresponding block IDs for all blockitems.
 
-### Usage notes
-- Mojang don't always bump the format version when making backwards-incompatible changes. A prominent example of this is in the [`0131_1.18.20.27_beta_to_1.18.30.json`](/nbt_upgrade_schema/0131_1.18.20.27_beta_to_1.18.30.json).
-- `remappedStates` requires different treatment than other rules:
-  - It **must have highest priority**
-  - If a blockstate matches a remap rule, **do not apply any other transformations** (the newly mapped state will be correct for the new version).
-  - `oldState` acts as a **filter, not an exact match**. Therefore, remapped state rules must be sorted from most specific filter -> least specific filter to ensure correct transformations. (This is the order they are provided in by the JSON).
-- With the exception of `remappedStates`, modifications can be applied in any order.
-  - For example, `renamedIds` can be applied before or after `renamedProperties`.
-  - To facilitate this, `addedProperties`, `renamedProperties`, `removedProperties`, `remappedPropertyValues` and `flattenedProperties` always use the old blockID and old property names for indexing.
+## Recommended methods for deserializing old data
 
-### How are new schemas created?
+Items are rather more of a pain to handle than blocks due to the lack of any versioning. This means we can only guess at the actual version and/or apply all upgraders all the time.
 
-#### Generated from data
-First, you need to get a `.bin` mapping table file, which you can obtain using the current version of BDS + [pmmp/bds-mod-mapping](https://github.com/pmmp/bds-mod-mapping). The mod creates these files by feeding old block palettes into BDS, and outputting a pairing of every blockstate from the respective old palette to its upgraded counterpart. The output files will be placed in `mapping_files/old_palette_mappings`.
 
-A mapping table file is then given to PocketMine-MP's [schema generator script](https://github.com/pmmp/PocketMine-MP/blob/stable/tools/blockstate-upgrade-schema-utils.php). This script analyzes patterns in the upgraded blockstates to calculate what changes were made, and then generates a JSON file like the ones you see in this repo.
+### Classic items (MCPE <= 1.5, PM <= 1.12)
+1. start with int ID + meta
+2. 1.16 string ID via `item_id_map.json` -> string ID + meta
+3. deserialize as medieval item
 
-*Why not just use the mapping table files directly?* The mapping tables are typically large and contain lots of redundant information, while also being very difficult for humans to analyze and modify. By post-processing the tables, we can extract only the useful information and represent it in a much more compact, human-readable and human-editable way.
 
-#### Written by hand
-Since the schemas are JSON, they can be created and modified by humans. This is useful when Mojang themselves have incorrectly performed upgrades, or if it's not possible to generate a schema for some reason. However, more work will be needed to test and verify correctness.
+### Medieval items (MCPE 1.6 - 1.8)
+1. start with string ID + meta
+2. if ID found in `1.12.0_item_id_to_block_id_map.json`, deserialize as blockitem; otherwise as normal item
 
-## `block_legacy_id_map.json`
-This JSON file contains a mapping of string ID -> legacy ID for all blocks known up 1.16.0.
+#### Non-blockitems
+3. deserialize as modern item
 
-Technically, you'd only need everything up to 1.2.13, but the excess might be handy in some cases.
+#### Blockitems
+3. string block ID via `1.12.0_item_id_to_block_id_map.json` -> string block ID + meta
+4. convert to blockstate using [BedrockBlockUpgradeSchema](https://github.com/pmmp/BedrockBlockUpgradeSchema) data -> blockstate NBT
+6. deserialize blockstate NBT as block
 
-## `id_meta_to_nbt/*.bin`
-These binary files contain mappings of all known valid ID/meta combinations to their corresponding blockstate NBTs for that version.
-For example, `1.12.0.bin` allows you to convert 1.12.0 ID/meta into 1.12.0 NBTs.
 
-### Usage
-If you only plan to upgrade worlds to the latest version (1.20.1 at the time of writing), you will only need the 1.12.0 file, which will suffice for upgrading all older blocks (and blockitems) to 1.12 and newer.
+### Modern items (MCPE 1.9 - present)
+1. start with string ID + meta / blockstate NBT
+2. if blockstate NBT found, deserialize as blockitem; otherwise as normal item
 
-However, if you want to upgrade to 1.9, 1.10 or 1.11, you may need the 1.9.0 file in order to upgrade saved blockitems, as 1.9 started to save blockitems using blockstate NBT on disk. The 1.12.0 file won't be suitable for this case, as it contains the NBT blockstates appropriate for 1.12, which will not work on earlier versions.
+#### Non-blockitems
+3. current string ID via schemas provided in `id_meta_upgrade_schema/` subdirectory -> current string ID + meta
 
-If you previously used the now-deleted `1.12.0_to_1.18.10_blockstate_map.bin`, you can replace it directly with the `1.12.0.bin`. You will need to upgrade the states within as before.
-
-### Schema
-The file is structured as described below.
-
-- unsigned varint32 - Number of entries
-  - unsigned varint32 - block string ID length
-  - byte[] - block string ID
-  - unsigned varint32 - Number of meta -> blockstate pairings
-    - unsigned varint32 - Meta value
-    - TAG_Compound (standard little-endian) - NBT blockstate (as of that file's version) corresponding to the ID and meta pair
+#### Blockitems
+3. deserialize blockstate NBT as block (may require [BedrockBlockUpgradeSchema](https://github.com/pmmp/BedrockBlockUpgradeSchema) for upgrading)

@@ -32,11 +32,28 @@ public class TypeConverter {
 
         //downgrade item type
         var def = itemData.getDefinition();
-        var data = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(def.getIdentifier(), itemData.getDamage());
-        var i = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(data[0].toString(), (Integer) data[1]);
 
-        String newStringId = i[0].toString();
-        var newMeta = (Integer) i[1];
+        var state = BlockStateDictionary.getInstance(input).lookupStateIdFromIdMeta(def.getIdentifier(), itemData.getDamage());
+
+        boolean translated = false;
+        Object[] translatedIdMeta = new Object[0];
+
+        if (state != null) {
+            var cur = BlockStateDictionary.getInstance(output);
+            var oldState = cur.lookupStateFromStateHash(state.latestStateHash());
+            if (oldState != null) {
+                translatedIdMeta = new Object[]{oldState.name(), oldState.meta()};
+                translated = true;
+            }
+        }
+
+        if (!translated) {
+            var data = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(def.getIdentifier(), itemData.getDamage());
+            translatedIdMeta = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(data[0].toString(), (Integer) data[1]);
+        }
+
+        String newStringId = translatedIdMeta[0].toString();
+        var newMeta = (Integer) translatedIdMeta[1];
         //log.info("old_id={}:{} new_id={}:{}", itemData.getDefinition().getIdentifier(), itemData.getDamage(), newStringId, newMeta);
 
         var itemDict = ItemTypeDictionary.getInstance(output);
@@ -173,7 +190,7 @@ public class TypeConverter {
                 Integer skullHash = inputDict.lookupStateIdFromData("minecraft:skeleton_skull", anyState.rawState());
                 if (skullHash != null) {
                     Integer rtId = outputDict.toRuntimeId(skullHash);
-                    if (rtId != null) {
+                if (rtId != null) {
                         return rtId;
                     }
                 }
