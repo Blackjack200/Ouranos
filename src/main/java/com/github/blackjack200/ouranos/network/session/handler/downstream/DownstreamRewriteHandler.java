@@ -34,9 +34,4 @@ public class DownstreamRewriteHandler implements BedrockPacketHandler {
         pk.setXuid(session.identity.xuid());
         return PacketSignal.HANDLED;
     }
-
-    @Override
-    public PacketSignal handle(LevelSoundEventPacket packet) {
-        throw new DropPacketException();
-    }
 }
