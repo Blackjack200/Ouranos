@@ -69,7 +69,9 @@ public class Translate {
             //list.clear();
         }
         rewriteBlock(input, output, player, p, list);
-
+        if (output >= Bedrock_v554.CODEC.getProtocolVersion()) {
+            list.removeIf((b) -> b instanceof AdventureSettingsPacket);
+        }
         return list;
     }
 
