@@ -29,6 +29,7 @@ import org.apache.logging.log4j.core.config.Configurator;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
+import org.cloudburstmc.protocol.bedrock.BedrockPong;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
@@ -92,13 +93,19 @@ public class Ouranos {
             log.warn("Resource leak detector has enabled");
         }
         log.info("Connecting to {}...", this.config.getRemote());
-        var pong = PingUtils.ping(this.config.getRemote(), 1, TimeUnit.SECONDS).get();
+        int retry = 10;
+        BedrockPong pong = null;
+        while (retry-- > 0) {
+            pong = PingUtils.ping(this.config.getRemote(), 1, TimeUnit.SECONDS).get();
+            if (pong != null) {
+                break;
+            }
+        }
         if (pong == null) {
             log.fatal("Failed to connect to {}...", this.config.getRemote());
             this.shutdown(true);
             return;
         }
-
         REMOTE_CODEC = ProtocolInfo.getPacketCodec(pong.protocolVersion());
 
         if (REMOTE_CODEC == null) {
