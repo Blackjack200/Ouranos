@@ -35,22 +35,18 @@ public class TypeConverter {
 
         var state = BlockStateDictionary.getInstance(input).lookupStateIdFromIdMeta(def.getIdentifier(), itemData.getDamage());
 
-        boolean translated = false;
-        Object[] translatedIdMeta = new Object[0];
+        Object[] translatedIdMeta = new Object[]{def.getIdentifier(), itemData.getDamage()};
 
         if (state != null) {
             var cur = BlockStateDictionary.getInstance(output);
             var oldState = cur.lookupStateFromStateHash(state.latestStateHash());
             if (oldState != null) {
                 translatedIdMeta = new Object[]{oldState.name(), oldState.meta()};
-                translated = true;
             }
         }
 
-        if (!translated) {
-            var data = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(def.getIdentifier(), itemData.getDamage());
-            translatedIdMeta = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(data[0].toString(), (Integer) data[1]);
-        }
+        translatedIdMeta = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(translatedIdMeta[0].toString(), (Integer) translatedIdMeta[1]);
+        translatedIdMeta = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(translatedIdMeta[0].toString(), (Integer) translatedIdMeta[1]);
 
         String newStringId = translatedIdMeta[0].toString();
         var newMeta = (Integer) translatedIdMeta[1];
@@ -186,11 +182,13 @@ public class TypeConverter {
         var translated = outputDict.toRuntimeId(stateHash);
         if (translated == null) {
             var anyState = inputDict.lookupStateFromStateHash(stateHash);
-            if (anyState != null && (anyState.name().endsWith("_head") || anyState.name().endsWith("_skull"))) {
-                Integer skullHash = inputDict.lookupStateIdFromData("minecraft:skeleton_skull", anyState.rawState());
+            if (anyState != null) {
+                Object[] translatedIdMeta = new Object[]{anyState.name(), anyState.meta()};
+                translatedIdMeta = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(translatedIdMeta[0].toString(), (Integer) translatedIdMeta[1]);
+                var skullHash = outputDict.lookupStateIdFromIdMeta(translatedIdMeta[0].toString(), (Integer) translatedIdMeta[1]);
                 if (skullHash != null) {
-                    Integer rtId = outputDict.toRuntimeId(skullHash);
-                if (rtId != null) {
+                    Integer rtId = outputDict.toRuntimeId(skullHash.latestStateHash());
+                    if (rtId != null) {
                         return rtId;
                     }
                 }
