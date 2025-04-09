@@ -3,7 +3,6 @@ package com.github.blackjack200.ouranos.utils;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
-import org.allaymc.updater.block.BlockStateUpdaters;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 
@@ -37,11 +36,10 @@ public class HashUtils {
 
         var states = new TreeMap<>(propertyValues.getCompound("states", propertyValues));
 
-        var mappedFullState = BlockStateUpdaters.updateBlockState(NbtMap.builder()
-                        .putString("name", identifier)
-                        .putCompound("states", NbtMap.fromMap(states))
-                        .build()
-                , BlockStateUpdaters.LATEST_VERSION);
+        var mappedFullState = NbtMap.builder()
+                .putString("name", identifier)
+                .putCompound("states", NbtMap.fromMap(states))
+                .build();
         return fnv1a_32_nbt(mappedFullState);
     }
 

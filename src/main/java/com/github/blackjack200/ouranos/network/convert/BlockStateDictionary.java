@@ -129,15 +129,8 @@ public final class BlockStateDictionary extends AbstractMapping {
             int i = 0;
             while (block_state.available() > 0) {
                 var rawState = (NbtMap) reader.readTag();
-                var state = BlockStateUpdaters.updateBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
                 //TODO HACK! blame on BlockStateUpdaters
-                if (state.getString("name").equals("minecraft:0tnt")) {
-                    state = state.toBuilder().putString("name", "minecraft:tnt").build();
-                }
-                if (state.getString("name").equals("minecraft:1tnt")) {
-                    state = state.toBuilder().putString("name", "minecraft:underwater_tnt").build();
-                }
-
+                var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
                 var latestStateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
                 var meta = meta_map.get(i);
                 if (meta == null) {
@@ -148,6 +141,22 @@ public final class BlockStateDictionary extends AbstractMapping {
             }
             return new Dictionary(list);
         }
+    }
+
+    private static NbtMap hackedUpgradeBlockState(NbtMap tag, int version) {
+        var state = fixBlockStateUpdaterIssue(BlockStateUpdaters.updateBlockState(tag, version));
+        return state.toBuilder().putInt("version", version).build();
+    }
+
+    private static NbtMap fixBlockStateUpdaterIssue(NbtMap state) {
+        var states = state.getCompound("states").toBuilder();
+        if (states.containsKey("stripped_bit")) {
+            states.remove("stripped_bit");
+            var b = state.toBuilder();
+            b.putCompound("states", states.build());
+            state = b.build();
+        }
+        return state;
     }
 
     private static final Map<Integer, Dictionary> entries = new ConcurrentHashMap<>();
