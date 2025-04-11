@@ -88,7 +88,6 @@ public class Ouranos {
     private void start() {
         val start = System.currentTimeMillis();
         if (System.getenv().containsKey("DEBUG")) {
-            ;
             ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
             log.warn("Resource leak detector has enabled");
         }
@@ -120,28 +119,33 @@ public class Ouranos {
 
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
 
-        var boostrap = new ServerBootstrap().channelFactory(RakChannelFactory.server(NioDatagramChannel.class)).option(RakChannelOption.RAK_PACKET_LIMIT, 200).option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, ProtocolInfo.getPacketCodecs().stream().mapToInt(BedrockCodec::getRaknetProtocolVersion).distinct().toArray()).group(this.bossGroup, this.workerGroup).childHandler(new BedrockChannelInitializer<ProxyServerSession>() {
-            @Override
-            protected ProxyServerSession createSession0(BedrockPeer peer, int subClientId) {
-                return new ProxyServerSession((CustomPeer) peer, subClientId);
-            }
+        var boostrap = new ServerBootstrap()
+                .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
+                .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
+                .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, ProtocolInfo.getPacketCodecs().stream().mapToInt(BedrockCodec::getRaknetProtocolVersion).distinct().toArray())
+                .group(this.bossGroup, this.workerGroup)
+                .childHandler(new BedrockChannelInitializer<ProxyServerSession>() {
+                    @Override
+                    protected ProxyServerSession createSession0(BedrockPeer peer, int subClientId) {
+                        return new ProxyServerSession((CustomPeer) peer, subClientId);
+                    }
 
-            @Override
-            protected CustomPeer createPeer(Channel channel) {
-                return new CustomPeer(channel, this::createSession);
-            }
+                    @Override
+                    protected CustomPeer createPeer(Channel channel) {
+                        return new CustomPeer(channel, this::createSession);
+                    }
 
-            @Override
-            protected void initSession(ProxyServerSession session) {
-                if (OuranosProxySession.ouranosPlayers.size() >= Ouranos.this.config.maximum_player) {
-                    session.disconnect("Ouranos proxy is full.");
-                    return;
-                }
-                log.info("{} connected", session.getPeer().getSocketAddress());
-                session.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
-                session.setPacketHandler(new DownstreamInitialHandler(session));
-            }
-        });
+                    @Override
+                    protected void initSession(ProxyServerSession session) {
+                        if (OuranosProxySession.ouranosPlayers.size() >= Ouranos.this.config.maximum_player) {
+                            session.disconnect("Ouranos proxy is full.");
+                            return;
+                        }
+                        log.info("{} connected", session.getPeer().getSocketAddress());
+                        session.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
+                        session.setPacketHandler(new DownstreamInitialHandler(session));
+                    }
+                });
 
         var bindv4 = this.config.getBindv4();
         var bindv6 = this.config.getBindv6();

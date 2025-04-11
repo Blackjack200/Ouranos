@@ -52,6 +52,9 @@ import java.util.function.BiFunction;
 @Log4j2
 public class Translate {
     public static Collection<BedrockPacket> translate(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p) {
+        if (input == output) {
+            return List.of(p);
+        }
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
