@@ -144,18 +144,10 @@ public final class BlockStateDictionary extends AbstractMapping {
     }
 
     private static NbtMap hackedUpgradeBlockState(NbtMap tag, int version) {
-        var state = fixBlockStateUpdaterIssue(BlockStateUpdaters.updateBlockState(tag, version));
-        return state.toBuilder().putInt("version", version).build();
+        return fixBlockStateUpdaterIssue(BlockStateUpdaters.updateBlockState(tag, version));
     }
 
     private static NbtMap fixBlockStateUpdaterIssue(NbtMap state) {
-        var states = state.getCompound("states").toBuilder();
-        if (states.containsKey("stripped_bit")) {
-            states.remove("stripped_bit");
-            var b = state.toBuilder();
-            b.putCompound("states", states.build());
-            state = b.build();
-        }
         return state;
     }
 

@@ -240,16 +240,6 @@ public class Translate {
                 pk.setFormData("null");
             }
         }
-        if (p instanceof NetworkStackLatencyPacket pk) {
-            var newPk = new NetworkStackLatencyPacket();
-            newPk.setFromServer(false);
-            newPk.setTimestamp(pk.getTimestamp() / 1000000L);
-            list.add(newPk);
-            var newPk2 = new NetworkStackLatencyPacket();
-            newPk2.setFromServer(false);
-            newPk2.setTimestamp(pk.getTimestamp() * 1000000L);
-            list.add(newPk2);
-        }
         if (input < Bedrock_v766.CODEC.getProtocolVersion()) {
             if (p instanceof ResourcePacksInfoPacket pk) {
                 pk.setWorldTemplateId(UUID.randomUUID());
