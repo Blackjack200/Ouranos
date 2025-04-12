@@ -240,6 +240,8 @@ public class Ouranos {
         if (!this.running.get()) {
             return;
         }
+        this.running.set(false);
+
         val iter = OuranosProxySession.ouranosPlayers.iterator();
         while (iter.hasNext()) {
             val player = iter.next();
@@ -249,8 +251,6 @@ public class Ouranos {
 
         this.bossGroup.shutdownGracefully(SHUTDOWN_QUIET_PERIOD_MS, SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS).sync();
         this.workerGroup.shutdownGracefully(SHUTDOWN_QUIET_PERIOD_MS, SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS).sync();
-
-        this.running.set(false);
     }
 
     public Bootstrap prepareUpstreamBootstrap() {
