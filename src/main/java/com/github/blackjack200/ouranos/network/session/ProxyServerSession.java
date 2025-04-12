@@ -8,6 +8,7 @@ import org.cloudburstmc.protocol.bedrock.netty.BedrockPacketWrapper;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 @Log4j2
 public class ProxyServerSession extends BedrockServerSession {
@@ -32,5 +33,9 @@ public class ProxyServerSession extends BedrockServerSession {
             }
         } catch (DropPacketException ignored) {
         }
+    }
+
+    public void addDisconnectListener(Consumer<String> listener) {
+        this.getPeer().getChannel().closeFuture().addListener(future -> listener.accept(this.getDisconnectReason()));
     }
 }

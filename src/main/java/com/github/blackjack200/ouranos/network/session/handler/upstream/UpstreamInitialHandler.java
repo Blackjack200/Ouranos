@@ -50,11 +50,6 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
     }
 
     @Override
-    public void onDisconnect(String reason) {
-        this.session.disconnect(reason);
-    }
-
-    @Override
     public PacketSignal handle(DisconnectPacket pk) {
         this.session.disconnect(pk.getKickMessage(), pk.isMessageSkipped());
         return PacketSignal.HANDLED;

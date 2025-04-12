@@ -27,6 +27,7 @@ public class OuranosProxySession {
         this.upstream = upstreamSession;
         this.downstream = downstreamSession;
         OuranosProxySession.ouranosPlayers.add(this);
+        this.downstream.addDisconnectListener(this::disconnect);
     }
 
     public int getUpstreamProtocolId() {
@@ -52,29 +53,20 @@ public class OuranosProxySession {
 
     @SneakyThrows
     public void disconnect(String reason, boolean hideReason) {
-        OuranosProxySession.ouranosPlayers.remove(this);
+        this.downstream.setPacketHandler(null);
+        this.upstream.setPacketHandler(null);
+        this.downstream.setPacketRedirect(null);
+        this.upstream.setPacketRedirect(null);
         if (this.downstream.isConnected()) {
-            try {
-                this.downstream.disconnect(reason, hideReason);
-                this.downstream.getPeer().getChannel().flush().closeFuture().get();
-                this.downstream.close(reason);
-                this.downstream.setPacketHandler(new BedrockPacketHandler() {
-                });
-            } catch (Throwable throwable) {
-                //  log.debug(throwable);
+            if (OuranosProxySession.ouranosPlayers.contains(this)) {
+                log.info("{}[{}] disconnected due to {}", this.identity.displayName(), this.downstream.getPeer().getSocketAddress(), reason);
             }
+            this.downstream.disconnect(reason, hideReason);
         }
         if (this.upstream.isConnected()) {
-            try {
-                this.upstream.disconnect(reason, hideReason);
-                this.upstream.getPeer().getChannel().flush().closeFuture().get();
-                this.upstream.close(reason);
-                this.downstream.setPacketHandler(new BedrockPacketHandler() {
-                });
-            } catch (Throwable throwable) {
-                //  log.debug(throwable);
-            }
+            this.upstream.disconnect(reason, hideReason);
         }
+        OuranosProxySession.ouranosPlayers.remove(this);
     }
 
     public void disconnect(String reason) {

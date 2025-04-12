@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.compat.BedrockCompat;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
@@ -27,15 +28,12 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
         this.downstream = session;
     }
 
-    @Override
-    public void onDisconnect(String reason) {
-        log.info("{} disconnected due to {}", this.downstream.getPeer().getSocketAddress(), reason);
-    }
-
     private BedrockCodec setupCodec(int protocolId) {
         val codec = ProtocolInfo.getPacketCodec(protocolId);
         if (codec == null) {
             log.error("Protocol version {} is not supported", protocolId);
+            val compact = BedrockCompat.disconnectCompat(protocolId);
+            this.downstream.setCodec(compact);
             val status = new PlayStatusPacket();
             status.setStatus(PlayStatusPacket.Status.LOGIN_FAILED_CLIENT_OLD);
             this.downstream.sendPacketImmediately(status);

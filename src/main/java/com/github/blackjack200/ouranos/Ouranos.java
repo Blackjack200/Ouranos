@@ -49,6 +49,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Log4j2
 public class Ouranos {
     public static final Path SERVER_CONFIG_FILE = Path.of("config.json");
+    private static final int SHUTDOWN_QUIET_PERIOD_MS = 100;
+    private static final int SHUTDOWN_TIMEOUT_MS = 500;
 
     @Getter
     private static Ouranos ouranos;
@@ -206,6 +208,16 @@ public class Ouranos {
                     log.info("Stopping the server...");
                     this.shutdown(false);
                     break;
+                case "debug":
+                    this.config.debug = !this.config.debug;
+                    if (this.config.debug) {
+                        Configurator.setRootLevel(Level.DEBUG);
+                        log.info("Debug mode enabled");
+                    } else {
+                        Configurator.setRootLevel(Level.INFO);
+                        log.info("Debug mode disabled");
+                    }
+                    break;
                 case "gc":
                     val runtime = Runtime.getRuntime();
                     val usedMemory = runtime.totalMemory() - runtime.freeMemory();
@@ -234,14 +246,10 @@ public class Ouranos {
             iter.remove();
             player.disconnect("Ouranos closed.");
         }
-        if (force) {
-            this.bossGroup.shutdownGracefully(2, 2, TimeUnit.SECONDS);
-            this.workerGroup.shutdownGracefully(2, 2, TimeUnit.SECONDS);
-        } else {
-            OuranosProxySession.ouranosPlayers.clear();
-            this.bossGroup.shutdownGracefully().get(10, TimeUnit.SECONDS);
-            this.workerGroup.shutdownGracefully().get(10, TimeUnit.SECONDS);
-        }
+
+        this.bossGroup.shutdownGracefully(SHUTDOWN_QUIET_PERIOD_MS, SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS).sync();
+        this.workerGroup.shutdownGracefully(SHUTDOWN_QUIET_PERIOD_MS, SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS).sync();
+
         this.running.set(false);
     }
 

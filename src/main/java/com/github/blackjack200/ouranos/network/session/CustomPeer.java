@@ -2,14 +2,17 @@ package com.github.blackjack200.ouranos.network.session;
 
 import com.github.blackjack200.ouranos.Ouranos;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.netty.channel.raknet.RakChannel;
 import org.cloudburstmc.netty.handler.codec.raknet.common.RakUnhandledMessagesQueue;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.BedrockSessionFactory;
+import org.cloudburstmc.protocol.bedrock.netty.codec.packet.BedrockPacketCodec;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
+
+import java.util.stream.Stream;
 
 @Log4j2
 public class CustomPeer extends BedrockPeer {
@@ -20,17 +23,21 @@ public class CustomPeer extends BedrockPeer {
         super(channel, sessionFactory);
         var rakChannel = (RakChannel) this.getChannel();
         this.packetBuffering = Ouranos.getOuranos().getConfig().packet_buffering;
-        this.getChannel().pipeline().addLast(new ChannelHandler() {
+        this.getChannel().pipeline().addAfter(BedrockPacketCodec.NAME, "protocol-error-handler", new ChannelInboundHandlerAdapter() {
             @Override
-            public void handlerAdded(ChannelHandlerContext ctx) {
-
+            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+                if (!ctx.channel().isActive()) {
+                    return;
+                }
+                var rootCause = Stream.iterate(cause, Throwable::getCause)
+                        .filter(element -> element.getCause() == null)
+                        .findFirst()
+                        .orElse(cause);
+                log.error("Exception in CustomPeer.exceptionCaught", rootCause);
+                CustomPeer.this.close(rootCause.getLocalizedMessage());
             }
-
-            @Override
-            public void handlerRemoved(ChannelHandlerContext ctx) {
-
-            }
-
+        });
+        ((RakChannel) this.getChannel()).rakPipeline().addLast(new ChannelInboundHandlerAdapter() {
             @Override
             public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
                 if (!ctx.channel().isActive()) {
