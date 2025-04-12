@@ -80,7 +80,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
                         val downstreamProtocolId = downstream.getCodec().getProtocolVersion();
                         val upstreamProtocolId = upstream.getCodec().getProtocolVersion();
 
-                        log.info("{}({}) connected to the remote server, {}=>{}", downstream.getPeer().getSocketAddress(), downstreamProtocolId, downstreamProtocolId, upstreamProtocolId);
+                        log.info("{}[{}({})] connected to the remote server, {}=>{}", DownstreamLoginHandler.this.identityData.displayName(), downstream.getPeer().getSocketAddress(), downstreamProtocolId, downstreamProtocolId, upstreamProtocolId);
 
                         session.setDownstreamHandler(new DownstreamRewriteHandler(session));
 
