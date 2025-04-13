@@ -34,7 +34,7 @@ public class CustomPeer extends BedrockPeer {
                         .findFirst()
                         .orElse(cause);
                 log.error("Exception in CustomPeer.exceptionCaught {}", rootCause.getLocalizedMessage());
-                CustomPeer.this.close(rootCause.getLocalizedMessage());
+                ctx.close();
             }
         });
         if (rakChannel.rakPipeline().get(RakUnhandledMessagesQueue.class) != null) {

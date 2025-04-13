@@ -60,7 +60,11 @@ public class OuranosProxySession {
         this.upstream.setPacketRedirect(null);
         if (this.downstream.isConnected()) {
             if (OuranosProxySession.ouranosPlayers.contains(this)) {
-                log.info("{}[{}] disconnected due to {}", this.identity.displayName(), this.downstream.getPeer().getSocketAddress(), reason);
+                String name = "";
+                if (this.identity != null) {
+                    name = this.identity.displayName();
+                }
+                log.info("{}[{}] disconnected due to {}", name, this.downstream.getPeer().getSocketAddress(), reason);
             }
             this.downstream.disconnect(reason, hideReason);
         }
