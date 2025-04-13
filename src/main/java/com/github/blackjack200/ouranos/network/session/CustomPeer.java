@@ -33,18 +33,8 @@ public class CustomPeer extends BedrockPeer {
                         .filter(element -> element.getCause() == null)
                         .findFirst()
                         .orElse(cause);
-                log.error("Exception in CustomPeer.exceptionCaught", rootCause);
+                log.error("Exception in CustomPeer.exceptionCaught {}", rootCause.getLocalizedMessage());
                 CustomPeer.this.close(rootCause.getLocalizedMessage());
-            }
-        });
-        ((RakChannel) this.getChannel()).rakPipeline().addLast(new ChannelInboundHandlerAdapter() {
-            @Override
-            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-                if (!ctx.channel().isActive()) {
-                    return;
-                }
-                CustomPeer.this.close(cause.getLocalizedMessage());
-                log.warn("Exception in CustomPeer.exceptionCaught", cause);
             }
         });
         if (rakChannel.rakPipeline().get(RakUnhandledMessagesQueue.class) != null) {

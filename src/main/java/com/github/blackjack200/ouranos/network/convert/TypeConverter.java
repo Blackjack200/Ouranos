@@ -175,7 +175,6 @@ public class TypeConverter {
         val stateHash = inputDict.toLatestStateHash(blockRuntimeId);
 
         if (stateHash == null) {
-            log.error("unknown block runtime id {}", blockRuntimeId);
             return outputDict.getFallbackRuntimeId();
         }
 
