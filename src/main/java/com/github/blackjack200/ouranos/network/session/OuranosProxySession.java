@@ -28,6 +28,7 @@ public class OuranosProxySession {
         this.downstream = downstreamSession;
         OuranosProxySession.ouranosPlayers.add(this);
         this.downstream.addDisconnectListener(this::disconnect);
+        this.upstream.addDisconnectListener(this::disconnect);
     }
 
     public int getUpstreamProtocolId() {
