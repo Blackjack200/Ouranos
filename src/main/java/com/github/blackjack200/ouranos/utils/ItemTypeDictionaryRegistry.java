@@ -2,7 +2,6 @@ package com.github.blackjack200.ouranos.utils;
 
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.common.DefinitionRegistry;
 
 public class ItemTypeDictionaryRegistry implements DefinitionRegistry<ItemDefinition> {
@@ -14,8 +13,10 @@ public class ItemTypeDictionaryRegistry implements DefinitionRegistry<ItemDefini
 
     @Override
     public ItemDefinition getDefinition(int runtimeId) {
-        var x = ItemTypeDictionary.getInstance(protocol).fromIntId(runtimeId);
-        return new SimpleItemDefinition(x, runtimeId, false);
+        var dict = ItemTypeDictionary.getInstance(protocol);
+        var strId = dict.fromIntId(runtimeId);
+        var x = dict.getEntries().get(strId);
+        return new SimpleVersionedItemDefinition(strId, x.runtime_id(), x.getVersion(), x.component_based(), x.getComponentNbt());
     }
 
     @Override

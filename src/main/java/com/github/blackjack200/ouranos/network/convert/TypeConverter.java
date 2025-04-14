@@ -12,12 +12,10 @@ import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
-import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
@@ -61,7 +59,7 @@ public class TypeConverter {
         }
 
         var builder = itemData.toBuilder();
-        builder.definition(new SimpleItemDefinition(newStringId, itemTypeInfo.runtime_id(), itemTypeInfo.component_based()))
+        builder.definition(itemTypeInfo.toDefinition(newStringId))
                 .damage(newMeta);
 
         if (itemData.getBlockDefinition() != null) {
@@ -222,7 +220,7 @@ public class TypeConverter {
             var newMeta = (Integer) downgraded[1];
             var typ = ItemTypeDictionary.getInstance(output).getEntries().get(newStringId);
             //TODO
-            return new DefaultDescriptor(new SimpleItemDefinition(newStringId, typ.runtime_id(), typ.component_based()), newMeta);
+            return new DefaultDescriptor(typ.toDefinition(newStringId), newMeta);
         } else if (descriptor instanceof InvalidDescriptor d) {
             //noop
         } else if (descriptor instanceof ItemTagDescriptor d) {

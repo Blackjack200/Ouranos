@@ -33,7 +33,6 @@ import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.inventory.*;
@@ -109,7 +108,7 @@ public class Translate {
                 var old = pk.getContents().get(i);
                 var item = TypeConverter.translateCreativeItemData(input, output, old);
                 contents.add(Objects.requireNonNullElseGet(item, () -> {
-                    var polyfillItem = ItemData.builder().netId(old.getNetId()).count(1).damage(0).definition(new SimpleItemDefinition("minecraft:barrier", ItemTypeDictionary.getInstance(output).fromStringId("minecraft:barrier"), false));
+                    var polyfillItem = ItemData.builder().netId(old.getNetId()).count(1).damage(0).definition(ItemTypeDictionary.getInstance(output).getEntries().get("minecraft:barrier").toDefinition("minecraft:barrier"));
                     var m = NbtMap.builder();
                     m.putCompound("display", NbtMap.builder().putString("Name", old.getItem().getDefinition().getIdentifier()).build());
                     polyfillItem.tag(m.build());
@@ -230,7 +229,7 @@ public class Translate {
             if (output >= Bedrock_v776.CODEC.getProtocolVersion()) {
                 var newPk = new ItemComponentPacket();
 
-                List<ItemDefinition> def = ItemTypeDictionary.getInstance(output).getEntries().entrySet().stream().<ItemDefinition>map((e) -> new SimpleItemDefinition(e.getKey(), e.getValue().runtime_id(), e.getValue().component_based())).toList();
+                List<ItemDefinition> def = ItemTypeDictionary.getInstance(output).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
                 newPk.getItems().addAll(def);
                 list.add(newPk);
             }
