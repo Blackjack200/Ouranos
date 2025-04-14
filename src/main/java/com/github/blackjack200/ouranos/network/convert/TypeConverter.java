@@ -12,6 +12,7 @@ import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
@@ -111,7 +112,11 @@ public class TypeConverter {
         }
 
         if (!Ouranos.getOuranos().getConfig().crop_chunk_biome) {
-            to.writeBytes(biomeBuf);
+            if (output > Bedrock_v475.CODEC.getProtocolVersion()) {
+                to.writeBytes(biomeBuf);
+            } else {
+                // to.writeBytes(new byte[256]);
+            }
         }
         var borderBlocks = from.readByte();
         to.writeByte(borderBlocks);
