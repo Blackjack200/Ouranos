@@ -8,6 +8,7 @@ import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
+import com.github.blackjack200.ouranos.network.session.RakServerRateLimiterOverride;
 import com.github.blackjack200.ouranos.network.session.handler.downstream.DownstreamInitialHandler;
 import com.github.blackjack200.ouranos.utils.PingUtils;
 import com.google.gson.Gson;
@@ -27,7 +28,9 @@ import lombok.val;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
+import org.cloudburstmc.netty.channel.raknet.RakServerChannel;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
+import org.cloudburstmc.netty.handler.codec.raknet.server.RakServerRateLimiter;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.BedrockPong;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
@@ -158,6 +161,10 @@ public class Ouranos {
         if (this.config.server_ipv6_enabled) {
             channels.add(boostrap.bind(bindv6).awaitUninterruptibly().channel());
             log.info("Ouranos started on {}", bindv6);
+        }
+
+        for (var channel : channels) {
+            channel.pipeline().replace(RakServerRateLimiter.NAME, RakServerRateLimiterOverride.NAME, new RakServerRateLimiterOverride((RakServerChannel) channel));
         }
 
         log.info("Supported versions: {}", String.join(", ", ProtocolInfo.getPacketCodecs().stream().sorted(Comparator.comparingInt(BedrockCodec::getProtocolVersion)).map(BedrockCodec::getMinecraftVersion).distinct().toList()));
