@@ -13,6 +13,7 @@ import lombok.experimental.UtilityClass;
 import org.cloudburstmc.protocol.bedrock.codec.v544.Bedrock_v544;
 import org.cloudburstmc.protocol.bedrock.codec.v582.Bedrock_v582;
 import org.cloudburstmc.protocol.bedrock.codec.v748.Bedrock_v748;
+import org.cloudburstmc.protocol.bedrock.codec.v786.Bedrock_v786;
 import org.jose4j.json.internal.json_simple.JSONObject;
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwx.HeaderParameterNames;
@@ -71,12 +72,17 @@ public class LoginPacketUtils {
             clientData.putIfAbsent("MemoryTier", 0);
             clientData.putIfAbsent("PlatformType", 0);
         }
+        if (outputProtocol >= Bedrock_v786.CODEC.getProtocolVersion()) {
+            clientData.putIfAbsent("GraphicsMode", 0);
+        }
         clientData.putIfAbsent("IsEditorMode", false);
         clientData.putIfAbsent("SkinGeometryDataEngineVersion", "");
 
         //TODO AnimatedImageData rewrite
         clientData.put("AnimatedImageData", List.of());
-        clientData.putIfAbsent("PlayFabId","");
+        clientData.putIfAbsent("PlayFabId", "");
+        clientData.putIfAbsent("PlayFabId", "");
+
 
         if (login_extra) {
             clientData.put("OuranosXUID", identityData.xuid());

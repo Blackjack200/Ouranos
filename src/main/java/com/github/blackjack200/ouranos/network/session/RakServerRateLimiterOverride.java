@@ -17,7 +17,7 @@ public class RakServerRateLimiterOverride extends RakServerRateLimiter {
 
     @Override
     protected int getAddressMaxPacketCount(InetAddress address) {
-        var sessionCount = (int) OuranosProxySession.ouranosPlayers.stream().filter((s) -> ((InetSocketAddress) s.upstream.getSocketAddress()).getAddress().equals(address)).count() + 1;
+        var sessionCount = (int) OuranosProxySession.ouranosPlayers.stream().filter((s) -> ((InetSocketAddress) s.upstream.getSocketAddress()).getAddress().equals(address)).count() + 2;
         return super.getAddressMaxPacketCount(address) * sessionCount;
     }
 }
