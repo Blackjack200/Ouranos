@@ -112,6 +112,17 @@
             <groupId>org.cloudburstmc.protocol</groupId>
             <artifactId>bedrock-connection</artifactId>
             <version>3.0.0.Beta6-SNAPSHOT</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.cloudburstmc.netty</groupId>
+                    <artifactId>netty-transport-raknet</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.github.Blackjack200</groupId>
+            <artifactId>Network</artifactId>
+            <version>develop-35a221affa-1</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/cn.hutool/hutool-core -->
         <dependency>
