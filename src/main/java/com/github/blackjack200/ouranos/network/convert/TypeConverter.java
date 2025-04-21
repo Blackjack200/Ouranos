@@ -3,15 +3,13 @@ package com.github.blackjack200.ouranos.network.convert;
 import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.ByteBufInputStream;
-import io.netty.buffer.ByteBufOutputStream;
+import io.netty.buffer.*;
 import io.netty.util.ReferenceCountUtil;
 import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
@@ -19,7 +17,8 @@ import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
-import org.cloudburstmc.protocol.common.util.VarInts;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @UtilityClass
@@ -80,7 +79,7 @@ public class TypeConverter {
     }
 
     @SneakyThrows
-    public void rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
+    public int rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
         for (var section = 0; section < sections; section++) {
             if (output < Bedrock_v475.CODEC.getProtocolVersion() && section == 4) {
                 to.clear();
@@ -88,41 +87,58 @@ public class TypeConverter {
             rewriteSubChunk(input, output, from, to);
         }
 
-        var biomeBuf = ByteBufAllocator.DEFAULT.buffer().touch();
-        if (input > Bedrock_v475.CODEC.getProtocolVersion()) {
-            int diff = getDimensionChunkBounds(input, dimension) - getDimensionChunkBounds(output, dimension);
-            for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
-                if (x == diff) {
-                    biomeBuf.clear();
-                }
-                PaletteStorage.translatePaletteStorage(input, output, from, biomeBuf, (i, o, v) -> v);
-            }
-            if (diff < 0) {
-                diff = -diff;
-                for (int i = 0; i < diff; i++) {
-                    biomeBuf.writeByte(1);
-                    VarInts.writeInt(biomeBuf, 0);
-                }
-            }
-        } else {
-            from.readBytes(256);
-            //TODO implement biome & block entities rewrite
-        }
+        var biomeBuf = rewriteBiomePalette(input, output, from, dimension);
+        to.writeBytes(biomeBuf);
+        ReferenceCountUtil.release(biomeBuf);
 
-        if (!Ouranos.getOuranos().getConfig().crop_chunk_biome) {
-            if (output > Bedrock_v475.CODEC.getProtocolVersion()) {
-                to.writeBytes(biomeBuf);
-            } else {
-                // to.writeBytes(new byte[256]);
-            }
-        }
         var borderBlocks = from.readByte();
         to.writeByte(borderBlocks);
         to.writeBytes(from, borderBlocks);
+
         if (!Ouranos.getOuranos().getConfig().crop_chunk_tile) {
             rewriteBlockEntities(input, output, from, to);
         }
-        ReferenceCountUtil.release(biomeBuf);
+        if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
+            return sections - 4;
+        }
+        return sections;
+    }
+
+    private static ByteBuf rewriteBiomePalette(int input, int output, ByteBuf from, int dimension) throws ChunkRewriteException {
+        var biomeBuf = ByteBufAllocator.DEFAULT.buffer().touch();
+        if (input >= Bedrock_v475.CODEC.getProtocolVersion()) {
+            var single = AbstractByteBufAllocator.DEFAULT.heapBuffer();
+            var firstTime = true;
+            var biomeId = new AtomicReference<>((byte) 0);
+            for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
+                PaletteStorage.translatePaletteStorage(input, output, from, biomeBuf, (i, o, v) -> {
+                    biomeId.set((byte) (v & 0xFF));
+                    return v;
+                });
+                if (firstTime) {
+                    single.writeBytes(biomeBuf);
+                    firstTime = false;
+                }
+            }
+            biomeBuf.clear();
+            if (output > Bedrock_v475.CODEC.getProtocolVersion()) {
+                for (var i = 0; i < getDimensionChunkBounds(output, dimension); i++) {
+                    biomeBuf.writeBytes(single);
+                }
+            } else {
+                var newBiomes2D = new byte[256];
+                for (int xx = 0; xx < 16; xx++) {
+                    for (int zz = 0; zz < 16; zz++) {
+                        newBiomes2D[(xx & 15) | (zz & 15) << 4] = biomeId.get();
+                    }
+                }
+                biomeBuf.writeBytes(newBiomes2D);
+            }
+            ReferenceCountUtil.release(single);
+        } else {
+            from.readBytes(256);
+        }
+        return biomeBuf;
     }
 
     @SneakyThrows
@@ -131,7 +147,13 @@ public class TypeConverter {
         var reader = NbtUtils.createNetworkReader(inp);
         var rd = NbtUtils.createNetworkWriter(new ByteBufOutputStream(to));
         while (inp.available() > 0) {
-            rd.writeTag(reader.readTag());
+            var tag = (NbtMap) reader.readTag();
+            var id = tag.getString("id");
+            if (id.isEmpty()) {
+                continue;
+            }
+            log.info(tag);
+            rd.writeTag(tag);
         }
     }
 

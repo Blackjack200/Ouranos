@@ -601,7 +601,8 @@ public class Translate {
             try {
                 var from = packet.getData();
                 var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
-                TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength());
+                var newSubChunkCount = TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength());
+                packet.setSubChunksLength(newSubChunkCount);
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
             } catch (ChunkRewriteException exception) {

@@ -26,7 +26,6 @@ public class ServerConfig {
     public boolean login_extra = true;
 
     public boolean packet_buffering = true;
-    public boolean crop_chunk_biome = true;
     public boolean crop_chunk_tile = true;
 
     public InetSocketAddress getBindv4() {
