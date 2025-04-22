@@ -600,7 +600,7 @@ public class Translate {
         if (p instanceof LevelChunkPacket packet) {
             try {
                 var from = packet.getData();
-                var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
+                var to = AbstractByteBufAllocator.DEFAULT.buffer(from.readableBytes()).touch();
                 var newSubChunkCount = TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength());
                 packet.setSubChunksLength(newSubChunkCount);
                 packet.setData(to);

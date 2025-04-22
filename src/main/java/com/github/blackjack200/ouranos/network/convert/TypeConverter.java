@@ -2,8 +2,12 @@ package com.github.blackjack200.ouranos.network.convert;
 
 import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
+import com.github.blackjack200.ouranos.network.convert.palette.Palette;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
-import io.netty.buffer.*;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.ByteBufOutputStream;
 import io.netty.util.ReferenceCountUtil;
 import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
@@ -18,7 +22,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
 
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.ArrayList;
 
 @Log4j2
 @UtilityClass
@@ -106,37 +110,56 @@ public class TypeConverter {
 
     private static ByteBuf rewriteBiomePalette(int input, int output, ByteBuf from, int dimension) throws ChunkRewriteException {
         var biomeBuf = ByteBufAllocator.DEFAULT.buffer().touch();
+        var palettes = new ArrayList<Palette<Integer>>();
         if (input >= Bedrock_v475.CODEC.getProtocolVersion()) {
-            var single = AbstractByteBufAllocator.DEFAULT.heapBuffer();
-            var firstTime = true;
-            var biomeId = new AtomicReference<>((byte) 0);
-            for (int x = getDimensionChunkBounds(input, dimension); x > 0; x--) {
-                PaletteStorage.translatePaletteStorage(input, output, from, biomeBuf, (i, o, v) -> {
-                    biomeId.set((byte) (v & 0xFF));
-                    return v;
-                });
-                if (firstTime) {
-                    single.writeBytes(biomeBuf);
-                    firstTime = false;
-                }
+            var nInputPalette = getDimensionChunkBounds(input, dimension);
+            for (int x = nInputPalette; x > 0; x--) {
+                palettes.add(Palette.readNetwork(from, (v) -> v));
             }
-            biomeBuf.clear();
-            if (output > Bedrock_v475.CODEC.getProtocolVersion()) {
-                for (var i = 0; i < getDimensionChunkBounds(output, dimension); i++) {
-                    biomeBuf.writeBytes(single);
-                }
-            } else {
-                var newBiomes2D = new byte[256];
-                for (int xx = 0; xx < 16; xx++) {
-                    for (int zz = 0; zz < 16; zz++) {
-                        newBiomes2D[(xx & 15) | (zz & 15) << 4] = biomeId.get();
+        } else {
+            var biomeData = from.readBytes(256);
+            var palette = new Palette<>(0);
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    int biomeId = biomeData.getByte((z << 4) | x);
+                    for (int y = 0; y < 16; y++) {
+                        palette.set(x, z, y, biomeId);
                     }
                 }
-                biomeBuf.writeBytes(newBiomes2D);
             }
-            ReferenceCountUtil.release(single);
+            var nInputPalette = getDimensionChunkBounds(input, dimension);
+            for (int x = nInputPalette; x > 0; x--) {
+                palettes.add(palette);
+            }
+        }
+        if (output >= Bedrock_v475.CODEC.getProtocolVersion()) {
+            var nInputPalette = getDimensionChunkBounds(input, dimension);
+            var nOutputPalette = getDimensionChunkBounds(output, dimension);
+
+            if (nInputPalette > nOutputPalette) {
+                palettes = new ArrayList<>(palettes.subList(0, nOutputPalette));
+            } else if (nInputPalette < nOutputPalette) {
+                var firstPalette = palettes.isEmpty() ? new Palette<Integer>(0) : palettes.get(0);
+                for (int i = 0; i < nOutputPalette - nInputPalette; i++) {
+                    palettes.add(firstPalette);
+                }
+            }
+
+            for (var palette : palettes) {
+                palette.writeNetwork(biomeBuf, (v) -> v);
+            }
         } else {
-            from.readBytes(256);
+            var palette = palettes.get(0);
+            var bytes = new byte[256];
+            for (int x = 0; x < 16; x++) {
+                for (int z = 0; z < 16; z++) {
+                    int biomeId = palette.get(x, 0, z);
+                    for (int y = 0; y < 16; y++) {
+                        bytes[(z << 4) | x] = (byte) (biomeId & 0xff);
+                    }
+                }
+            }
+            biomeBuf.writeBytes(bytes);
         }
         return biomeBuf;
     }

@@ -13,7 +13,6 @@ import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
@@ -110,8 +109,13 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
             ReferenceCountUtil.retain(ReferenceCountUtil.touch(packet));
             var packets = Translate.translate(session.getDownstreamProtocolId(), session.getUpstreamProtocolId(), false, session, packet);
             for (var pk : packets) {
-                if (session.upstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
-                    session.upstream.sendPacket(pk);
+                ReferenceCountUtil.touch(pk);
+                if (session.upstream.isConnected()) {
+                    if (session.upstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
+                        session.upstream.sendPacket(pk);
+                    }
+                } else {
+                    ReferenceCountUtil.safeRelease(pk);
                 }
             }
         });
@@ -119,8 +123,13 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
             ReferenceCountUtil.retain(ReferenceCountUtil.touch(packet));
             var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), true, session, packet);
             for (var pk : packets) {
-                if (session.downstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
-                    session.downstream.sendPacket(pk);
+                ReferenceCountUtil.touch(pk);
+                if (session.downstream.isConnected()) {
+                    if (session.downstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
+                        session.downstream.sendPacket(pk);
+                    }
+                } else {
+                    ReferenceCountUtil.safeRelease(pk);
                 }
             }
         });
