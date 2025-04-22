@@ -26,7 +26,6 @@ public class ServerConfig {
     public boolean login_extra = true;
 
     public boolean packet_buffering = true;
-    public boolean crop_chunk_tile = true;
 
     public InetSocketAddress getBindv4() {
         return new InetSocketAddress(this.server_ipv4, this.server_port_v4);

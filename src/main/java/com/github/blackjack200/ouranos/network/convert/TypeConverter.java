@@ -1,6 +1,5 @@
 package com.github.blackjack200.ouranos.network.convert;
 
-import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.convert.palette.Palette;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
@@ -16,6 +15,7 @@ import lombok.val;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
+import org.cloudburstmc.protocol.bedrock.codec.v486.Bedrock_v486;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
@@ -84,14 +84,21 @@ public class TypeConverter {
 
     @SneakyThrows
     public int rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
+        var nOutputPalette = getDimensionChunkBounds(output, dimension);
+        var diff = nOutputPalette - sections;
+        var nSection = sections;
         for (var section = 0; section < sections; section++) {
             if (output < Bedrock_v475.CODEC.getProtocolVersion() && section == 4) {
                 to.clear();
+                nSection -= 4;
             }
             rewriteSubChunk(input, output, from, to);
         }
+        for (int i = 0; i < diff; i++) {
+            new Palette<>(0).writeNetwork(to, (v) -> v);
+        }
 
-        var biomeBuf = rewriteBiomePalette(input, output, from, dimension);
+        var biomeBuf = rewriteBiomePalette(input, output, from, sections, nSection);
         to.writeBytes(biomeBuf);
         ReferenceCountUtil.release(biomeBuf);
 
@@ -99,21 +106,15 @@ public class TypeConverter {
         to.writeByte(borderBlocks);
         to.writeBytes(from, borderBlocks);
 
-        if (!Ouranos.getOuranos().getConfig().crop_chunk_tile) {
-            rewriteBlockEntities(input, output, from, to);
-        }
-        if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
-            return sections - 4;
-        }
-        return sections;
+        rewriteBlockEntities(input, output, from, to);
+        return nSection;
     }
 
-    private static ByteBuf rewriteBiomePalette(int input, int output, ByteBuf from, int dimension) throws ChunkRewriteException {
+    private static ByteBuf rewriteBiomePalette(int input, int output, ByteBuf from, int nInputSection, int nOutputSection) throws ChunkRewriteException {
         var biomeBuf = ByteBufAllocator.DEFAULT.buffer().touch();
         var palettes = new ArrayList<Palette<Integer>>();
         if (input >= Bedrock_v475.CODEC.getProtocolVersion()) {
-            var nInputPalette = getDimensionChunkBounds(input, dimension);
-            for (int x = nInputPalette; x > 0; x--) {
+            for (int x = nInputSection; x > 0; x--) {
                 palettes.add(Palette.readNetwork(from, (v) -> v));
             }
         } else {
@@ -127,20 +128,16 @@ public class TypeConverter {
                     }
                 }
             }
-            var nInputPalette = getDimensionChunkBounds(input, dimension);
-            for (int x = nInputPalette; x > 0; x--) {
+            for (int x = nInputSection; x > 0; x--) {
                 palettes.add(palette);
             }
         }
         if (output >= Bedrock_v475.CODEC.getProtocolVersion()) {
-            var nInputPalette = getDimensionChunkBounds(input, dimension);
-            var nOutputPalette = getDimensionChunkBounds(output, dimension);
-
-            if (nInputPalette > nOutputPalette) {
-                palettes = new ArrayList<>(palettes.subList(0, nOutputPalette));
-            } else if (nInputPalette < nOutputPalette) {
+            if (nInputSection > nOutputSection) {
+                palettes = new ArrayList<>(palettes.subList(0, nOutputSection));
+            } else if (nInputSection < nOutputSection) {
                 var firstPalette = palettes.isEmpty() ? new Palette<Integer>(0) : palettes.get(0);
-                for (int i = 0; i < nOutputPalette - nInputPalette; i++) {
+                for (int i = 0; i < nOutputSection - nInputSection; i++) {
                     palettes.add(firstPalette);
                 }
             }
@@ -175,9 +172,21 @@ public class TypeConverter {
             if (id.isEmpty()) {
                 continue;
             }
-            log.info(tag);
-            rd.writeTag(tag);
+            rd.writeTag(translateBlockEntity(input, output, tag));
         }
+    }
+
+    private static NbtMap translateBlockEntity(int input, int output, NbtMap tag) {
+        var builder = tag.toBuilder();
+        var id = tag.getString("id");
+        if (id.equals("Sign")) {
+            if (output < Bedrock_v486.CODEC.getProtocolVersion()) {
+                if (tag.containsKey("FrontText")) {
+                    builder.putString("Text", tag.getCompound("FrontText").getString("Text"));
+                }
+            }
+        }
+        return builder.build();
     }
 
     private int getDimensionChunkBounds(int protocol, int dimension) {
