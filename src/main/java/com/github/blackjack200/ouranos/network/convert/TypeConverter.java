@@ -91,10 +91,10 @@ public class TypeConverter {
             subChunks.add(buf);
         }
         var allSubChunks = new ArrayList<>(subChunks);
-        if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
+        if (input > Bedrock_v475.CODEC.getProtocolVersion() && output < Bedrock_v475.CODEC.getProtocolVersion()) {
             subChunks.subList(0, 4).clear();
         }
-        if (output < Bedrock_v465.CODEC.getProtocolVersion()) {
+        if (input > Bedrock_v465.CODEC.getProtocolVersion() && output < Bedrock_v465.CODEC.getProtocolVersion()) {
             subChunks.subList(subChunks.size() - 4, subChunks.size()).clear();
         }
         for (var subChunk : subChunks) {
