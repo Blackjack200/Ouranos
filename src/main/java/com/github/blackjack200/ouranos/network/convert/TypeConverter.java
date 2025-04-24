@@ -15,7 +15,6 @@ import lombok.val;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
-import org.cloudburstmc.protocol.bedrock.codec.v486.Bedrock_v486;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
@@ -84,8 +83,6 @@ public class TypeConverter {
 
     @SneakyThrows
     public int rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
-        var nOutputPalette = getDimensionChunkBounds(output, dimension);
-        var diff = nOutputPalette - sections;
         var nSection = sections;
         for (var section = 0; section < sections; section++) {
             if (output < Bedrock_v475.CODEC.getProtocolVersion() && section == 4) {
@@ -94,11 +91,8 @@ public class TypeConverter {
             }
             rewriteSubChunk(input, output, from, to);
         }
-        for (int i = 0; i < diff; i++) {
-            new Palette<>(0).writeNetwork(to, (v) -> v);
-        }
 
-        var biomeBuf = rewriteBiomePalette(input, output, from, sections, nSection);
+        var biomeBuf = rewriteBiomePalette(input, output, from, getDimensionChunkBounds(input, dimension), getDimensionChunkBounds(output, dimension));
         to.writeBytes(biomeBuf);
         ReferenceCountUtil.release(biomeBuf);
 
@@ -136,7 +130,7 @@ public class TypeConverter {
             if (nInputSection > nOutputSection) {
                 palettes = new ArrayList<>(palettes.subList(0, nOutputSection));
             } else if (nInputSection < nOutputSection) {
-                var firstPalette = palettes.isEmpty() ? new Palette<Integer>(0) : palettes.get(0);
+                var firstPalette = palettes.isEmpty() ? new Palette<Integer>(0) : palettes.get(palettes.size() - 1);
                 for (int i = 0; i < nOutputSection - nInputSection; i++) {
                     palettes.add(firstPalette);
                 }
@@ -180,10 +174,8 @@ public class TypeConverter {
         var builder = tag.toBuilder();
         var id = tag.getString("id");
         if (id.equals("Sign")) {
-            if (output < Bedrock_v486.CODEC.getProtocolVersion()) {
-                if (tag.containsKey("FrontText")) {
-                    builder.putString("Text", tag.getCompound("FrontText").getString("Text"));
-                }
+            if (tag.containsKey("FrontText")) {
+                builder.putString("Text", tag.getCompound("FrontText").getString("Text"));
             }
         }
         return builder.build();
