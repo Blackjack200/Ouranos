@@ -11,6 +11,6 @@ import org.cloudburstmc.protocol.common.util.TriFunction;
 public class PaletteStorage {
     public static void translatePaletteStorage(int input, int output, ByteBuf from, ByteBuf to, TriFunction<Integer, Integer, Integer, Integer> rewriter) throws ChunkRewriteException {
         var storage = Palette.readNetwork(from, (id) -> id);
-        storage.writeNetwork(to, (id) -> rewriter.apply(input, output, id));
+        storage.writeNetwork(to, output, (id) -> rewriter.apply(input, output, id));
     }
 }

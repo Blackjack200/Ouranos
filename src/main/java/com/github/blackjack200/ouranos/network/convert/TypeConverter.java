@@ -14,6 +14,7 @@ import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
+import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
@@ -83,13 +84,24 @@ public class TypeConverter {
 
     @SneakyThrows
     public int rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
-        var nSection = sections;
+        var subChunks = new ArrayList<ByteBuf>();
         for (var section = 0; section < sections; section++) {
-            if (output < Bedrock_v475.CODEC.getProtocolVersion() && section == 4) {
-                to.clear();
-                nSection -= 4;
-            }
-            rewriteSubChunk(input, output, from, to);
+            var buf = ByteBufAllocator.DEFAULT.buffer();
+            rewriteSubChunk(input, output, from, buf);
+            subChunks.add(buf);
+        }
+        var allSubChunks = new ArrayList<>(subChunks);
+        if (output < Bedrock_v475.CODEC.getProtocolVersion()) {
+            subChunks.subList(0, 4).clear();
+        }
+        if (output < Bedrock_v465.CODEC.getProtocolVersion()) {
+            subChunks.subList(subChunks.size() - 4, subChunks.size()).clear();
+        }
+        for (var subChunk : subChunks) {
+            to.writeBytes(subChunk);
+        }
+        for (var subChunk : allSubChunks) {
+            ReferenceCountUtil.release(subChunk);
         }
 
         var biomeBuf = rewriteBiomePalette(input, output, from, getDimensionChunkBounds(input, dimension), getDimensionChunkBounds(output, dimension));
@@ -101,7 +113,7 @@ public class TypeConverter {
         to.writeBytes(from, borderBlocks);
 
         rewriteBlockEntities(input, output, from, to);
-        return nSection;
+        return subChunks.size();
     }
 
     private static ByteBuf rewriteBiomePalette(int input, int output, ByteBuf from, int nInputSection, int nOutputSection) throws ChunkRewriteException {
@@ -137,7 +149,7 @@ public class TypeConverter {
             }
 
             for (var palette : palettes) {
-                palette.writeNetwork(biomeBuf, (v) -> v);
+                palette.writeNetwork(biomeBuf, output, (v) -> v);
             }
         } else {
             var palette = palettes.get(0);
@@ -197,7 +209,12 @@ public class TypeConverter {
 
     public static void rewriteSubChunk(int input, int output, ByteBuf from, ByteBuf to) throws ChunkRewriteException {
         var version = from.readUnsignedByte();
-        to.writeByte(version);
+        var isNineSubChunkSupported = output >= Bedrock_v465.CODEC.getProtocolVersion();
+        if (!isNineSubChunkSupported && version == 9) {
+            to.writeByte(8);
+        } else {
+            to.writeByte(version);
+        }
         switch (version) {
             case 0, 4, 139 -> to.writeBytes(from, 4096 + 2048);
             case 1 ->
@@ -206,7 +223,10 @@ public class TypeConverter {
                 var storageCount = from.readUnsignedByte();
                 to.writeByte(storageCount);
                 if (version == 9) {
-                    to.writeByte(from.readUnsignedByte());//what ??? uint8(index + (c.range[0] >> 4))
+                    var v = from.readUnsignedByte();//what ??? uint8(index + (c.range[0] >> 4))
+                    if (isNineSubChunkSupported) {
+                        to.writeByte(v);
+                    }
                 }
                 for (var storage = 0; storage < storageCount; storage++) {
                     PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);

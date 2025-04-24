@@ -3,6 +3,10 @@ package com.github.blackjack200.ouranos.network;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v419.Bedrock_v419;
+import org.cloudburstmc.protocol.bedrock.codec.v422.Bedrock_v422;
+import org.cloudburstmc.protocol.bedrock.codec.v428.Bedrock_v428;
+import org.cloudburstmc.protocol.bedrock.codec.v431.Bedrock_v431;
 import org.cloudburstmc.protocol.bedrock.codec.v440.Bedrock_v440;
 import org.cloudburstmc.protocol.bedrock.codec.v448.Bedrock_v448;
 import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
@@ -89,11 +93,17 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v475.CODEC, 51);
 
         // 1.17.x
-        // partially playable
         addPacketCodec(Bedrock_v471.CODEC, 41);
         addPacketCodec(Bedrock_v465.CODEC, 31);
         addPacketCodec(Bedrock_v448.CODEC, 31);
         addPacketCodec(Bedrock_v440.CODEC, 31);
+
+        // 1.16.x
+        addPacketCodec(Bedrock_v431.CODEC, 31);
+        addPacketCodec(Bedrock_v428.CODEC, 31);
+        addPacketCodec(Bedrock_v422.CODEC, 31);
+        addPacketCodec(Bedrock_v419.CODEC, 21);
+        //1.16.40 not playable
     }
 
     public static BedrockCodec getPacketCodec(int protocolVersion) {

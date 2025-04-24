@@ -5,6 +5,7 @@ import com.github.blackjack200.ouranos.network.convert.bitarray.BitArrayVersion;
 import io.netty.buffer.ByteBuf;
 import lombok.Getter;
 import lombok.val;
+import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 import java.util.ArrayList;
@@ -96,9 +97,15 @@ public final class Palette<V> {
         return uint32Count;
     }
 
-    public void writeNetwork(ByteBuf out, Function<V, Integer> serializer) {
+    public void writeNetwork(ByteBuf out, int protocol, Function<V, Integer> serializer) {
         if (this.blockSize == 0) {
-            out.writeByte(1);
+            if (protocol >= Bedrock_v465.CODEC.getProtocolVersion()) {
+                out.writeByte(1);
+            } else {
+                out.writeByte((1 << 1) | 1);
+                out.writeBytes(new byte[512]);
+                VarInts.writeInt(out, 1);
+            }
             VarInts.writeInt(out, serializer.apply(palette.get(0)));
             return;
         }
