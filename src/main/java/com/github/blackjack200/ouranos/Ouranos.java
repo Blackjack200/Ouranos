@@ -5,6 +5,7 @@ import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
+import com.github.blackjack200.ouranos.network.convert.R12ToCurrentBlockMap;
 import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;

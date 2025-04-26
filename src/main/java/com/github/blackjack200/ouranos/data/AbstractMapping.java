@@ -43,7 +43,7 @@ public class AbstractMapping {
         if (Ouranos.class.getClassLoader().getResource(name) == null) {
             name = file;
         }
-        return name;
+            return name;
     }
 
     protected static void loadFile(String file, BiConsumer<Integer, URL> handler) {

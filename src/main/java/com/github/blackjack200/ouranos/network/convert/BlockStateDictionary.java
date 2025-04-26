@@ -136,14 +136,14 @@ public final class BlockStateDictionary extends AbstractMapping {
                 if (meta == null) {
                     throw new RuntimeException("Missing associated meta value for state " + i + " (" + state + ")");
                 }
-                list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
+                list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"),meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
                 i++;
             }
             return new Dictionary(list);
         }
     }
 
-    private static NbtMap hackedUpgradeBlockState(NbtMap tag, int version) {
+    public static NbtMap hackedUpgradeBlockState(NbtMap tag, int version) {
         return fixBlockStateUpdaterIssue(BlockStateUpdaters.updateBlockState(tag, version));
     }
 
