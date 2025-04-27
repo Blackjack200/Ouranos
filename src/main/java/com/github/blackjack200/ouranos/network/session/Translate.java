@@ -13,6 +13,7 @@ import lombok.val;
 import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
@@ -73,6 +74,9 @@ public class Translate {
         rewriteBlock(input, output, player, p, list);
         if (output >= Bedrock_v554.CODEC.getProtocolVersion()) {
             list.removeIf((b) -> b instanceof AdventureSettingsPacket);
+        }
+        if (output > Bedrock_v408.CODEC.getProtocolVersion()) {
+            list.removeIf((b) -> b instanceof EntityFallPacket);
         }
         return list;
     }
@@ -225,6 +229,9 @@ public class Translate {
                 newPk.getItems().addAll(def);
                 list.add(newPk);
             }
+        }
+        if (p instanceof PlayerAuthInputPacket pk) {
+            pk.setDelta(Objects.requireNonNullElseGet(pk.getDelta(), () -> provider.createVector3f(0, 0, 0)));
         }
         if (p instanceof AddPlayerPacket pk) {
             pk.setGameType(Optional.ofNullable(pk.getGameType()).orElse(GameType.DEFAULT));

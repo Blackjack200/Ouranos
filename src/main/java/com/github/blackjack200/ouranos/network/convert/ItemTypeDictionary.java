@@ -5,9 +5,11 @@ import com.github.blackjack200.ouranos.data.ItemTypeInfo;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
+import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ItemVersion;
 
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,7 +24,19 @@ public final class ItemTypeDictionary extends AbstractMapping {
     }
 
     public static InnerEntry getInstance(int protocolId) {
-        return entries.computeIfAbsent(protocolId, (protocol) -> new InnerEntry(open(lookupAvailableFile("required_item_list.json", protocol))));
+        return entries.computeIfAbsent(protocolId, (protocol) -> {
+            if (protocol > Bedrock_v408.CODEC.getProtocolVersion()) {
+                return new InnerEntry(new Gson().fromJson(new InputStreamReader(open(lookupAvailableFile("required_item_list.json", protocol))), new TypeToken<Map<String, ItemTypeInfo>>() {
+                }.getType()));
+            }
+            Map<String, Integer> rawEntries = new Gson().fromJson(new InputStreamReader(open(lookupAvailableFile("item_id_map.json", protocol))), new TypeToken<Map<String, Integer>>() {
+            }.getType());
+            var entries = new HashMap<String, ItemTypeInfo>(rawEntries.size());
+            rawEntries.forEach((key, value) -> {
+                entries.put(key, new ItemTypeInfo(value, false, ItemVersion.LEGACY.ordinal(), null));
+            });
+            return new InnerEntry(entries);
+        });
     }
 
     public static class InnerEntry {
@@ -30,9 +44,8 @@ public final class ItemTypeDictionary extends AbstractMapping {
         private final Map<Integer, String> runtimeIdToString;
         private final Map<String, ItemTypeInfo> allEntries;
 
-        private InnerEntry(InputStream input) {
-            this.allEntries = new Gson().fromJson(new InputStreamReader(input), new TypeToken<Map<String, ItemTypeInfo>>() {
-            }.getType());
+        private InnerEntry(Map<String, ItemTypeInfo> entries) {
+            this.allEntries = entries;
             this.stringToRuntimeId = new ConcurrentHashMap<>();
             this.runtimeIdToString = new ConcurrentHashMap<>();
             allEntries.forEach((stringId, info) -> {

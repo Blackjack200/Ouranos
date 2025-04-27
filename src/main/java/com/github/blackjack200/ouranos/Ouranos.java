@@ -123,6 +123,9 @@ public class Ouranos {
         CompletableFuture.runAsync(() -> ItemTypeDictionary.getInstance(REMOTE_CODEC.getProtocolVersion()));
         CompletableFuture.runAsync(GlobalItemDataHandlers::getUpgrader);
 
+        BlockStateDictionary.getInstance(408);
+        ItemTypeDictionary.getInstance(408);
+
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
 
         var boostrap = new ServerBootstrap()

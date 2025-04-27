@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.network.session.handler.upstream;
 
 import com.github.blackjack200.ouranos.Ouranos;
+import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.DropPacketException;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
@@ -11,6 +12,10 @@ import com.github.blackjack200.ouranos.utils.ItemTypeDictionaryRegistry;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
+import org.cloudburstmc.nbt.NbtList;
+import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.nbt.NbtType;
+import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.packet.*;
@@ -148,6 +153,9 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
         List<ItemDefinition> def = ItemTypeDictionary.getInstance(downstreamProtocolId).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
         pk.setItemDefinitions(def);
+        if (downstreamProtocolId <= Bedrock_v408.CODEC.getProtocolVersion()) {
+            pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, BlockStateDictionary.getInstance(downstreamProtocolId).getKnownStates().stream().map((e) -> NbtMap.builder().putCompound("block", e.rawState()).build()).toList()));
+        }
 
         this.session.upstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(upstreamProtocolId));
         this.session.downstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(downstreamProtocolId));

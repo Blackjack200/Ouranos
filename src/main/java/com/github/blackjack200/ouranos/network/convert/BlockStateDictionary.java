@@ -10,6 +10,7 @@ import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.allaymc.updater.block.BlockStateUpdaters;
+import org.cloudburstmc.nbt.NbtList;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 
@@ -31,8 +32,11 @@ public final class BlockStateDictionary extends AbstractMapping {
         private Integer fallbackRuntimeId;
         @Getter
         private Integer fallbackCurrentStateHash;
+        @Getter
+        private final List<BlockEntry> knownStates;
 
         public Dictionary(Int2ObjectRBTreeMap<BlockEntry> states) {
+            this.knownStates = states.values().stream().toList();
             this.latestStateHashToEntry = new Int2ObjectRBTreeMap<>();
             this.latestStateHashToCurrent = new Int2ObjectRBTreeMap<>();
             this.latestStateHashToMetaToEntry = new HashMap<>();
@@ -41,14 +45,7 @@ public final class BlockStateDictionary extends AbstractMapping {
 
             for (int runtimeId = 0, stateIdMax = states.size(); runtimeId < stateIdMax; runtimeId++) {
                 var entry = states.get(runtimeId);
-                this.latestStateHashToEntry.put(entry.latestStateHash, entry);
-                this.latestStateHashToCurrent.put(entry.latestStateHash, entry.currentStateHash);
-
-                this.latestStateHashToMetaToEntry.computeIfAbsent(entry.name, k -> new Int2ObjectRBTreeMap<>());
-                this.latestStateHashToMetaToEntry.get(entry.name).put(entry.meta, entry);
-
-                this.latestStateHashToRuntimeId.put(entry.latestStateHash, runtimeId);
-                this.runtimeToLatestStateHash.put(runtimeId, entry.latestStateHash);
+                register(runtimeId, entry);
             }
 
             for (val v : this.latestStateHashToEntry.entrySet()) {
@@ -61,6 +58,17 @@ public final class BlockStateDictionary extends AbstractMapping {
             if (this.fallbackRuntimeId == null) {
                 throw new RuntimeException("no fallback minecraft:info_update found.");
             }
+        }
+
+        private void register(int runtimeId, BlockEntry entry) {
+            this.latestStateHashToEntry.put(entry.latestStateHash, entry);
+            this.latestStateHashToCurrent.put(entry.latestStateHash, entry.currentStateHash);
+
+            this.latestStateHashToMetaToEntry.computeIfAbsent(entry.name, k -> new Int2ObjectRBTreeMap<>());
+            this.latestStateHashToMetaToEntry.get(entry.name).put(entry.meta, entry);
+
+            this.latestStateHashToRuntimeId.put(entry.latestStateHash, runtimeId);
+            this.runtimeToLatestStateHash.put(runtimeId, entry.latestStateHash);
         }
 
         public Integer toRuntimeId(int latestStateHash) {
@@ -128,16 +136,26 @@ public final class BlockStateDictionary extends AbstractMapping {
             var list = new Int2ObjectRBTreeMap<BlockEntry>();
             int i = 0;
             while (block_state.available() > 0) {
-                var rawState = (NbtMap) reader.readTag();
-                //TODO HACK! blame on BlockStateUpdaters
-                var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
-                var latestStateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
-                var meta = meta_map.get(i);
-                if (meta == null) {
-                    throw new RuntimeException("Missing associated meta value for state " + i + " (" + state + ")");
+                var rawTag = reader.readTag();
+                if (rawTag instanceof NbtList<?> rawList) {
+                    for (var rawEntry : rawList) {
+                        var entry = (NbtMap) rawEntry;
+                        var rawState = (NbtMap) entry.get("block");
+                        var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
+                        var latestStateHash = HashUtils.computeBlockStateHash(state);
+                        list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), 0, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
+                    }
+                } else if (rawTag instanceof NbtMap rawState) {
+                    //TODO HACK! blame on BlockStateUpdaters
+                    var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
+                    var latestStateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
+                    var meta = meta_map.get(i);
+                    if (meta == null) {
+                        throw new RuntimeException("Missing associated meta value for state " + i + " (" + state + ")");
+                    }
+                    list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
+                    i++;
                 }
-                list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"),meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
-                i++;
             }
             return new Dictionary(list);
         }
