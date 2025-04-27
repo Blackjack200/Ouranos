@@ -13,6 +13,9 @@ import lombok.val;
 import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v388.Bedrock_v388;
+import org.cloudburstmc.protocol.bedrock.codec.v389.Bedrock_v389;
+import org.cloudburstmc.protocol.bedrock.codec.v390.Bedrock_v390;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
@@ -78,6 +81,38 @@ public class Translate {
         }
         if (output > Bedrock_v408.CODEC.getProtocolVersion()) {
             list.removeIf((b) -> b instanceof EntityFallPacket);
+        }
+        if (output >= Bedrock_v389.CODEC.getProtocolVersion() && output <= Bedrock_v390.CODEC.getProtocolVersion()) {
+            if (p instanceof MoveEntityAbsolutePacket pk) {
+                list.clear();
+                var newPk = new MovePlayerPacket();
+                newPk.setRuntimeEntityId(pk.getRuntimeEntityId());
+                newPk.setPosition(pk.getPosition());
+                newPk.setRotation(pk.getRotation());
+                newPk.setOnGround(pk.isOnGround());
+                log.info("{}", pk);
+                if (pk.isTeleported()) {
+                    newPk.setMode(MovePlayerPacket.Mode.TELEPORT);
+                } else {
+                    newPk.setMode(MovePlayerPacket.Mode.NORMAL);
+                }
+                list.add(newPk);
+            }
+        }
+        if (!fromServer && input < Bedrock_v388.CODEC.getProtocolVersion() && output >= Bedrock_v388.CODEC.getProtocolVersion()) {
+            if (p instanceof MovePlayerPacket pk && pk.getRuntimeEntityId() == player.runtimeEntityId) {
+                var newPk = new PlayerAuthInputPacket();
+                newPk.setPosition(pk.getPosition());
+                newPk.setRotation(pk.getRotation());
+                newPk.getInputData().addAll(player.pendingInput);
+                log.info("{}", newPk);
+                player.pendingInput.clear();
+                list.clear();
+                var newList = new ArrayList<BedrockPacket>();
+                newList.add(newPk);
+                rewriteProtocol(input, output, false, player, newPk, newList);
+                list.addAll(newList);
+            }
         }
         return list;
     }
@@ -233,6 +268,11 @@ public class Translate {
         }
         if (p instanceof PlayerAuthInputPacket pk) {
             pk.setDelta(Objects.requireNonNullElseGet(pk.getDelta(), () -> provider.createVector3f(0, 0, 0)));
+            pk.setMotion(Objects.requireNonNullElseGet(pk.getMotion(), () -> provider.createVector2f(0, 0)));
+            pk.setRawMoveVector(Objects.requireNonNullElseGet(pk.getRawMoveVector(), () -> provider.createVector2f(0, 0)));
+            pk.setInputMode(Objects.requireNonNullElse(pk.getInputMode(), InputMode.TOUCH));
+            pk.setPlayMode(Objects.requireNonNullElse(pk.getPlayMode(), ClientPlayMode.SCREEN));
+            pk.setInputInteractionModel(Objects.requireNonNullElse(pk.getInputInteractionModel(), InputInteractionModel.TOUCH));
         }
         if (p instanceof AddPlayerPacket pk) {
             pk.setGameType(Optional.ofNullable(pk.getGameType()).orElse(GameType.DEFAULT));
@@ -248,7 +288,6 @@ public class Translate {
                 pk.setWorldTemplateVersion("0.0.0");
             }
             if (p instanceof PlayerAuthInputPacket pk) {
-                pk.setRawMoveVector(provider.createVector2f(0, 0));
             }
         }
         if (input < Bedrock_v748.CODEC.getProtocolVersion()) {

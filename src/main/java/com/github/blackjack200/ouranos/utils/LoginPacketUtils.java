@@ -99,6 +99,7 @@ public class LoginPacketUtils {
 
         clientData.putIfAbsent("SkinImageHeight", 64);
         clientData.putIfAbsent("SkinImageWidth", 64);
+        clientData.putIfAbsent("ThirdPartyNameOnly", false);
 
 
         clientData.remove("SkinGeometryName");
