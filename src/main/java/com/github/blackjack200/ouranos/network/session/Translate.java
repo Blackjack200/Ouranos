@@ -67,6 +67,7 @@ public class Translate {
 
         rewriteItem(input, output, p, list);
         rewriteProtocol(input, output, fromServer, player, p, list);
+        rewritePlayerInput(input, output, player, p, list);
         rewriteChunk(input, output, player, p, list);
         if (p instanceof LevelChunkPacket) {
             //list.clear();
@@ -340,20 +341,7 @@ public class Translate {
                 }
             }
         }
-        if (input < Bedrock_v594.CODEC.getProtocolVersion()) {
-            if (p instanceof LevelSoundEventPacket pk) {
-                if (pk.getSound().equals(SoundEvent.ATTACK_NODAMAGE)) {
-                    player.lastPunchAir = true;
-                    list.clear();
-                }
-            }
-            if (p instanceof PlayerAuthInputPacket pk) {
-                if (player.lastPunchAir) {
-                    pk.getInputData().add(PlayerAuthInputData.MISSED_SWING);
-                    player.lastPunchAir = false;
-                }
-            }
-        }
+
         if (input < Bedrock_v589.CODEC.getProtocolVersion()) {
             if (p instanceof EmotePacket pk) {
                 //FIXME? context based value: xuid platformId
@@ -394,6 +382,44 @@ public class Translate {
                     e.setSkin(e.getSkin().toBuilder().geometryDataEngineVersion(ProtocolInfo.getPacketCodec(output).getMinecraftVersion()).build());
                 }
             }
+        }
+    }
+
+    private static void rewritePlayerInput(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
+        if (input < Bedrock_v594.CODEC.getProtocolVersion()) {
+            if (p instanceof LevelSoundEventPacket pk) {
+                if (pk.getSound().equals(SoundEvent.ATTACK_NODAMAGE)) {
+                    player.pendingInput.add(PlayerAuthInputData.MISSED_SWING);
+                    list.clear();
+                }
+            }
+        }
+
+        if (p instanceof PlayerActionPacket pk) {
+            boolean processeed = true;
+            switch (pk.getAction()) {
+                case START_SPRINT -> player.pendingInput.add(PlayerAuthInputData.START_SPRINTING);
+                case STOP_SPRINT -> player.pendingInput.add(PlayerAuthInputData.STOP_SPRINTING);
+                case START_SNEAK -> player.pendingInput.add(PlayerAuthInputData.START_SNEAKING);
+                case STOP_SNEAK -> player.pendingInput.add(PlayerAuthInputData.STOP_SNEAKING);
+                case START_SWIMMING -> player.pendingInput.add(PlayerAuthInputData.START_SWIMMING);
+                case STOP_SWIMMING -> player.pendingInput.add(PlayerAuthInputData.STOP_SWIMMING);
+                case START_GLIDE -> player.pendingInput.add(PlayerAuthInputData.START_GLIDING);
+                case STOP_GLIDE -> player.pendingInput.add(PlayerAuthInputData.STOP_GLIDING);
+                case START_CRAWLING -> player.pendingInput.add(PlayerAuthInputData.START_CRAWLING);
+                case STOP_CRAWLING -> player.pendingInput.add(PlayerAuthInputData.STOP_CRAWLING);
+                case START_FLYING -> player.pendingInput.add(PlayerAuthInputData.START_FLYING);
+                case STOP_FLYING -> player.pendingInput.add(PlayerAuthInputData.STOP_FLYING);
+                case JUMP -> player.pendingInput.add(PlayerAuthInputData.START_JUMPING);
+                default -> processeed = false;
+            }
+            if (processeed) {
+                list.clear();
+            }
+        }
+        if (p instanceof PlayerAuthInputPacket pk) {
+            pk.getInputData().addAll(player.pendingInput);
+            player.pendingInput.clear();
         }
     }
 

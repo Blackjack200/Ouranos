@@ -4,9 +4,11 @@ import cn.hutool.core.collection.ConcurrentHashSet;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
+import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 
 import java.security.KeyPair;
+import java.util.ArrayList;
 
 @Log4j2
 public class OuranosProxySession {
@@ -19,7 +21,7 @@ public class OuranosProxySession {
     public int lastFormId = -1;
     public long uniqueEntityId;
     public long runtimeEntityId;
-    public boolean lastPunchAir = false;
+    public ArrayList<PlayerAuthInputData> pendingInput = new ArrayList<>(16);
     public AuthData identity;
 
     public OuranosProxySession(KeyPair keyPair, ProxyClientSession upstreamSession, ProxyServerSession downstreamSession) {
