@@ -5,8 +5,8 @@ import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.DropPacketException;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
-import com.github.blackjack200.ouranos.network.session.Translate;
 import com.github.blackjack200.ouranos.network.session.handler.downstream.DownstreamRewriteHandler;
+import com.github.blackjack200.ouranos.network.session.translate.Translate;
 import com.github.blackjack200.ouranos.utils.BlockDictionaryRegistry;
 import com.github.blackjack200.ouranos.utils.ItemTypeDictionaryRegistry;
 import io.netty.util.ReferenceCountUtil;
@@ -117,6 +117,9 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                 ReferenceCountUtil.touch(pk);
                 if (session.upstream.isConnected()) {
                     if (session.upstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
+                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket)) {
+                            log.debug("C->S {}", pk.getClass());
+                        }
                         session.upstream.sendPacket(pk);
                     }
                 } else {
@@ -131,6 +134,9 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                 ReferenceCountUtil.touch(pk);
                 if (session.downstream.isConnected()) {
                     if (session.downstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
+                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket)) {
+                            log.debug("S->C {}", pk.getClass());
+                        }
                         session.downstream.sendPacket(pk);
                     }
                 } else {

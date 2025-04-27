@@ -1,9 +1,10 @@
-package com.github.blackjack200.ouranos.network.session;
+package com.github.blackjack200.ouranos.network.session.translate;
 
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.ChunkRewriteException;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.convert.TypeConverter;
+import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
@@ -13,9 +14,6 @@ import lombok.val;
 import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
-import org.cloudburstmc.protocol.bedrock.codec.v388.Bedrock_v388;
-import org.cloudburstmc.protocol.bedrock.codec.v389.Bedrock_v389;
-import org.cloudburstmc.protocol.bedrock.codec.v390.Bedrock_v390;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
@@ -32,8 +30,6 @@ import org.cloudburstmc.protocol.bedrock.codec.v671.Bedrock_v671;
 import org.cloudburstmc.protocol.bedrock.codec.v685.Bedrock_v685;
 import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
-import org.cloudburstmc.protocol.bedrock.codec.v748.Bedrock_v748;
-import org.cloudburstmc.protocol.bedrock.codec.v766.Bedrock_v766;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
@@ -70,7 +66,7 @@ public class Translate {
 
         rewriteItem(input, output, p, list);
         rewriteProtocol(input, output, fromServer, player, p, list);
-        rewritePlayerInput(input, output, player, p, list);
+        MovementTranslator.rewriteMovement(input, output, fromServer, player, p, list);
         rewriteChunk(input, output, player, p, list);
         if (p instanceof LevelChunkPacket) {
             //list.clear();
@@ -81,38 +77,6 @@ public class Translate {
         }
         if (output > Bedrock_v408.CODEC.getProtocolVersion()) {
             list.removeIf((b) -> b instanceof EntityFallPacket);
-        }
-        if (output >= Bedrock_v389.CODEC.getProtocolVersion() && output <= Bedrock_v390.CODEC.getProtocolVersion()) {
-            if (p instanceof MoveEntityAbsolutePacket pk) {
-                list.clear();
-                var newPk = new MovePlayerPacket();
-                newPk.setRuntimeEntityId(pk.getRuntimeEntityId());
-                newPk.setPosition(pk.getPosition());
-                newPk.setRotation(pk.getRotation());
-                newPk.setOnGround(pk.isOnGround());
-                log.info("{}", pk);
-                if (pk.isTeleported()) {
-                    newPk.setMode(MovePlayerPacket.Mode.TELEPORT);
-                } else {
-                    newPk.setMode(MovePlayerPacket.Mode.NORMAL);
-                }
-                list.add(newPk);
-            }
-        }
-        if (!fromServer && input < Bedrock_v388.CODEC.getProtocolVersion() && output >= Bedrock_v388.CODEC.getProtocolVersion()) {
-            if (p instanceof MovePlayerPacket pk && pk.getRuntimeEntityId() == player.runtimeEntityId) {
-                var newPk = new PlayerAuthInputPacket();
-                newPk.setPosition(pk.getPosition());
-                newPk.setRotation(pk.getRotation());
-                newPk.getInputData().addAll(player.pendingInput);
-                log.info("{}", newPk);
-                player.pendingInput.clear();
-                list.clear();
-                var newList = new ArrayList<BedrockPacket>();
-                newList.add(newPk);
-                rewriteProtocol(input, output, false, player, newPk, newList);
-                list.addAll(newList);
-            }
         }
         return list;
     }
@@ -250,14 +214,8 @@ public class Translate {
     }
 
     private static void rewriteProtocol(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
-        val provider = new ImmutableVectorProvider();
+        writeProtocolDefault(p);
         if (p instanceof StartGamePacket pk) {
-            pk.setServerId(Optional.ofNullable(pk.getServerId()).orElse(""));
-            pk.setWorldId(Optional.ofNullable(pk.getWorldId()).orElse(""));
-            pk.setScenarioId(Optional.ofNullable(pk.getScenarioId()).orElse(""));
-            pk.setChatRestrictionLevel(Optional.ofNullable(pk.getChatRestrictionLevel()).orElse(ChatRestrictionLevel.NONE));
-            pk.setPlayerPropertyData(Optional.ofNullable(pk.getPlayerPropertyData()).orElse(NbtMap.EMPTY));
-            pk.setWorldTemplateId(Optional.ofNullable(pk.getWorldTemplateId()).orElse(UUID.randomUUID()));
             if (output >= Bedrock_v776.CODEC.getProtocolVersion()) {
                 var newPk = new ItemComponentPacket();
 
@@ -266,36 +224,8 @@ public class Translate {
                 list.add(newPk);
             }
         }
-        if (p instanceof PlayerAuthInputPacket pk) {
-            pk.setDelta(Objects.requireNonNullElseGet(pk.getDelta(), () -> provider.createVector3f(0, 0, 0)));
-            pk.setMotion(Objects.requireNonNullElseGet(pk.getMotion(), () -> provider.createVector2f(0, 0)));
-            pk.setRawMoveVector(Objects.requireNonNullElseGet(pk.getRawMoveVector(), () -> provider.createVector2f(0, 0)));
-            pk.setInputMode(Objects.requireNonNullElse(pk.getInputMode(), InputMode.TOUCH));
-            pk.setPlayMode(Objects.requireNonNullElse(pk.getPlayMode(), ClientPlayMode.SCREEN));
-            pk.setInputInteractionModel(Objects.requireNonNullElse(pk.getInputInteractionModel(), InputInteractionModel.TOUCH));
-        }
-        if (p instanceof AddPlayerPacket pk) {
-            pk.setGameType(Optional.ofNullable(pk.getGameType()).orElse(GameType.DEFAULT));
-        }
-        if (p instanceof ModalFormResponsePacket pk) {
-            if (pk.getFormData() == null) {
-                pk.setFormData("null");
-            }
-        }
-        if (input < Bedrock_v766.CODEC.getProtocolVersion()) {
-            if (p instanceof ResourcePacksInfoPacket pk) {
-                pk.setWorldTemplateId(UUID.randomUUID());
-                pk.setWorldTemplateVersion("0.0.0");
-            }
-            if (p instanceof PlayerAuthInputPacket pk) {
-            }
-        }
-        if (input < Bedrock_v748.CODEC.getProtocolVersion()) {
-            if (p instanceof PlayerAuthInputPacket pk) {
-                pk.setInteractRotation(provider.createVector2f(0, 0));
-                pk.setCameraOrientation(provider.createVector3f(0, 0, 0));
-            }
-        }
+        val provider = new ImmutableVectorProvider();
+
         if (input < Bedrock_v729.CODEC.getProtocolVersion()) {
             if (p instanceof TransferPacket pk) {
                 pk.setReloadWorld(true);
@@ -312,37 +242,39 @@ public class Translate {
                     transaction.setTriggerType(ItemUseTransaction.TriggerType.PLAYER_INPUT);
                     transaction.setClientInteractPrediction(ItemUseTransaction.PredictedResult.SUCCESS);
                 }
-            } else if (p instanceof ItemStackRequestPacket pk) {
-                val newRequests = new ArrayList<ItemStackRequest>(pk.getRequests().size());
-                for (val req : pk.getRequests()) {
-                    val newActions = new ArrayList<ItemStackRequestAction>(pk.getRequests().size());
-                    val actions = req.getActions();
-                    for (val action : actions) {
-                        if (action instanceof TakeAction a) {
-                            newActions.add(new TakeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
-                        } else if (action instanceof ConsumeAction a) {
-                            newActions.add(new ConsumeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource())));
-                        } else if (action instanceof DestroyAction a) {
-                            newActions.add(new DestroyAction(a.getCount(), translateItemStackRequestSlotData(a.getSource())));
-                        } else if (action instanceof DropAction a) {
-                            newActions.add(new DropAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), a.isRandomly()));
-                        } else if (action instanceof PlaceAction a) {
-                            val newAct = new PlaceAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination()));
-                            // if (newAct.getSource().getContainerName().getContainer().equals(ContainerSlotType.CREATED_OUTPUT)) {
-                            //     newActions.add(new CraftCreativeAction(newAct.getSource().getContainerName().getContainer().ordinal(), 1));
-                            // }
-                            newActions.add(newAct);
-                        } else if (action instanceof SwapAction a) {
-                            newActions.add(new SwapAction(translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
-                        } else {
-                            newActions.add(action);
-                        }
-                    }
-                    newRequests.add(new ItemStackRequest(req.getRequestId(), newActions.toArray(new ItemStackRequestAction[0]), req.getFilterStrings()));
-                }
-                pk.getRequests().clear();
-                pk.getRequests().addAll(newRequests);
             }
+        }
+
+        if (p instanceof ItemStackRequestPacket pk) {
+            val newRequests = new ArrayList<ItemStackRequest>(pk.getRequests().size());
+            for (val req : pk.getRequests()) {
+                val newActions = new ArrayList<ItemStackRequestAction>(pk.getRequests().size());
+                val actions = req.getActions();
+                for (val action : actions) {
+                    if (action instanceof TakeAction a) {
+                        newActions.add(new TakeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
+                    } else if (action instanceof ConsumeAction a) {
+                        newActions.add(new ConsumeAction(a.getCount(), translateItemStackRequestSlotData(a.getSource())));
+                    } else if (action instanceof DestroyAction a) {
+                        newActions.add(new DestroyAction(a.getCount(), translateItemStackRequestSlotData(a.getSource())));
+                    } else if (action instanceof DropAction a) {
+                        newActions.add(new DropAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), a.isRandomly()));
+                    } else if (action instanceof PlaceAction a) {
+                        val newAct = new PlaceAction(a.getCount(), translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination()));
+                        // if (newAct.getSource().getContainerName().getContainer().equals(ContainerSlotType.CREATED_OUTPUT)) {
+                        //     newActions.add(new CraftCreativeAction(newAct.getSource().getContainerName().getContainer().ordinal(), 1));
+                        // }
+                        newActions.add(newAct);
+                    } else if (action instanceof SwapAction a) {
+                        newActions.add(new SwapAction(translateItemStackRequestSlotData(a.getSource()), translateItemStackRequestSlotData(a.getDestination())));
+                    } else {
+                        newActions.add(action);
+                    }
+                }
+                newRequests.add(new ItemStackRequest(req.getRequestId(), newActions.toArray(new ItemStackRequestAction[0]), req.getFilterStrings()));
+            }
+            pk.getRequests().clear();
+            pk.getRequests().addAll(newRequests);
         }
 
         rewriteAdventureSettings(input, output, fromServer, player, p, list);
@@ -424,42 +356,44 @@ public class Translate {
         }
     }
 
-    private static void rewritePlayerInput(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
-        if (input < Bedrock_v594.CODEC.getProtocolVersion()) {
-            if (p instanceof LevelSoundEventPacket pk) {
-                if (pk.getSound().equals(SoundEvent.ATTACK_NODAMAGE)) {
-                    player.pendingInput.add(PlayerAuthInputData.MISSED_SWING);
-                    list.clear();
-                }
-            }
-        }
+    public static void writeProtocolDefault(BedrockPacket p) {
+        val provider = new ImmutableVectorProvider();
+        if (p instanceof StartGamePacket pk) {
+            pk.setServerId(Optional.ofNullable(pk.getServerId()).orElse(""));
+            pk.setWorldId(Optional.ofNullable(pk.getWorldId()).orElse(""));
+            pk.setScenarioId(Optional.ofNullable(pk.getScenarioId()).orElse(""));
+            pk.setChatRestrictionLevel(Optional.ofNullable(pk.getChatRestrictionLevel()).orElse(ChatRestrictionLevel.NONE));
+            pk.setPlayerPropertyData(Optional.ofNullable(pk.getPlayerPropertyData()).orElse(NbtMap.EMPTY));
+            pk.setWorldTemplateId(Optional.ofNullable(pk.getWorldTemplateId()).orElse(UUID.randomUUID()));
 
-        if (p instanceof PlayerActionPacket pk) {
-            boolean processeed = true;
-            switch (pk.getAction()) {
-                case START_SPRINT -> player.pendingInput.add(PlayerAuthInputData.START_SPRINTING);
-                case STOP_SPRINT -> player.pendingInput.add(PlayerAuthInputData.STOP_SPRINTING);
-                case START_SNEAK -> player.pendingInput.add(PlayerAuthInputData.START_SNEAKING);
-                case STOP_SNEAK -> player.pendingInput.add(PlayerAuthInputData.STOP_SNEAKING);
-                case START_SWIMMING -> player.pendingInput.add(PlayerAuthInputData.START_SWIMMING);
-                case STOP_SWIMMING -> player.pendingInput.add(PlayerAuthInputData.STOP_SWIMMING);
-                case START_GLIDE -> player.pendingInput.add(PlayerAuthInputData.START_GLIDING);
-                case STOP_GLIDE -> player.pendingInput.add(PlayerAuthInputData.STOP_GLIDING);
-                case START_CRAWLING -> player.pendingInput.add(PlayerAuthInputData.START_CRAWLING);
-                case STOP_CRAWLING -> player.pendingInput.add(PlayerAuthInputData.STOP_CRAWLING);
-                case START_FLYING -> player.pendingInput.add(PlayerAuthInputData.START_FLYING);
-                case STOP_FLYING -> player.pendingInput.add(PlayerAuthInputData.STOP_FLYING);
-                case JUMP -> player.pendingInput.add(PlayerAuthInputData.START_JUMPING);
-                default -> processeed = false;
-            }
-            if (processeed) {
-                list.clear();
-            }
         }
         if (p instanceof PlayerAuthInputPacket pk) {
-            pk.getInputData().addAll(player.pendingInput);
-            player.pendingInput.clear();
+            pk.setDelta(Objects.requireNonNullElseGet(pk.getDelta(), () -> provider.createVector3f(0, 0, 0)));
+            pk.setMotion(Objects.requireNonNullElseGet(pk.getMotion(), () -> provider.createVector2f(0, 0)));
+            pk.setRawMoveVector(Objects.requireNonNullElseGet(pk.getRawMoveVector(), () -> provider.createVector2f(0, 0)));
+            pk.setInputMode(Objects.requireNonNullElse(pk.getInputMode(), InputMode.TOUCH));
+            pk.setPlayMode(Objects.requireNonNullElse(pk.getPlayMode(), ClientPlayMode.SCREEN));
+            pk.setInputInteractionModel(Objects.requireNonNullElse(pk.getInputInteractionModel(), InputInteractionModel.TOUCH));
+
+            pk.setInteractRotation(Objects.requireNonNullElseGet(pk.getInteractRotation(), () -> provider.createVector2f(0, 0)));
+            pk.setCameraOrientation(Objects.requireNonNullElseGet(pk.getCameraOrientation(), () -> provider.createVector3f(0, 0, 0)));
         }
+        if (p instanceof AddPlayerPacket pk) {
+            pk.setGameType(Optional.ofNullable(pk.getGameType()).orElse(GameType.DEFAULT));
+        }
+        if (p instanceof ModalFormResponsePacket pk) {
+            if (pk.getFormData() == null) {
+                pk.setFormData("null");
+            }
+        }
+        if (p instanceof ResourcePacksInfoPacket pk) {
+            pk.setWorldTemplateId(Objects.requireNonNullElseGet(pk.getWorldTemplateId(), UUID::randomUUID));
+            pk.setWorldTemplateVersion(Objects.requireNonNullElse(pk.getWorldTemplateVersion(), "0.0.0"));
+        }
+    }
+
+    private static void rewritePlayerInput(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
+
     }
 
     private static void rewriteAdventureSettings(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {

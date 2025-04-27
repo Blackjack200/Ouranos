@@ -1,11 +1,9 @@
 package com.github.blackjack200.ouranos.network.session.handler.downstream;
 
-import com.github.blackjack200.ouranos.network.session.DropPacketException;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 import org.cloudburstmc.protocol.bedrock.packet.DisconnectPacket;
-import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.TextPacket;
 import org.cloudburstmc.protocol.common.PacketSignal;
 
