@@ -27,14 +27,35 @@ import java.util.ArrayList;
 @Log4j2
 @UtilityClass
 public class TypeConverter {
+
+    public static final String POLYFILL_ITEM_TAG = "____Ouranos____";
+
     public ItemData translateItemData(int input, int output, ItemData itemData) {
         if (itemData.isNull() || !itemData.isValid()) {
             return itemData;
         }
+        if (itemData.getTag() != null) {
+            var polyfillData = itemData.getTag().getCompound(POLYFILL_ITEM_TAG);
+            if (polyfillData != NbtMap.EMPTY) {
+                var itemDict = ItemTypeDictionary.getInstance(polyfillData.getInt("Source"));
+                var builder = ItemData.builder()
+                        .definition(itemDict.getEntries().get(itemDict.fromIntId(polyfillData.getInt("ItemId"))).toDefinition(polyfillData.getString("StringId")))
+                        .tag(polyfillData.getCompound("Nbt"))
+                        .count(itemData.getCount())
+                        .damage(itemData.getDamage())
+                        .netId(itemData.getNetId())
+                        .canBreak(itemData.getCanBreak())
+                        .canPlace(itemData.getCanPlace())
+                        .blockingTicks(itemData.getBlockingTicks())
+                        .usingNetId(itemData.isUsingNetId());
+                if (polyfillData.containsKey("BlockId")) {
+                    builder.blockDefinition(new SimpleBlockDefinition(polyfillData.getInt("BlockId")));
+                }
+                return builder.build();
+            }
+        }
 
-        //downgrade item type
         var def = itemData.getDefinition();
-
         var state = BlockStateDictionary.getInstance(input).lookupStateIdFromIdMeta(def.getIdentifier(), itemData.getDamage());
 
         Object[] translatedIdMeta = new Object[]{def.getIdentifier(), itemData.getDamage()};
@@ -57,8 +78,23 @@ public class TypeConverter {
         var itemDict = ItemTypeDictionary.getInstance(output);
         var itemTypeInfo = itemDict.getEntries().getOrDefault(newStringId, null);
         if (itemTypeInfo == null) {
-            //log.error("Unknown glk type {}", newStringId);
-            return null;
+            var polyfillItem = ItemData.builder().netId(itemData.getNetId()).count(itemData.getCount()).damage(itemData.getDamage()).definition(ItemTypeDictionary.getInstance(output).getEntries().get("minecraft:barrier").toDefinition("minecraft:barrier"));
+            var polyfillData = NbtMap.builder()
+                    .putInt("Source", input)
+                    .putString("StringId", def.getIdentifier())
+                    .putInt("ItemId", def.getRuntimeId());
+            if (itemData.getBlockDefinition() != null) {
+                polyfillData.putInt("BlockId", itemData.getBlockDefinition().getRuntimeId());
+            }
+            if (itemData.getTag() != null) {
+                polyfillData.putCompound("Nbt", itemData.getTag());
+            }
+            polyfillItem.tag(NbtMap.builder()
+                    .putCompound("display", NbtMap.builder().putString("Name", def.getIdentifier()).build())
+                    .putCompound(POLYFILL_ITEM_TAG, polyfillData.build())
+                    .build()
+            );
+            return polyfillItem.build();
         }
 
         var builder = itemData.toBuilder();
@@ -249,17 +285,15 @@ public class TypeConverter {
 
         var translated = outputDict.toRuntimeId(stateHash);
         if (translated == null) {
-            var anyState = inputDict.lookupStateFromStateHash(stateHash);
-            if (anyState != null) {
-                Object[] translatedIdMeta = new Object[]{anyState.name(), anyState.meta()};
-                translatedIdMeta = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(translatedIdMeta[0].toString(), (Integer) translatedIdMeta[1]);
-                var skullHash = outputDict.lookupStateIdFromIdMeta(translatedIdMeta[0].toString(), (Integer) translatedIdMeta[1]);
-                if (skullHash != null) {
-                    Integer rtId = outputDict.toRuntimeId(skullHash.latestStateHash());
-                    if (rtId != null) {
-                        return rtId;
-                    }
-                }
+            var entry = inputDict.lookupStateFromStateHash(stateHash);
+            if (entry.name().contains("_head") || entry.name().contains("_skull")) {
+                entry = inputDict.lookupStateIdFromIdMeta("minecraft:skeleton_skull", entry.meta());
+            }
+            if (entry != null) {
+                translated = outputDict.toRuntimeId(entry.latestStateHash());
+            }
+            if (translated != null) {
+                return translated;
             }
             return outputDict.getFallbackRuntimeId();
         }
@@ -302,9 +336,6 @@ public class TypeConverter {
 
     public static CreativeItemData translateCreativeItemData(int input, int output, CreativeItemData itemData) {
         var item = translateItemData(input, output, itemData.getItem());
-        if (item == null) {
-            return null;
-        }
         return new CreativeItemData(item, itemData.getNetId(), itemData.getGroupId());
     }
 }
