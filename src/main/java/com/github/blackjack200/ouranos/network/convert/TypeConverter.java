@@ -14,6 +14,7 @@ import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
+import org.cloudburstmc.protocol.bedrock.codec.v361.Bedrock_v361;
 import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
@@ -140,6 +141,9 @@ public class TypeConverter {
             ReferenceCountUtil.release(subChunk);
         }
 
+        if (output < Bedrock_v361.CODEC.getProtocolVersion()) {
+            to.writeBytes(new byte[512]);
+        }
         var biomeBuf = rewriteBiomePalette(input, output, from, getDimensionChunkBounds(input, dimension), getDimensionChunkBounds(output, dimension));
         to.writeBytes(biomeBuf);
         ReferenceCountUtil.release(biomeBuf);

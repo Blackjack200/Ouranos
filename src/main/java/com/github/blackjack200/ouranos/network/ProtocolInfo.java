@@ -3,6 +3,8 @@ package com.github.blackjack200.ouranos.network;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v361.Bedrock_v361;
+import org.cloudburstmc.protocol.bedrock.codec.v388.Bedrock_v388;
 import org.cloudburstmc.protocol.bedrock.codec.v389.Bedrock_v389;
 import org.cloudburstmc.protocol.bedrock.codec.v390.Bedrock_v390;
 import org.cloudburstmc.protocol.bedrock.codec.v407.Bedrock_v407;
@@ -115,8 +117,8 @@ public final class ProtocolInfo {
         addPacketCodec(Bedrock_v390.CODEC, 11);
         addPacketCodec(Bedrock_v389.CODEC, 11);
 
-        // 1.13.0 untested
-        //addPacketCodec(Bedrock_v388.CODEC, 11);
+        // 1.13.0 merely playable
+        addPacketCodec(Bedrock_v388.CODEC, 11);
 
         // 1.12.0 crash
         //addPacketCodec(Bedrock_v361.CODEC, 11);
