@@ -120,8 +120,8 @@ public final class ProtocolInfo {
         // 1.13.0 merely playable
         addPacketCodec(Bedrock_v388.CODEC, 11);
 
-        // 1.12.0 crash
-        //addPacketCodec(Bedrock_v361.CODEC, 11);
+        // 1.12.0 merely playable
+        addPacketCodec(Bedrock_v361.CODEC, 11);
 
         // 1.11.0 not playable
         //addPacketCodec(Bedrock_v354.CODEC, 1);
