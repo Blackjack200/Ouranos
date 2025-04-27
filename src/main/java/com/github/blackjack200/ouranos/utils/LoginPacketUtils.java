@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.utils;
 
 
+import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.network.session.AuthData;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -52,6 +53,7 @@ public class LoginPacketUtils {
         return signedJWT.serialize();
     }
 
+    @SneakyThrows
     public static String writeClientData(KeyPair pair, OuranosProxySession player, AuthData identityData, JSONObject clientData, boolean login_extra) {
         String publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
 
@@ -77,10 +79,33 @@ public class LoginPacketUtils {
         }
         clientData.putIfAbsent("IsEditorMode", false);
         clientData.putIfAbsent("SkinGeometryDataEngineVersion", "");
+        clientData.putIfAbsent("ArmSize", "wide");
+        clientData.putIfAbsent("CapeId", "");
+        clientData.putIfAbsent("CapeImageHeight", 0);
+        clientData.putIfAbsent("CapeImageWidth", 0);
+        clientData.putIfAbsent("CapeOnClassicSkin", true);
+        clientData.putIfAbsent("PersonaPieces", List.of());
+        clientData.putIfAbsent("PieceTintColors", List.of());
+        clientData.putIfAbsent("PersonaSkin", false);
+        clientData.putIfAbsent("SkinAnimationData", "");
+        clientData.putIfAbsent("SkinColor", "#b37b62");
+
+        try (var stream = Ouranos.class.getClassLoader().getResourceAsStream("default_skin_geometry.json")) {
+            clientData.putIfAbsent("SkinGeometryData", Base64.getEncoder().encodeToString(Objects.requireNonNull(stream).readAllBytes()));
+        }
+        try (var stream = Ouranos.class.getClassLoader().getResourceAsStream("default_skin_resource_patch.json")) {
+            clientData.putIfAbsent("SkinResourcePatch", Base64.getEncoder().encodeToString(Objects.requireNonNull(stream).readAllBytes()));
+        }
+
+        clientData.putIfAbsent("SkinImageHeight", 64);
+        clientData.putIfAbsent("SkinImageWidth", 64);
+
+
+        clientData.remove("SkinGeometryName");
+        clientData.remove("SkinGeometry");
 
         //TODO AnimatedImageData rewrite
         clientData.put("AnimatedImageData", List.of());
-        clientData.putIfAbsent("PlayFabId", "");
         clientData.putIfAbsent("PlayFabId", "");
 
 

@@ -5,7 +5,6 @@ import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
-import com.github.blackjack200.ouranos.network.convert.R12ToCurrentBlockMap;
 import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
@@ -131,7 +130,7 @@ public class Ouranos {
         var boostrap = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
-                .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, ProtocolInfo.getPacketCodecs().stream().mapToInt(BedrockCodec::getRaknetProtocolVersion).distinct().toArray())
+                .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[]{11, 10, 9})
                 .group(this.bossGroup, this.workerGroup)
                 .childHandler(new BedrockChannelInitializer<ProxyServerSession>() {
                     @Override
