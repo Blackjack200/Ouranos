@@ -1,28 +1,35 @@
 package com.github.blackjack200.ouranos.network.session;
 
 import cn.hutool.core.collection.ConcurrentHashSet;
+import com.github.blackjack200.ouranos.network.session.translate.MovementData;
+import io.netty.util.concurrent.ScheduledFuture;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
-import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
+import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 
 import java.security.KeyPair;
-import java.util.ArrayList;
+import java.util.List;
 
 @Log4j2
 public class OuranosProxySession {
     public static ConcurrentHashSet<OuranosProxySession> ouranosPlayers = new ConcurrentHashSet<>();
     public final ProxyClientSession upstream;
     public final ProxyServerSession downstream;
+    private ScheduledFuture<?> fut;
     public boolean blockNetworkIdAreHashes = false;
     @Getter
     private final KeyPair keyPair;
     public int lastFormId = -1;
     public long uniqueEntityId;
     public long runtimeEntityId;
-    public ArrayList<PlayerAuthInputData> pendingInput = new ArrayList<>(16);
+    public MovementData input = new MovementData();
     public AuthData identity;
+
+    public List<BedrockPacket> tickMovement() {
+        return List.of(this.input.tick(this.getUpstreamProtocolId(), this.upstream));
+    }
 
     public OuranosProxySession(KeyPair keyPair, ProxyClientSession upstreamSession, ProxyServerSession downstreamSession) {
         this.keyPair = keyPair;
@@ -60,6 +67,10 @@ public class OuranosProxySession {
         this.upstream.setPacketHandler(null);
         this.downstream.setPacketRedirect(null);
         this.upstream.setPacketRedirect(null);
+        if (this.fut != null) {
+            this.fut.cancel(true);
+            this.fut = null;
+        }
         if (this.downstream.isConnected()) {
             if (OuranosProxySession.ouranosPlayers.contains(this)) {
                 String name = "";

@@ -134,7 +134,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                 ReferenceCountUtil.touch(pk);
                 if (session.downstream.isConnected()) {
                     if (session.downstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
-                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket)) {
+                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelEventPacket) && !(pk instanceof UpdateSoftEnumPacket) && !(pk instanceof SetTimePacket) && !(packet instanceof UpdateAttributesPacket)) {
                             log.debug("S->C {}", pk.getClass());
                         }
                         session.downstream.sendPacket(pk);

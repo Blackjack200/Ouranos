@@ -15,6 +15,7 @@ import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
+import org.cloudburstmc.protocol.bedrock.codec.v419.Bedrock_v419;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
@@ -41,6 +42,8 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescripto
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequestSlotData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.*;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.response.ItemStackResponse;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.response.ItemStackResponseStatus;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryActionData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.packet.*;
@@ -224,6 +227,16 @@ public class Translate {
                 list.add(newPk);
             }
         }
+        if (p instanceof ItemStackResponsePacket pk) {
+            var translated = pk.getEntries().stream().map((entry) -> {
+                if (input >= Bedrock_v419.CODEC.getProtocolVersion() && output < Bedrock_v419.CODEC.getProtocolVersion()) {
+                    return new ItemStackResponse(entry.getResult().equals(ItemStackResponseStatus.OK), entry.getRequestId(), entry.getContainers());
+                }
+                return entry;
+            }).toList();
+            pk.getEntries().clear();
+            pk.getEntries().addAll(translated);
+        }
         val provider = new ImmutableVectorProvider();
 
         if (input < Bedrock_v729.CODEC.getProtocolVersion()) {
@@ -372,8 +385,9 @@ public class Translate {
             pk.setMotion(Objects.requireNonNullElseGet(pk.getMotion(), () -> provider.createVector2f(0, 0)));
             pk.setRawMoveVector(Objects.requireNonNullElseGet(pk.getRawMoveVector(), () -> provider.createVector2f(0, 0)));
             pk.setInputMode(Objects.requireNonNullElse(pk.getInputMode(), InputMode.TOUCH));
-            pk.setPlayMode(Objects.requireNonNullElse(pk.getPlayMode(), ClientPlayMode.SCREEN));
+            pk.setPlayMode(Objects.requireNonNullElse(pk.getPlayMode(), ClientPlayMode.NORMAL));
             pk.setInputInteractionModel(Objects.requireNonNullElse(pk.getInputInteractionModel(), InputInteractionModel.TOUCH));
+            pk.setAnalogMoveVector(Objects.requireNonNullElse(pk.getAnalogMoveVector(), provider.createVector2f(0, 0)));
 
             pk.setInteractRotation(Objects.requireNonNullElseGet(pk.getInteractRotation(), () -> provider.createVector2f(0, 0)));
             pk.setCameraOrientation(Objects.requireNonNullElseGet(pk.getCameraOrientation(), () -> provider.createVector3f(0, 0, 0)));
