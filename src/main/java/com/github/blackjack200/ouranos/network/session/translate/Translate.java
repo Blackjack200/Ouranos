@@ -36,7 +36,10 @@ import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
-import org.cloudburstmc.protocol.bedrock.data.inventory.*;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
+import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemGroup;
+import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.*;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescriptorWithCount;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
@@ -67,14 +70,13 @@ public class Translate {
         var list = new HashSet<BedrockPacket>();
         list.add(p);
 
-        rewriteItem(input, output, p, list);
         rewriteProtocol(input, output, fromServer, player, p, list);
-        MovementTranslator.rewriteMovement(input, output, fromServer, player, p, list);
-        rewriteChunk(input, output, player, p, list);
-        if (p instanceof LevelChunkPacket) {
-            //list.clear();
-        }
+        rewriteItem(input, output, p, list);
         rewriteBlock(input, output, player, p, list);
+        rewriteChunk(input, output, player, p, list);
+
+        MovementTranslator.rewriteMovement(input, output, fromServer, player, p, list);
+        InventoryTranslator.rewriteInventory(input, output, fromServer, player, p, list);
         if (output >= Bedrock_v554.CODEC.getProtocolVersion()) {
             list.removeIf((b) -> b instanceof AdventureSettingsPacket);
         }
@@ -87,7 +89,7 @@ public class Translate {
     private static void rewriteItem(int input, int output, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof InventoryContentPacket pk) {
             val contents = new ArrayList<>(pk.getContents());
-            contents.replaceAll(itemData -> Objects.requireNonNullElse(TypeConverter.translateItemData(input, output, itemData), ItemData.AIR));
+            contents.replaceAll(itemData -> TypeConverter.translateItemData(input, output, itemData));
             pk.setContents(contents);
         } else if (p instanceof CraftingDataPacket pk) {
            /* var newCraftingData = new ArrayList<RecipeData>(pk.getCraftingData().size());

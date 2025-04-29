@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.network.session;
 
 import cn.hutool.core.collection.ConcurrentHashSet;
+import com.github.blackjack200.ouranos.network.session.translate.InventoryData;
 import com.github.blackjack200.ouranos.network.session.translate.MovementData;
 import io.netty.util.concurrent.ScheduledFuture;
 import lombok.Getter;
@@ -24,11 +25,12 @@ public class OuranosProxySession {
     public int lastFormId = -1;
     public long uniqueEntityId;
     public long runtimeEntityId;
-    public MovementData input = new MovementData();
+    public MovementData movement = new MovementData();
+    public InventoryData inventory = new InventoryData();
     public AuthData identity;
 
     public List<BedrockPacket> tickMovement() {
-        return List.of(this.input.tick(this.getUpstreamProtocolId(), this.upstream));
+        return List.of(this.movement.tick(this.getUpstreamProtocolId(), this.upstream));
     }
 
     public OuranosProxySession(KeyPair keyPair, ProxyClientSession upstreamSession, ProxyServerSession downstreamSession) {

@@ -47,32 +47,26 @@ public class MovementTranslator {
         var outputAuthoritative = output >= Bedrock_v388.CODEC.getProtocolVersion();
         if (outputAuthoritative) {
             if (p instanceof MovePlayerPacket pk) {
-                player.input.position = pk.getPosition();
-                player.input.rotation = pk.getRotation();
-                list.clear();
-                list.addAll(player.tickMovement());
-            } else if (p instanceof InventoryTransactionPacket pk) {
-                //log.info(pk);
-            } else if (p instanceof ItemStackRequestPacket pk) {
-                player.input.requests.addAll(pk.getRequests());
+                player.movement.position = pk.getPosition();
+                player.movement.rotation = pk.getRotation();
                 list.clear();
                 list.addAll(player.tickMovement());
             } else if (p instanceof PlayerActionPacket pk) {
                 boolean processeed = true;
                 switch (pk.getAction()) {
-                    case START_SPRINT -> player.input.inputs.add(PlayerAuthInputData.START_SPRINTING);
-                    case STOP_SPRINT -> player.input.inputs.add(PlayerAuthInputData.STOP_SPRINTING);
-                    case START_SNEAK -> player.input.inputs.add(PlayerAuthInputData.START_SNEAKING);
-                    case STOP_SNEAK -> player.input.inputs.add(PlayerAuthInputData.STOP_SNEAKING);
-                    case START_SWIMMING -> player.input.inputs.add(PlayerAuthInputData.START_SWIMMING);
-                    case STOP_SWIMMING -> player.input.inputs.add(PlayerAuthInputData.STOP_SWIMMING);
-                    case START_GLIDE -> player.input.inputs.add(PlayerAuthInputData.START_GLIDING);
-                    case STOP_GLIDE -> player.input.inputs.add(PlayerAuthInputData.STOP_GLIDING);
-                    case START_CRAWLING -> player.input.inputs.add(PlayerAuthInputData.START_CRAWLING);
-                    case STOP_CRAWLING -> player.input.inputs.add(PlayerAuthInputData.STOP_CRAWLING);
-                    case START_FLYING -> player.input.inputs.add(PlayerAuthInputData.START_FLYING);
-                    case STOP_FLYING -> player.input.inputs.add(PlayerAuthInputData.STOP_FLYING);
-                    case JUMP -> player.input.inputs.add(PlayerAuthInputData.START_JUMPING);
+                    case START_SPRINT -> player.movement.inputs.add(PlayerAuthInputData.START_SPRINTING);
+                    case STOP_SPRINT -> player.movement.inputs.add(PlayerAuthInputData.STOP_SPRINTING);
+                    case START_SNEAK -> player.movement.inputs.add(PlayerAuthInputData.START_SNEAKING);
+                    case STOP_SNEAK -> player.movement.inputs.add(PlayerAuthInputData.STOP_SNEAKING);
+                    case START_SWIMMING -> player.movement.inputs.add(PlayerAuthInputData.START_SWIMMING);
+                    case STOP_SWIMMING -> player.movement.inputs.add(PlayerAuthInputData.STOP_SWIMMING);
+                    case START_GLIDE -> player.movement.inputs.add(PlayerAuthInputData.START_GLIDING);
+                    case STOP_GLIDE -> player.movement.inputs.add(PlayerAuthInputData.STOP_GLIDING);
+                    case START_CRAWLING -> player.movement.inputs.add(PlayerAuthInputData.START_CRAWLING);
+                    case STOP_CRAWLING -> player.movement.inputs.add(PlayerAuthInputData.STOP_CRAWLING);
+                    case START_FLYING -> player.movement.inputs.add(PlayerAuthInputData.START_FLYING);
+                    case STOP_FLYING -> player.movement.inputs.add(PlayerAuthInputData.STOP_FLYING);
+                    case JUMP -> player.movement.inputs.add(PlayerAuthInputData.START_JUMPING);
                     default -> processeed = false;
                 }
                 if (processeed) {
@@ -84,7 +78,7 @@ public class MovementTranslator {
             if (input < Bedrock_v594.CODEC.getProtocolVersion()) {
                 if (p instanceof LevelSoundEventPacket pk) {
                     if (pk.getSound().equals(SoundEvent.ATTACK_NODAMAGE)) {
-                        player.input.inputs.add(PlayerAuthInputData.MISSED_SWING);
+                        player.movement.inputs.add(PlayerAuthInputData.MISSED_SWING);
                         list.clear();
                         list.addAll(player.tickMovement());
                     }
@@ -93,16 +87,16 @@ public class MovementTranslator {
         }
 
         if (p instanceof PlayerAuthInputPacket pk) {
-            player.input.position = pk.getPosition();
-            player.input.rotation = pk.getRotation();
-            player.input.inputs.addAll(pk.getInputData());
+            player.movement.position = pk.getPosition();
+            player.movement.rotation = pk.getRotation();
+            player.movement.inputs.addAll(pk.getInputData());
             if (pk.getItemStackRequest() != null) {
-                player.input.requests.add(pk.getItemStackRequest());
+                player.movement.requests.add(pk.getItemStackRequest());
             }
             if (pk.getItemStackRequest() != null) {
-                player.input.transactions.add(pk.getItemUseTransaction());
+                player.movement.transactions.add(pk.getItemUseTransaction());
             }
-            player.input.blocks.addAll(pk.getPlayerActions());
+            player.movement.blocks.addAll(pk.getPlayerActions());
             list.clear();
             list.addAll(player.tickMovement());
         }

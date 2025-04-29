@@ -48,7 +48,8 @@ public class TypeConverter {
                         .canBreak(itemData.getCanBreak())
                         .canPlace(itemData.getCanPlace())
                         .blockingTicks(itemData.getBlockingTicks())
-                        .usingNetId(itemData.isUsingNetId());
+                        .usingNetId(polyfillData.getBoolean("UsingNetId"))
+                        .netId(polyfillData.getInt("NetId"));
                 if (polyfillData.containsKey("BlockId")) {
                     builder.blockDefinition(new SimpleBlockDefinition(polyfillData.getInt("BlockId")));
                 }
@@ -82,6 +83,9 @@ public class TypeConverter {
             var polyfillItem = ItemData.builder().netId(itemData.getNetId()).count(itemData.getCount()).damage(itemData.getDamage()).definition(ItemTypeDictionary.getInstance(output).getEntries().get("minecraft:barrier").toDefinition("minecraft:barrier"));
             var polyfillData = NbtMap.builder()
                     .putInt("Source", input)
+                    .putString("StringId", def.getIdentifier())
+                    .putBoolean("UsingNetId", itemData.isUsingNetId())
+                    .putInt("NetId", itemData.getNetId())
                     .putString("StringId", def.getIdentifier())
                     .putInt("ItemId", def.getRuntimeId());
             if (itemData.getBlockDefinition() != null) {
