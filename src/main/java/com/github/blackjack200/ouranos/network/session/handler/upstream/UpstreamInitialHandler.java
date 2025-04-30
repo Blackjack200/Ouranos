@@ -117,7 +117,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                 ReferenceCountUtil.touch(pk);
                 if (session.upstream.isConnected()) {
                     if (session.upstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
-                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket)) {
+                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(packet instanceof NetworkStackLatencyPacket)) {
                             log.debug("C->S {}", pk.getClass());
                         }
                         session.upstream.sendPacket(pk);
@@ -134,7 +134,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                 ReferenceCountUtil.touch(pk);
                 if (session.downstream.isConnected()) {
                     if (session.downstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
-                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelEventPacket) && !(pk instanceof UpdateSoftEnumPacket) && !(pk instanceof SetTimePacket) && !(packet instanceof UpdateAttributesPacket)) {
+                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelEventPacket) && !(pk instanceof UpdateSoftEnumPacket) && !(pk instanceof SetTimePacket) && !(packet instanceof UpdateAttributesPacket) && !(packet instanceof NetworkStackLatencyPacket) && !(packet instanceof SetScorePacket)) {
                             log.debug("S->C {}", pk.getClass());
                         }
                         session.downstream.sendPacket(pk);

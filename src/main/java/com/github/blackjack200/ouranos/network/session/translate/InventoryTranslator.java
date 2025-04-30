@@ -8,6 +8,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemSt
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequestSlotData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.ItemStackRequestAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.SwapAction;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.TakeAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.response.ItemStackResponseStatus;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventorySource;
 import org.cloudburstmc.protocol.bedrock.packet.*;
@@ -25,6 +26,8 @@ public class InventoryTranslator {
             return;
         }
         if (p instanceof InventoryTransactionPacket pk) {
+            //log.debug(pk);
+            //log.info(pk.getActions().size());
             if (pk.getActions().size() == 1) {
                 var a = pk.getActions().get(0);
                 //TODO
@@ -39,17 +42,60 @@ public class InventoryTranslator {
                 if (a.getSource().getType() == InventorySource.Type.CONTAINER && b.getSource().getType() == InventorySource.Type.CONTAINER) {
                     var aOld = player.inventory.inventories.get(a.getSource().getContainerId()).get(a.getSlot());
                     var bOld = player.inventory.inventories.get(b.getSource().getContainerId()).get(b.getSlot());
-                    newPk.getRequests().add(new ItemStackRequest(114514, new ItemStackRequestAction[]{
-                            new SwapAction(
-                                    new ItemStackRequestSlotData(aInv, a.getSlot(), aOld.getNetId(), new FullContainerName(aInv, 0)),
-                                    new ItemStackRequestSlotData(bInv, b.getSlot(), bOld.getNetId(), new FullContainerName(bInv, 0))
-                            )
-                    }, new String[]{}));
 
-                    player.inventory.xa.put(114514, () -> {
-                        player.inventory.inventories.get(a.getSource().getContainerId()).set(a.getSlot(), bOld);
-                        player.inventory.inventories.get(b.getSource().getContainerId()).set(b.getSlot(), aOld);
-                    });
+                    //log.info(aOld);
+                    //log.info(bOld);
+                    //log.info("from slot: {} to slot: {}", aOld.getDefinition());
+                    if ((!aOld.isNull() && bOld.isNull()) || (!aOld.isNull() && !bOld.isNull() && aOld.getDefinition().equals(bOld.getDefinition()))) {
+                        var from = new ItemStackRequestSlotData(aInv, a.getSlot(), aOld.getNetId(), new FullContainerName(aInv, 0));
+                        var fromInv = a.getSource().getContainerId();
+                        var fromSlot = a.getSlot();
+                        var to = new ItemStackRequestSlotData(bInv, b.getSlot(), bOld.getNetId(), new FullContainerName(bInv, 0));
+                        var toInv = b.getSource().getContainerId();
+                        var toSlot = b.getSlot();
+                        log.info("merge? from slot: {} to slot: {}", fromSlot, toSlot);
+                        var count = Math.abs(aOld.getCount() - a.getToItem().getCount());
+                        log.info("acount={}->{}", aOld.getCount(), a.getToItem().getCount());
+                        log.info("bcount={}->{}", bOld.getCount(), b.getToItem().getCount());
+                        if (aOld.getCount() < a.getToItem().getCount()) {
+                            var temp = from;
+                            from = to;
+                            to = temp;
+                            var temp2 = fromInv;
+                            fromInv = toInv;
+                            toInv = temp2;
+                            var temp3 = toSlot;
+                            toSlot = fromSlot;
+                            fromSlot = temp3;
+                        }
+                        newPk.getRequests().add(new ItemStackRequest(11451419, new ItemStackRequestAction[]{new TakeAction(count, from, to)}, new String[]{}));
+                        int finalFromInv = fromInv;
+                        int finalToInv = toInv;
+                        int finalToSlot = toSlot;
+                        int finalFromSlot = fromSlot;
+                        player.inventory.xa.put(11451419, (slots) -> {
+                            player.inventory.inventories.get(finalFromInv).set(finalFromSlot, aOld.toBuilder().count(aOld.getCount() - count).build());
+                            player.inventory.inventories.get(finalToInv).set(finalToSlot, aOld.toBuilder().count(count).build());
+                            for (var slot : slots) {
+                                var id = parseContainerId(slot.getContainerName().getContainer());
+                                var container = player.inventory.inventories.get(id);
+                                for (var item : slot.getItems()) {
+                                    container.set(item.getSlot(), container.get(item.getSlot()).toBuilder().usingNetId(true).netId(item.getStackNetworkId()).build());
+                                }
+                            }
+                        });
+                    } else {
+                        newPk.getRequests().add(new ItemStackRequest(114514, new ItemStackRequestAction[]{
+                                new SwapAction(
+                                        new ItemStackRequestSlotData(aInv, a.getSlot(), aOld.getNetId(), new FullContainerName(aInv, 0)),
+                                        new ItemStackRequestSlotData(bInv, b.getSlot(), bOld.getNetId(), new FullContainerName(bInv, 0))
+                                )
+                        }, new String[]{}));
+                        player.inventory.xa.put(114514, (slots) -> {
+                            player.inventory.inventories.get(a.getSource().getContainerId()).set(a.getSlot(), bOld);
+                            player.inventory.inventories.get(b.getSource().getContainerId()).set(b.getSlot(), aOld);
+                        });
+                    }
 
                     list.clear();
                     list.add(newPk);
@@ -82,7 +128,7 @@ public class InventoryTranslator {
                 player.inventory.xa.remove(entry.getRequestId());
                 if (entry.getResult() == ItemStackResponseStatus.OK) {
                     if (xa != null) {
-                        xa.run();
+                        xa.accept(entry.getContainers());
                     }
                 } else {
                     player.inventory.inventories.forEach((containerId, contents) -> {
@@ -121,5 +167,31 @@ public class InventoryTranslator {
                 log.error("Unknown container id: {}", containerId);
         }
         return ContainerSlotType.UNKNOWN;
+    }
+
+    private static int parseContainerId(ContainerSlotType containerId) {
+        switch (containerId) {
+            case UNKNOWN:
+                return ContainerId.NONE;
+            case INVENTORY:
+                return ContainerId.INVENTORY;
+            case HOTBAR:
+                return ContainerId.HOTBAR;
+            case ARMOR:
+                return ContainerId.ARMOR;
+            case OFFHAND:
+                return ContainerId.OFFHAND;
+            case CURSOR:
+                return ContainerId.UI;
+            case BEACON_PAYMENT:
+                return ContainerId.BEACON;
+            case ENCHANTING_INPUT:
+                return ContainerId.ENCHANT_INPUT;
+            case ENCHANTING_MATERIAL:
+                return ContainerId.ENCHANT_OUTPUT;
+            default:
+                log.error("Unknown container id: {}", containerId);
+        }
+        return ContainerSlotType.UNKNOWN.ordinal();
     }
 }
