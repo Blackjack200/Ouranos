@@ -19,9 +19,9 @@ public class BlockDictionaryRegistry implements DefinitionRegistry<BlockDefiniti
         val hash = entry.toLatestStateHash(runtimeId);
         val states = entry.lookupStateFromStateHash(hash);
         if (states == null) {
-            return entry::getFallbackRuntimeId;
+            return null;
         }
-        return new SimpleBlockDefinition(states.name(), runtimeId, states.rawState().getCompound("states"));
+        return new SimpleBlockDefinition(states.name(), runtimeId, states.rawState());
     }
 
     @Override

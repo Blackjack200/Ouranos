@@ -28,98 +28,55 @@ import java.util.ArrayList;
 @Log4j2
 @UtilityClass
 public class TypeConverter {
-
-    public static final String POLYFILL_ITEM_TAG = "____Ouranos____";
-
     public ItemData translateItemData(int input, int output, ItemData itemData) {
         if (itemData.isNull() || !itemData.isValid()) {
             return itemData;
         }
+
         if (itemData.getTag() != null) {
-            var polyfillData = itemData.getTag().getCompound(POLYFILL_ITEM_TAG);
-            if (polyfillData != NbtMap.EMPTY) {
-                var itemDict = ItemTypeDictionary.getInstance(polyfillData.getInt("Source"));
-                var builder = ItemData.builder()
-                        .definition(itemDict.getEntries().get(itemDict.fromIntId(polyfillData.getInt("ItemId"))).toDefinition(polyfillData.getString("StringId")))
-                        .tag(polyfillData.getCompound("Nbt"))
-                        .count(itemData.getCount())
-                        .damage(itemData.getDamage())
-                        .netId(itemData.getNetId())
-                        .canBreak(itemData.getCanBreak())
-                        .canPlace(itemData.getCanPlace())
-                        .blockingTicks(itemData.getBlockingTicks())
-                        .usingNetId(polyfillData.getBoolean("UsingNetId"))
-                        .netId(polyfillData.getInt("NetId"));
-                if (polyfillData.containsKey("BlockId")) {
-                    builder.blockDefinition(new SimpleBlockDefinition(polyfillData.getInt("BlockId")));
-                }
-                return builder.build();
+            var polyfill = ItemTranslator.recoverPolyfillItem(itemData);
+            if (polyfill != null) {
+                return polyfill;
             }
         }
 
         var def = itemData.getDefinition();
-        var state = BlockStateDictionary.getInstance(input).lookupStateIdFromIdMeta(def.getIdentifier(), itemData.getDamage());
-
-        Object[] translatedIdMeta = new Object[]{def.getIdentifier(), itemData.getDamage()};
-
-        if (state != null) {
-            var cur = BlockStateDictionary.getInstance(output);
-            var oldState = cur.lookupStateFromStateHash(state.latestStateHash());
-            if (oldState != null) {
-                translatedIdMeta = new Object[]{oldState.name(), oldState.meta()};
-            }
-        }
-
-        translatedIdMeta = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(translatedIdMeta[0].toString(), (Integer) translatedIdMeta[1]);
-        translatedIdMeta = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(translatedIdMeta[0].toString(), (Integer) translatedIdMeta[1]);
-
-        String newStringId = translatedIdMeta[0].toString();
-        var newMeta = (Integer) translatedIdMeta[1];
-        //log.info("old_id={}:{} new_id={}:{}", itemData.getDefinition().getIdentifier(), itemData.getDamage(), newStringId, newMeta);
-
-        var itemDict = ItemTypeDictionary.getInstance(output);
-        var itemTypeInfo = itemDict.getEntries().getOrDefault(newStringId, null);
-        if (itemTypeInfo == null) {
-            var polyfillItem = ItemData.builder().netId(itemData.getNetId()).count(itemData.getCount()).damage(itemData.getDamage()).definition(ItemTypeDictionary.getInstance(output).getEntries().get("minecraft:barrier").toDefinition("minecraft:barrier"));
-            var polyfillData = NbtMap.builder()
-                    .putInt("Source", input)
-                    .putString("StringId", def.getIdentifier())
-                    .putBoolean("UsingNetId", itemData.isUsingNetId())
-                    .putInt("NetId", itemData.getNetId())
-                    .putString("StringId", def.getIdentifier())
-                    .putInt("ItemId", def.getRuntimeId());
-            if (itemData.getBlockDefinition() != null) {
-                polyfillData.putInt("BlockId", itemData.getBlockDefinition().getRuntimeId());
-            }
-            if (itemData.getTag() != null) {
-                polyfillData.putCompound("Nbt", itemData.getTag());
-            }
-            polyfillItem.tag(NbtMap.builder()
-                    .putCompound("display", NbtMap.builder().putString("Name", def.getIdentifier()).build())
-                    .putCompound(POLYFILL_ITEM_TAG, polyfillData.build())
-                    .build()
-            );
-            return polyfillItem.build();
-        }
-
         var builder = itemData.toBuilder();
-        builder.definition(itemTypeInfo.toDefinition(newStringId))
-                .damage(newMeta);
+
+        var translatedId = def.getIdentifier();
+        var translatedMeta = itemData.getDamage();
+
+        var rawData = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(translatedId, translatedMeta);
+        translatedId = rawData[0].toString();
+        translatedMeta = (Integer) rawData[1];
+
+        rawData = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(translatedId, translatedMeta);
+        translatedId = rawData[0].toString();
+        translatedMeta = (Integer) rawData[1];
 
         if (itemData.getBlockDefinition() != null) {
-            if (itemData.getBlockDefinition().getRuntimeId() > 0) {
-                var outputDict = BlockStateDictionary.getInstance(output);
-                var blkInfo = BlockStateDictionary.getInstance(input).toBlockState(itemData.getBlockDefinition().getRuntimeId());
-                if (blkInfo != null) {
-                    var x = outputDict.lookupStateFromStateHash(blkInfo.latestStateHash());
-                    if (x != null) {
-                        builder.blockDefinition(new org.cloudburstmc.protocol.bedrock.data.definitions.SimpleBlockDefinition(x.name(), outputDict.toRuntimeId(x.latestStateHash()), x.rawState()));
-                    }
-                } else {
-                    builder.blockDefinition(new SimpleBlockDefinition(outputDict.getFallbackRuntimeId()));
-                }
+            var inputDict = BlockStateDictionary.getInstance(input);
+            var outputDict = BlockStateDictionary.getInstance(output);
+
+            var inputState = inputDict.lookupStateFromStateHash(inputDict.toLatestStateHash(itemData.getBlockDefinition().getRuntimeId()));
+
+            var outputState = outputDict.lookupStateFromStateHash(inputState.latestStateHash());
+            if (outputState != null) {
+                builder.blockDefinition(new org.cloudburstmc.protocol.bedrock.data.definitions.SimpleBlockDefinition(outputState.name(), outputDict.toRuntimeId(outputState.latestStateHash()), outputState.rawState()));
+            } else {
+                builder.blockDefinition(null);
             }
         }
+
+        //log.info("old_id={}:{} new_id={}:{}", itemData.getDefinition().getIdentifier(), itemData.getDamage(), translatedId, translatedMeta);
+
+        var itemDict = ItemTypeDictionary.getInstance(output);
+        var itemTypeInfo = itemDict.getEntries().getOrDefault(translatedId, null);
+        if (itemTypeInfo == null) {
+            return ItemTranslator.makePolyfillItem(input, output, itemData);
+        }
+        builder.definition(itemTypeInfo.toDefinition(translatedId))
+                .damage(translatedMeta);
         return builder.build();
     }
 
