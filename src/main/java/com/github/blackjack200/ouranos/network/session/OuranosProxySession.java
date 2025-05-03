@@ -81,10 +81,18 @@ public class OuranosProxySession {
                 }
                 log.info("{}[{}] disconnected due to {}", name, this.downstream.getPeer().getSocketAddress(), reason);
             }
-            this.downstream.disconnect(reason, hideReason);
+            try {
+                this.downstream.disconnect(reason, hideReason);
+            } catch (Throwable e) {
+                log.error(e);
+            }
         }
         if (this.upstream.isConnected()) {
-            this.upstream.disconnect(reason, hideReason);
+            try {
+                this.upstream.disconnect(reason, hideReason);
+            } catch (Throwable e) {
+                log.error(e);
+            }
         }
         OuranosProxySession.ouranosPlayers.remove(this);
     }
