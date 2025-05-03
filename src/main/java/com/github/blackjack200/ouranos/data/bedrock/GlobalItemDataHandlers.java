@@ -1,12 +1,9 @@
 package com.github.blackjack200.ouranos.data.bedrock;
 
-import com.github.blackjack200.ouranos.data.LegacyItemIdToStringIdMap;
-import com.github.blackjack200.ouranos.data.bedrock.item.BlockItemIdMap;
 import com.github.blackjack200.ouranos.data.bedrock.item.downgrade.ItemIdMetaDowngrader;
 import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.ItemDataUpgrader;
 import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.ItemIdMetaUpgradeSchemaUtils;
 import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.ItemIdMetaUpgrader;
-import com.github.blackjack200.ouranos.data.bedrock.item.upgrade.R12ItemIdToBlockIdMap;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import lombok.SneakyThrows;
 
@@ -23,12 +20,8 @@ public final class GlobalItemDataHandlers {
     public static ItemDataUpgrader getUpgrader() {
         if (itemDataUpgrader == null) {
             itemDataUpgrader = new ItemDataUpgrader(
-                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas("schema/id_meta_upgrade_schema", 1 << 30).values()),
-                    LegacyItemIdToStringIdMap.getInstance(),
-                    R12ItemIdToBlockIdMap.getInstance(),
-                    BlockItemIdMap.getInstance()
+                    new ItemIdMetaUpgrader(ItemIdMetaUpgradeSchemaUtils.loadSchemas("schema/id_meta_upgrade_schema", 1 << 30).values())
             );
-
         }
         return itemDataUpgrader;
     }
