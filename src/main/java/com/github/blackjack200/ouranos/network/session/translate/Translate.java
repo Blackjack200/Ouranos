@@ -219,7 +219,7 @@ public class Translate {
     }
 
     private static void rewriteProtocol(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
-        writeProtocolDefault(p);
+        writeProtocolDefault(player, p);
         if (p instanceof StartGamePacket pk) {
             if (output >= Bedrock_v776.CODEC.getProtocolVersion()) {
                 var newPk = new ItemComponentPacket();
@@ -371,7 +371,7 @@ public class Translate {
         }
     }
 
-    public static void writeProtocolDefault(BedrockPacket p) {
+    public static void writeProtocolDefault(OuranosProxySession session, BedrockPacket p) {
         val provider = new ImmutableVectorProvider();
         if (p instanceof StartGamePacket pk) {
             pk.setServerId(Optional.ofNullable(pk.getServerId()).orElse(""));
@@ -386,7 +386,7 @@ public class Translate {
             pk.setDelta(Objects.requireNonNullElseGet(pk.getDelta(), () -> provider.createVector3f(0, 0, 0)));
             pk.setMotion(Objects.requireNonNullElseGet(pk.getMotion(), () -> provider.createVector2f(0, 0)));
             pk.setRawMoveVector(Objects.requireNonNullElseGet(pk.getRawMoveVector(), () -> provider.createVector2f(0, 0)));
-            pk.setInputMode(Objects.requireNonNullElse(pk.getInputMode(), InputMode.TOUCH));
+            pk.setInputMode(Objects.requireNonNullElse(pk.getInputMode(), session.movement.inputMode));
             pk.setPlayMode(Objects.requireNonNullElse(pk.getPlayMode(), ClientPlayMode.NORMAL));
             pk.setInputInteractionModel(Objects.requireNonNullElse(pk.getInputInteractionModel(), InputInteractionModel.TOUCH));
             pk.setAnalogMoveVector(Objects.requireNonNullElse(pk.getAnalogMoveVector(), provider.createVector2f(0, 0)));

@@ -1,7 +1,8 @@
 package com.github.blackjack200.ouranos.network.session.translate;
 
-import com.github.blackjack200.ouranos.network.session.ProxyClientSession;
+import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.protocol.bedrock.data.InputMode;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.PlayerBlockActionData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
@@ -19,9 +20,11 @@ public class MovementData {
     public Queue<ItemUseTransaction> transactions = new ArrayDeque<>(16);
     public Queue<ItemStackRequest> requests = new ArrayDeque<>(16);
     public Queue<PlayerBlockActionData> blocks = new ArrayDeque<>(16);
+    public InputMode inputMode = InputMode.UNDEFINED;
 
-    public PlayerAuthInputPacket tick(int upstreamProtocolId, ProxyClientSession upstream) {
+    public PlayerAuthInputPacket tick(int upstreamProtocolId, OuranosProxySession player) {
         var input = new PlayerAuthInputPacket();
+        input.setInputMode(inputMode);
         input.setPosition(position);
         input.setRotation(rotation);
         input.getInputData().addAll(inputs);
@@ -41,7 +44,7 @@ public class MovementData {
             input.getPlayerActions().addAll(blocks);
             blocks.clear();
         }
-        Translate.writeProtocolDefault(input);
+        Translate.writeProtocolDefault(player, input);
         return input;
     }
 }

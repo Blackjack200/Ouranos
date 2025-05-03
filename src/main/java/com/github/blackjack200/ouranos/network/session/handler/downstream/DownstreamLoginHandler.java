@@ -17,6 +17,7 @@ import lombok.val;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
+import org.cloudburstmc.protocol.bedrock.data.InputMode;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
@@ -76,6 +77,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
                         upstream.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
 
                         val session = new OuranosProxySession(keyPair, upstream, downstream);
+                        session.movement.inputMode = InputMode.from(Integer.parseInt(clientData.get("CurrentInputMode").toString()));
 
                         val downstreamProtocolId = downstream.getCodec().getProtocolVersion();
                         val upstreamProtocolId = upstream.getCodec().getProtocolVersion();

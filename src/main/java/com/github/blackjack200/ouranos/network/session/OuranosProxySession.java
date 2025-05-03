@@ -30,7 +30,7 @@ public class OuranosProxySession {
     public AuthData identity;
 
     public List<BedrockPacket> tickMovement() {
-        return List.of(this.movement.tick(this.getUpstreamProtocolId(), this.upstream));
+        return List.of(this.movement.tick(this.getUpstreamProtocolId(), this));
     }
 
     public OuranosProxySession(KeyPair keyPair, ProxyClientSession upstreamSession, ProxyServerSession downstreamSession) {
