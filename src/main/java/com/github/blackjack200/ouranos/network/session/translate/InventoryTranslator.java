@@ -53,10 +53,10 @@ public class InventoryTranslator {
                         var to = new ItemStackRequestSlotData(bInv, b.getSlot(), bOld.getNetId(), new FullContainerName(bInv, 0));
                         var toInv = b.getSource().getContainerId();
                         var toSlot = b.getSlot();
-                        log.info("merge? from slot: {} to slot: {}", fromSlot, toSlot);
+                        log.debug("merge? from slot: {} to slot: {}", fromSlot, toSlot);
                         var count = Math.abs(aOld.getCount() - a.getToItem().getCount());
-                        log.info("acount={}->{}", aOld.getCount(), a.getToItem().getCount());
-                        log.info("bcount={}->{}", bOld.getCount(), b.getToItem().getCount());
+                        log.debug("acount={}->{}", aOld.getCount(), a.getToItem().getCount());
+                        log.debug("bcount={}->{}", bOld.getCount(), b.getToItem().getCount());
                         if (aOld.getCount() < a.getToItem().getCount()) {
                             var temp = from;
                             from = to;
