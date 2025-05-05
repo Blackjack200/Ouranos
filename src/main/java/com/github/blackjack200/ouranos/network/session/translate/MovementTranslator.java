@@ -85,6 +85,21 @@ public class MovementTranslator {
                 }
             }
         }
+
+        if (p instanceof PlayerAuthInputPacket pk) {
+            player.movement.position = pk.getPosition();
+            player.movement.rotation = pk.getRotation();
+            player.movement.inputs.addAll(pk.getInputData());
+            if (pk.getItemStackRequest() != null) {
+                player.movement.requests.add(pk.getItemStackRequest());
+            }
+            if (pk.getItemUseTransaction() != null) {
+                player.movement.transactions.add(pk.getItemUseTransaction());
+            }
+            player.movement.blocks.addAll(pk.getPlayerActions());
+            list.clear();
+            list.addAll(player.tickMovement());
+        }
     }
 
     private static ItemUseTransaction convertItemUseTx(InventoryTransactionPacket pk) {
