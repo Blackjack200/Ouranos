@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 @Log4j2
 public class InventoryTranslator {
     public static void rewriteInventory(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
-        if (input >= Bedrock_v407.CODEC.getProtocolVersion()) {
+        if (player.getDownstreamProtocolId() >= Bedrock_v407.CODEC.getProtocolVersion()) {
             return;
         }
         if (fromServer) {
