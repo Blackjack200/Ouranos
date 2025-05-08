@@ -28,6 +28,10 @@ public class OuranosProxySession {
     public MovementData movement = new MovementData();
     public InventoryData inventory = new InventoryData();
     public AuthData identity;
+    @Getter
+    private int downstreamProtocolId;
+    @Getter
+    private int upstreamProtocolId;
 
     public List<BedrockPacket> tickMovement() {
         return List.of(this.movement.tick(this.getUpstreamProtocolId(), this));
@@ -40,14 +44,8 @@ public class OuranosProxySession {
         OuranosProxySession.ouranosPlayers.add(this);
         this.downstream.addDisconnectListener(this::disconnect);
         this.upstream.addDisconnectListener(this::disconnect);
-    }
-
-    public int getUpstreamProtocolId() {
-        return this.upstream.getCodec().getProtocolVersion();
-    }
-
-    public int getDownstreamProtocolId() {
-        return this.downstream.getCodec().getProtocolVersion();
+        this.downstreamProtocolId = this.downstream.getCodec().getProtocolVersion();
+        this.upstreamProtocolId = this.upstream.getCodec().getProtocolVersion();
     }
 
     public void setUpstreamHandler(BedrockPacketHandler handler) {
@@ -57,7 +55,6 @@ public class OuranosProxySession {
     public void setDownstreamHandler(BedrockPacketHandler handler) {
         this.downstream.setPacketHandler(handler);
     }
-
 
     public boolean isAlive() {
         return this.upstream.getCodec() != null && this.downstream.getCodec() != null && this.upstream.isConnected() && this.downstream.isConnected();
