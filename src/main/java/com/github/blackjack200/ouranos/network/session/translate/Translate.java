@@ -4,6 +4,7 @@ import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.ChunkRewriteException;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.convert.TypeConverter;
+import com.github.blackjack200.ouranos.network.convert.biome.BiomeDefinitionRegistry;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.AbstractByteBufAllocator;
@@ -32,6 +33,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v685.Bedrock_v685;
 import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
+import org.cloudburstmc.protocol.bedrock.codec.v800.Bedrock_v800;
 import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
@@ -373,9 +375,18 @@ public class Translate {
                 }
             }
         }
-        if (p instanceof BiomeDefinitionListPacket pk) {
+        if (p instanceof BiomeDefinitionListPacket pk && output >= Bedrock_v800.CODEC.getProtocolVersion()) {
             //TODO fix biome for v800
-            pk.setBiomes(Objects.requireNonNullElseGet(pk.getBiomes(), () -> new BiomeDefinitions(new HashMap<>())));
+            if (pk.getBiomes() == null && pk.getDefinitions() != null) {
+                BiomeDefinitions defs = new BiomeDefinitions(new HashMap<>());
+                pk.getDefinitions().forEach((id, n) -> {
+                    var def = BiomeDefinitionRegistry.getInstance(input).fromStringId(id);
+                    if (def != null) {
+                        defs.getDefinitions().put(id, def);
+                    }
+                });
+                pk.setBiomes(defs);
+            }
         }
     }
 
