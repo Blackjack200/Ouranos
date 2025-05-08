@@ -51,7 +51,9 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryAct
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 import java.util.function.BiFunction;
 
 @Log4j2
@@ -364,6 +366,7 @@ public class Translate {
         }
         if (p instanceof PlayerListPacket pk) {
             for (var e : pk.getEntries()) {
+                e.setColor(Objects.requireNonNullElse(e.getColor(), Color.WHITE));
                 if (e.getSkin() != null) {
                     e.setSkin(e.getSkin().toBuilder().geometryDataEngineVersion(ProtocolInfo.getPacketCodec(output).getMinecraftVersion()).build());
                 }
