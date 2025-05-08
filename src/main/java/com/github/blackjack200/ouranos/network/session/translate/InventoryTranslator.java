@@ -22,6 +22,9 @@ import java.util.stream.Collectors;
 @Log4j2
 public class InventoryTranslator {
     public static void rewriteInventory(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
+        if (input >= Bedrock_v407.CODEC.getProtocolVersion()) {
+            return;
+        }
         if (fromServer) {
             handleServerside(input, output, player, p, list);
             return;
@@ -166,7 +169,7 @@ public class InventoryTranslator {
         switch (containerId) {
             case UNKNOWN:
                 return ContainerId.NONE;
-            case INVENTORY, HOTBAR:
+            case INVENTORY, HOTBAR, HOTBAR_AND_INVENTORY:
                 return ContainerId.INVENTORY;
             case ARMOR:
                 return ContainerId.ARMOR;
