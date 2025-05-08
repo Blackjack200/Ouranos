@@ -33,6 +33,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v712.Bedrock_v712;
 import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.*;
+import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
@@ -371,6 +372,10 @@ public class Translate {
                     e.setSkin(e.getSkin().toBuilder().geometryDataEngineVersion(ProtocolInfo.getPacketCodec(output).getMinecraftVersion()).build());
                 }
             }
+        }
+        if (p instanceof BiomeDefinitionListPacket pk) {
+            //TODO fix biome for v800
+            pk.setBiomes(Objects.requireNonNullElseGet(pk.getBiomes(), () -> new BiomeDefinitions(new HashMap<>())));
         }
     }
 
