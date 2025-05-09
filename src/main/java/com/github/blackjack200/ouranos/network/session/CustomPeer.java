@@ -33,7 +33,7 @@ public class CustomPeer extends BedrockPeer {
                         .filter(element -> element.getCause() == null)
                         .findFirst()
                         .orElse(cause);
-                log.error("Exception in CustomPeer.exceptionCaught {}", rootCause.getLocalizedMessage());
+                log.error("Exception in CustomPeer.exceptionCaught", rootCause);
                 ctx.close();
             }
         });
