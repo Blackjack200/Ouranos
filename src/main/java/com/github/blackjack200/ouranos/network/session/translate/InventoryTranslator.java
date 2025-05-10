@@ -105,10 +105,18 @@ public class InventoryTranslator {
             player.inventory.inventories.put(pk.getContainerId(), new ArrayList<>(pk.getContents()));
         } else if (p instanceof InventorySlotPacket pk) {
             player.inventory.inventories.putIfAbsent(pk.getContainerId(), new ArrayList<>());
-            player.inventory.inventories.get(pk.getContainerId()).set(pk.getSlot(), pk.getItem());
+            var inv = player.inventory.inventories.get(pk.getContainerId());
+            while (inv.size() <= pk.getSlot()) {
+                inv.add(ItemData.AIR);
+            }
+            inv.set(pk.getSlot(), pk.getItem());
         } else if (p instanceof MobEquipmentPacket pk) {
             player.inventory.inventories.putIfAbsent(pk.getContainerId(), new ArrayList<>());
-            player.inventory.inventories.get(pk.getContainerId()).set(pk.getInventorySlot(), pk.getItem());
+            var inv = player.inventory.inventories.get(pk.getContainerId());
+            while (inv.size() < pk.getInventorySlot()) {
+                inv.add(ItemData.AIR);
+            }
+            inv.set(pk.getInventorySlot(), pk.getItem());
         } else if (p instanceof ItemStackResponsePacket pk) {
             for (var entry : pk.getEntries()) {
                 var xa = player.inventory.xa.get(entry.getRequestId());

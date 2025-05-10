@@ -15,6 +15,7 @@ import lombok.val;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 import org.cloudburstmc.protocol.bedrock.codec.v361.Bedrock_v361;
+import org.cloudburstmc.protocol.bedrock.codec.v431.Bedrock_v431;
 import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
@@ -67,8 +68,6 @@ public class TypeConverter {
                 builder.blockDefinition(null);
             }
         }
-
-        //log.info("old_id={}:{} new_id={}:{}", itemData.getDefinition().getIdentifier(), itemData.getDamage(), translatedId, translatedMeta);
 
         var itemDict = ItemTypeDictionary.getInstance(output);
         var itemTypeInfo = itemDict.getEntries().getOrDefault(translatedId, null);
