@@ -123,4 +123,11 @@ public class LoginPacketUtils {
             throw new RuntimeException(e);
         }
     }
+
+    public static void validateClientData(JSONObject clientData) {
+        var geometryData = Base64.getDecoder().decode(clientData.getOrDefault("SkinGeometryData", "").toString());
+        if (geometryData.length > 1024 * 256) {
+            throw new RuntimeException("Skin geometry data is too long");
+        }
+    }
 }

@@ -113,6 +113,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
     @SneakyThrows
     private LoginPacket assembleLoginPacket(OuranosProxySession session) {
         var newClientData = LoginPacketUtils.writeClientData(this.keyPair, session, this.identityData, this.clientData, Ouranos.getOuranos().getConfig().login_extra);
+        LoginPacketUtils.validateClientData(this.clientData);
         var newLogin = new LoginPacket();
         if (System.getenv("USE_XBOX") != null) {
             var x = new Xbox(accessToken);
