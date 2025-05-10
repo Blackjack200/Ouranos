@@ -254,6 +254,8 @@ public class Ouranos {
             val player = iter.next();
             iter.remove();
             player.disconnect("Ouranos closed.");
+            player.upstream.getPeer().getChannel().closeFuture().syncUninterruptibly();
+            player.downstream.getPeer().getChannel().closeFuture().syncUninterruptibly();
         }
 
         this.bossGroup.shutdownGracefully(SHUTDOWN_QUIET_PERIOD_MS, SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS).sync();
