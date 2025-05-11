@@ -375,17 +375,32 @@ public class Translate {
                 }
             }
         }
-        if (p instanceof BiomeDefinitionListPacket pk && output >= Bedrock_v800.CODEC.getProtocolVersion()) {
+        if (p instanceof BiomeDefinitionListPacket pk) {
             //TODO fix biome for v800
-            if (pk.getBiomes() == null && pk.getDefinitions() != null) {
-                BiomeDefinitions defs = new BiomeDefinitions(new HashMap<>());
-                pk.getDefinitions().forEach((id, n) -> {
-                    var def = BiomeDefinitionRegistry.getInstance(input).fromStringId(id);
-                    if (def != null) {
-                        defs.getDefinitions().put(id, def);
-                    }
-                });
-                pk.setBiomes(defs);
+            if (output >= Bedrock_v800.CODEC.getProtocolVersion()) {
+                if (pk.getBiomes() == null && pk.getDefinitions() != null) {
+                    BiomeDefinitions defs = new BiomeDefinitions(new HashMap<>());
+                    pk.getDefinitions().forEach((id, n) -> {
+                        var def = BiomeDefinitionRegistry.getInstance(input).fromStringId(id);
+                        if (def != null) {
+                            defs.getDefinitions().put(id, def);
+                        }
+                    });
+                    pk.setBiomes(defs);
+                }
+            } else {
+                if (pk.getBiomes() != null && pk.getDefinitions() == null) {
+                    var builder = NbtMap.builder();
+                    pk.getBiomes().getDefinitions().forEach((id, def) -> {
+                        var d = NbtMap.builder();
+                        d.putString("name_hash", id);
+                        d.putFloat("temperature", def.getTemperature());
+                        d.putFloat("downfall", def.getDownfall());
+                        d.putBoolean("rain", def.isRain());
+                        builder.putCompound(id, d.build());
+                    });
+                    pk.setDefinitions(builder.build());
+                }
             }
         }
     }
