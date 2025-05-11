@@ -1,6 +1,8 @@
 package com.github.blackjack200.ouranos.network.session.handler.upstream;
 
 import com.github.blackjack200.ouranos.Ouranos;
+import com.github.blackjack200.ouranos.data.LegacyBlockIdToStringIdMap;
+import com.github.blackjack200.ouranos.data.bedrock.GlobalBlockDataHandlers;
 import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.DropPacketException;
@@ -15,6 +17,7 @@ import lombok.val;
 import org.cloudburstmc.nbt.NbtList;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtType;
+import org.cloudburstmc.protocol.bedrock.codec.v361.Bedrock_v361;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
@@ -33,6 +36,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Log4j2
@@ -160,7 +165,19 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         List<ItemDefinition> def = ItemTypeDictionary.getInstance(downstreamProtocolId).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
         pk.setItemDefinitions(def);
         if (downstreamProtocolId <= Bedrock_v408.CODEC.getProtocolVersion()) {
-            pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, BlockStateDictionary.getInstance(downstreamProtocolId).getKnownStates().stream().map((e) -> NbtMap.builder().putCompound("block", e.rawState()).build()).toList()));
+            if (downstreamProtocolId > Bedrock_v361.CODEC.getProtocolVersion()) {
+                pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, BlockStateDictionary.getInstance(downstreamProtocolId).getKnownStates().stream().map((e) -> NbtMap.builder().putCompound("block", e.rawState()).build()).toList()));
+            } else {
+                pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, BlockStateDictionary.getInstance(downstreamProtocolId).getKnownStates().stream().map((e) -> {
+                    var blk = GlobalBlockDataHandlers.getUpgrader().fromLatestStateHash(e.latestStateHash());
+                    return NbtMap.builder().putCompound("block", NbtMap.fromMap(
+                            Map.of(
+                                    "name", blk.id(),
+                                    "meta", (short) blk.meta(),
+                                    "id", (short) (Objects.requireNonNullElse(LegacyBlockIdToStringIdMap.getInstance().fromString(downstreamProtocolId, e.name()), 255) & 0xfffffff)
+                            ))).build();
+                }).toList()));
+            }
         }
 
         this.session.upstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(upstreamProtocolId));

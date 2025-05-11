@@ -40,7 +40,7 @@ public final class R12ItemIdToBlockIdMap {
 
     private static R12ItemIdToBlockIdMap make() {
         try {
-            val schemaPath = Ouranos.class.getClassLoader().getResource("block_legacy_id_map.json");
+            val schemaPath = Ouranos.class.getClassLoader().getResource("block_schema/block_legacy_id_map.json");
             if (schemaPath == null) {
                 throw new RuntimeException("Unable to find block_legacy_id_map.json");
             }

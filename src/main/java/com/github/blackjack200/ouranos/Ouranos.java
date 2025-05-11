@@ -123,7 +123,7 @@ public class Ouranos {
         CompletableFuture.runAsync(GlobalItemDataHandlers::getUpgrader);
 
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
-
+        BlockStateDictionary.getInstance(361);
         var boostrap = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
