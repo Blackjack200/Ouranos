@@ -35,6 +35,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v729.Bedrock_v729;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.codec.v800.Bedrock_v800;
 import org.cloudburstmc.protocol.bedrock.data.*;
+import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
@@ -390,19 +391,27 @@ public class Translate {
                 }
             } else {
                 if (pk.getBiomes() != null && pk.getDefinitions() == null) {
-                    var builder = NbtMap.builder();
-                    pk.getBiomes().getDefinitions().forEach((id, def) -> {
-                        var d = NbtMap.builder();
-                        d.putString("name_hash", id);
-                        d.putFloat("temperature", def.getTemperature());
-                        d.putFloat("downfall", def.getDownfall());
-                        d.putBoolean("rain", def.isRain());
-                        builder.putCompound(id, d.build());
-                    });
-                    pk.setDefinitions(builder.build());
+                    pk.setDefinitions(downgradeBiomeDefinition(output, pk.getBiomes().getDefinitions()));
                 }
             }
         }
+    }
+
+    private static NbtMap downgradeBiomeDefinition(int output, Map<String, BiomeDefinitionData> definitions) {
+        var builder = NbtMap.builder();
+        if (definitions.isEmpty()) {
+            definitions = BiomeDefinitionRegistry.getInstance(output).getEntries();
+        }
+        definitions.forEach((id, def) -> {
+            var d = NbtMap.builder();
+            d.putString("name_hash", id);
+            d.putFloat("temperature", def.getTemperature());
+            d.putFloat("downfall", def.getDownfall());
+            d.putBoolean("rain", def.isRain());
+            builder.putCompound(id, d.build());
+        });
+        NbtMap build = builder.build();
+        return build;
     }
 
     public static void writeProtocolDefault(OuranosProxySession session, BedrockPacket p) {
