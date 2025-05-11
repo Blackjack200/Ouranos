@@ -25,7 +25,6 @@ public final class BlockStateDictionary extends AbstractMapping {
     public static final class Dictionary {
         private final Map<Integer, BlockEntry> latestStateHashToEntry;
         private final Map<Integer, Integer> latestStateHashToCurrent;
-        private final Map<String, Map<Integer, BlockEntry>> latestStateHashToMetaToEntry;
         private final Map<Integer, Integer> latestStateHashToRuntimeId;
         private final Map<Integer, Integer> runtimeToLatestStateHash;
         @Getter
@@ -39,7 +38,6 @@ public final class BlockStateDictionary extends AbstractMapping {
             this.knownStates = states.values().stream().toList();
             this.latestStateHashToEntry = new Int2ObjectRBTreeMap<>();
             this.latestStateHashToCurrent = new Int2ObjectRBTreeMap<>();
-            this.latestStateHashToMetaToEntry = new HashMap<>();
             this.latestStateHashToRuntimeId = new Int2ObjectRBTreeMap<>();
             this.runtimeToLatestStateHash = new Int2ObjectRBTreeMap<>();
 
@@ -63,9 +61,6 @@ public final class BlockStateDictionary extends AbstractMapping {
         private void register(int runtimeId, BlockEntry entry) {
             this.latestStateHashToEntry.put(entry.latestStateHash, entry);
             this.latestStateHashToCurrent.put(entry.latestStateHash, entry.currentStateHash);
-
-            this.latestStateHashToMetaToEntry.computeIfAbsent(entry.name, k -> new Int2ObjectRBTreeMap<>());
-            this.latestStateHashToMetaToEntry.get(entry.name).put(entry.meta, entry);
 
             this.latestStateHashToRuntimeId.put(entry.latestStateHash, runtimeId);
             this.runtimeToLatestStateHash.put(runtimeId, entry.latestStateHash);
@@ -106,35 +101,15 @@ public final class BlockStateDictionary extends AbstractMapping {
             return this.latestStateHashToEntry.get(stateHash);
         }
 
-        /**
-         * Searches for the appropriate state which matches the given blockstate ID and meta value.
-         *
-         * @param id   the blockstate ID.
-         * @param meta the blockstate meta value.
-         * @return the state ID or null if no match.
-         */
-        public BlockEntry lookupStateIdFromIdMeta(String id, int meta) {
-            if (!latestStateHashToMetaToEntry.containsKey(id)) {
-                return null;
-            }
-            if (!latestStateHashToMetaToEntry.get(id).containsKey(meta)) {
-                return null;
-            }
-            return latestStateHashToMetaToEntry.get(id).get(meta);
-        }
-
-        public record BlockEntry(String name, String newName, int meta, NbtMap rawState, int latestStateHash,
+        public record BlockEntry(String name, String newName, NbtMap rawState, int latestStateHash,
                                  int currentStateHash) {
         }
 
         @SneakyThrows
         private static Dictionary load(int protocolId) {
             var block_state = open(lookupAvailableFile("canonical_block_states.nbt", protocolId));
-            var meta_map = new Gson().fromJson(new InputStreamReader(open(lookupAvailableFile("block_state_meta_map.json", protocolId))), new TypeToken<List<Integer>>() {
-            });
             var reader = NbtUtils.createNetworkReader(block_state);
             var list = new Int2ObjectRBTreeMap<BlockEntry>();
-            int i = 0;
             while (block_state.available() > 0) {
                 var rawTag = reader.readTag();
                 if (rawTag instanceof NbtList<?> rawList) {
@@ -143,18 +118,13 @@ public final class BlockStateDictionary extends AbstractMapping {
                         var rawState = (NbtMap) entry.get("block");
                         var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
                         var latestStateHash = HashUtils.computeBlockStateHash(state);
-                        list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), 0, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
+                        list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
                     }
                 } else if (rawTag instanceof NbtMap rawState) {
                     //TODO HACK! blame on BlockStateUpdaters
                     var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
                     var latestStateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
-                    var meta = meta_map.get(i);
-                    if (meta == null) {
-                        throw new RuntimeException("Missing associated meta value for state " + i + " (" + state + ")");
-                    }
-                    list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), meta, rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
-                    i++;
+                    list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
                 }
             }
             return new Dictionary(list);

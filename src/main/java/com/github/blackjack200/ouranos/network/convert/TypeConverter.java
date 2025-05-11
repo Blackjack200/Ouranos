@@ -249,16 +249,6 @@ public class TypeConverter {
 
         var translated = outputDict.toRuntimeId(stateHash);
         if (translated == null) {
-            var entry = inputDict.lookupStateFromStateHash(stateHash);
-            if (entry.name().contains("_head") || entry.name().contains("_skull")) {
-                entry = inputDict.lookupStateIdFromIdMeta("minecraft:skeleton_skull", entry.meta());
-            }
-            if (entry != null) {
-                translated = outputDict.toRuntimeId(entry.latestStateHash());
-            }
-            if (translated != null) {
-                return translated;
-            }
             return outputDict.getFallbackRuntimeId();
         }
         return translated;
