@@ -47,6 +47,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemGroup;
 import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.*;
+import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.InvalidDescriptor;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescriptorWithCount;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequestSlotData;
@@ -100,25 +101,17 @@ public class Translate {
             contents.replaceAll(itemData -> TypeConverter.translateItemData(input, output, itemData));
             pk.setContents(contents);
         } else if (p instanceof CraftingDataPacket pk) {
-           /* var newCraftingData = new ArrayList<RecipeData>(pk.getCraftingData().size());
+            var newCraftingData = new ArrayList<RecipeData>(pk.getCraftingData().size());
             for (var d : pk.getCraftingData()) {
                 try {
                     newCraftingData.add(translateRecipeData(input, output, d));
-                } catch (NullPointerException e) {
-                    e.printStackTrace();
+                }catch (RuntimeException e) {
+                    log.error("translate recipe data error", e);
                 }
             }
-           // pk.getCraftingData().clear();
-           // pk.getCraftingData().addAll(newCraftingData);
-           // pk.getContainerMixData().clear();
-           // pk.getMaterialReducers().clear();
-           // pk.getPotionMixData().clear();
-             pk.setCleanRecipes(true);*/
-            pk.getPotionMixData().clear();
-            pk.getMaterialReducers().clear();
             pk.getCraftingData().clear();
-            pk.getContainerMixData().clear();
-            pk.setCleanRecipes(true);
+            pk.getCraftingData().addAll(newCraftingData);
+            pk.setCleanRecipes(false);
         } else if (p instanceof CreativeContentPacket pk) {
             val contents = new ArrayList<CreativeItemData>();
             for (int i = 0, iMax = pk.getContents().size(); i < iMax; i++) {
@@ -175,7 +168,7 @@ public class Translate {
 
     private static RecipeData translateRecipeData(int input, int output, RecipeData d) {
         if (d instanceof ShapelessRecipeData da) {
-            var newIngredients = da.getIngredients().stream().map((i) -> translateItemDescriptorWithCount(input, output, i)).filter(Objects::nonNull).toList();
+            var newIngredients = da.getIngredients().stream().map((i) -> translateItemDescriptorWithCount(input, output, i)).toList();
             da.getIngredients().clear();
             da.getIngredients().addAll(newIngredients);
             var newResults = da.getResults().stream().map((i) -> TypeConverter.translateItemData(input, output, i)).filter(Objects::nonNull).toList();
@@ -188,7 +181,7 @@ public class Translate {
         } else if (d instanceof MultiRecipeData da) {
             return da;
         } else if (d instanceof ShapedRecipeData da) {
-            var newIngredients = da.getIngredients().stream().map((i) -> translateItemDescriptorWithCount(input, output, i)).filter(Objects::nonNull).toList();
+            var newIngredients = da.getIngredients().stream().map((i) -> translateItemDescriptorWithCount(input, output, i)).toList();
             da.getIngredients().clear();
             da.getIngredients().addAll(newIngredients);
             var newResults = da.getResults().stream().map((i) -> TypeConverter.translateItemData(input, output, i)).filter(Objects::nonNull).toList();
@@ -219,10 +212,10 @@ public class Translate {
     }
 
     private static ItemDescriptorWithCount translateItemDescriptorWithCount(int input, int output, ItemDescriptorWithCount i) {
-        var descriptor = TypeConverter.translateItemDescriptor(input, output, i.getDescriptor());
-        if (descriptor == null) {
-            return null;
+        if (i.getDescriptor() == InvalidDescriptor.INSTANCE){
+            return ItemDescriptorWithCount.EMPTY;
         }
+        var descriptor = TypeConverter.translateItemDescriptor(input, output, i.getDescriptor());
         return new ItemDescriptorWithCount(descriptor, i.getCount());
     }
 

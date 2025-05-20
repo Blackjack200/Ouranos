@@ -3,6 +3,7 @@ package com.github.blackjack200.ouranos.network.convert;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.convert.palette.Palette;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
+import com.github.blackjack200.ouranos.utils.SimpleVersionedItemDefinition;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufInputStream;
@@ -18,11 +19,16 @@ import org.cloudburstmc.protocol.bedrock.codec.v361.Bedrock_v361;
 import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
+import org.cloudburstmc.protocol.bedrock.codec.v554.Bedrock_v554;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
-import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ItemVersion;
+import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ComplexAliasDescriptor;
+import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.DefaultDescriptor;
+import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescriptor;
+import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemTagDescriptor;
 
 import java.util.ArrayList;
 
@@ -271,29 +277,28 @@ public class TypeConverter {
             return d;
         } else if (descriptor instanceof DefaultDescriptor d) {
             var itemData = translateItemData(input, output, ItemData.builder().count(1).damage(d.getAuxValue()).definition(d.getItemId()).build());
-            if (itemData == null) {
-                return InvalidDescriptor.INSTANCE;
+            int aux = itemData.getDamage();
+            if (d.getAuxValue() == 32767) {
+                aux = 32767;
             }
-            return new DefaultDescriptor(itemData.getDefinition(), itemData.getDamage());
-        } else if (descriptor instanceof DeferredDescriptor d) {
-            var newData = GlobalItemDataHandlers.getUpgrader().idMetaUpgrader().upgrade(d.getFullName(), d.getAuxValue());
-            var downgraded = GlobalItemDataHandlers.getItemIdMetaDowngrader(output).downgrade(newData[0].toString(), (Integer) newData[1]);
-            var newStringId = downgraded[0].toString();
-            var newMeta = (Integer) downgraded[1];
-            var typ = ItemTypeDictionary.getInstance(output).getEntries().get(newStringId);
-            //TODO
-            return new DefaultDescriptor(typ.toDefinition(newStringId), newMeta);
-        } else if (descriptor instanceof InvalidDescriptor d) {
-            //noop
+            log.info("aux {} => {}", d.getAuxValue(), aux);
+            return new DefaultDescriptor(itemData.getDefinition(), aux);
         } else if (descriptor instanceof ItemTagDescriptor d) {
-            //TODO
-            return d;
-        } else if (descriptor instanceof MolangDescriptor d) {
+            if (output < Bedrock_v554.CODEC.getProtocolVersion()) {
+                Integer runtimeId = ItemTypeDictionary.getInstance(output).fromStringId(d.getItemTag());
+                if (runtimeId == null) {
+                    log.error("unknown descriptor {}", descriptor);
+                    throw new RuntimeException("unknown descriptor");
+                }
+                var def = new SimpleVersionedItemDefinition(d.getItemTag(), runtimeId, ItemVersion.LEGACY, false, NbtMap.EMPTY);
+                //log.info("{} => {}", d, def);
+                throw new RuntimeException("unknown descriptor");
+            }
             //TODO
             return d;
         }
-        //log.error("unknown descriptor {}", descriptor);
-        return InvalidDescriptor.INSTANCE;
+        log.error("unknown descriptor {}", descriptor);
+        throw new RuntimeException("unknown descriptor");
     }
 
     public static CreativeItemData translateCreativeItemData(int input, int output, CreativeItemData itemData) {
