@@ -166,15 +166,20 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         pk.setItemDefinitions(def);
         if (downstreamProtocolId <= Bedrock_v408.CODEC.getProtocolVersion()) {
             if (downstreamProtocolId > Bedrock_v361.CODEC.getProtocolVersion()) {
-                pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, BlockStateDictionary.getInstance(downstreamProtocolId).getKnownStates().stream().map((e) -> NbtMap.builder().putCompound("block", e.rawState()).build()).toList()));
+                var states = BlockStateDictionary.getInstance(downstreamProtocolId).getKnownStates().stream().map((e) -> {
+                    var legacyId = (short) (Objects.requireNonNullElse(LegacyBlockIdToStringIdMap.getInstance().fromString(downstreamProtocolId, e.name()), 255) & 0xfffffff);
+                    return NbtMap.builder().putCompound("block", e.rawState()).putShort("id", legacyId).build();
+                }).toList();
+                pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, states));
             } else {
                 pk.setBlockPalette(new NbtList<>(NbtType.COMPOUND, BlockStateDictionary.getInstance(downstreamProtocolId).getKnownStates().stream().map((e) -> {
                     var blk = GlobalBlockDataHandlers.getUpgrader().fromLatestStateHash(e.latestStateHash());
+                    var legacyId = (short) (Objects.requireNonNullElse(LegacyBlockIdToStringIdMap.getInstance().fromString(downstreamProtocolId, e.name()), 255) & 0xfffffff);
                     return NbtMap.builder().putCompound("block", NbtMap.fromMap(
                             Map.of(
                                     "name", blk.id(),
                                     "meta", (short) blk.meta(),
-                                    "id", (short) (Objects.requireNonNullElse(LegacyBlockIdToStringIdMap.getInstance().fromString(downstreamProtocolId, e.name()), 255) & 0xfffffff)
+                                    "id", legacyId
                             ))).build();
                 }).toList()));
             }
