@@ -25,10 +25,7 @@ import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemVersion;
-import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ComplexAliasDescriptor;
-import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.DefaultDescriptor;
-import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescriptor;
-import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemTagDescriptor;
+import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
 
 import java.util.ArrayList;
 
@@ -278,27 +275,20 @@ public class TypeConverter {
         } else if (descriptor instanceof DefaultDescriptor d) {
             var itemData = translateItemData(input, output, ItemData.builder().count(1).damage(d.getAuxValue()).definition(d.getItemId()).build());
             int aux = itemData.getDamage();
-            if (d.getAuxValue() == 32767) {
-                aux = 32767;
-            }
             log.info("aux {} => {}", d.getAuxValue(), aux);
             return new DefaultDescriptor(itemData.getDefinition(), aux);
         } else if (descriptor instanceof ItemTagDescriptor d) {
             if (output < Bedrock_v554.CODEC.getProtocolVersion()) {
                 Integer runtimeId = ItemTypeDictionary.getInstance(output).fromStringId(d.getItemTag());
                 if (runtimeId == null) {
-                    log.error("unknown descriptor {}", descriptor);
-                    throw new RuntimeException("unknown descriptor");
+                    return InvalidDescriptor.INSTANCE;
                 }
                 var def = new SimpleVersionedItemDefinition(d.getItemTag(), runtimeId, ItemVersion.LEGACY, false, NbtMap.EMPTY);
-                //log.info("{} => {}", d, def);
-                throw new RuntimeException("unknown descriptor");
+                return new DefaultDescriptor(def, -1);
             }
-            //TODO
             return d;
         }
-        log.error("unknown descriptor {}", descriptor);
-        throw new RuntimeException("unknown descriptor");
+        throw new RuntimeException("unknown descriptor " + descriptor);
     }
 
     public static CreativeItemData translateCreativeItemData(int input, int output, CreativeItemData itemData) {

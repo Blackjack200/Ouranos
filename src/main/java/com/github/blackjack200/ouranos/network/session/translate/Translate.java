@@ -105,7 +105,7 @@ public class Translate {
             for (var d : pk.getCraftingData()) {
                 try {
                     newCraftingData.add(translateRecipeData(input, output, d));
-                }catch (RuntimeException e) {
+                } catch (RuntimeException e) {
                     log.error("translate recipe data error", e);
                 }
             }
@@ -177,7 +177,8 @@ public class Translate {
             return da;
         }
         if (d instanceof FurnaceRecipeData da) {
-            return FurnaceRecipeData.of(da.getType(), da.getInputId(), da.getInputData(), da.getResult(), da.getTag());
+            var newInput = TypeConverter.translateItemRuntimeId(input, output, da.getInputId(), da.getInputData());
+            return FurnaceRecipeData.of(da.getType(), newInput[0], newInput[1], TypeConverter.translateItemData(input, output, da.getResult()), da.getTag());
         } else if (d instanceof MultiRecipeData da) {
             return da;
         } else if (d instanceof ShapedRecipeData da) {
@@ -212,7 +213,7 @@ public class Translate {
     }
 
     private static ItemDescriptorWithCount translateItemDescriptorWithCount(int input, int output, ItemDescriptorWithCount i) {
-        if (i.getDescriptor() == InvalidDescriptor.INSTANCE){
+        if (i.getDescriptor() == InvalidDescriptor.INSTANCE) {
             return ItemDescriptorWithCount.EMPTY;
         }
         var descriptor = TypeConverter.translateItemDescriptor(input, output, i.getDescriptor());
