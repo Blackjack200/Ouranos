@@ -19,6 +19,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.*;
@@ -28,6 +29,11 @@ import java.util.ArrayList;
 @Log4j2
 @UtilityClass
 public class TypeConverter {
+    public int[] translateItemRuntimeId(int input, int output, int runtimeId, int meta) {
+        var newItem = TypeConverter.translateItemData(input, output, ItemData.builder().definition(new SimpleItemDefinition("", runtimeId, false)).damage(meta).count(1).build());
+        return new int[]{newItem.getDefinition().getRuntimeId(), newItem.getDamage()};
+    }
+
     public ItemData translateItemData(int input, int output, ItemData itemData) {
         if (itemData.isNull() || !itemData.isValid()) {
             return itemData;

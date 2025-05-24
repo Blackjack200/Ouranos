@@ -23,6 +23,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
 import org.cloudburstmc.protocol.bedrock.codec.v534.Bedrock_v534;
 import org.cloudburstmc.protocol.bedrock.codec.v544.Bedrock_v544;
 import org.cloudburstmc.protocol.bedrock.codec.v554.Bedrock_v554;
+import org.cloudburstmc.protocol.bedrock.codec.v560.Bedrock_v560;
 import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
 import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
 import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
@@ -38,11 +39,13 @@ import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
-import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityEventType;
-import org.cloudburstmc.protocol.bedrock.data.inventory.*;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
+import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemGroup;
+import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.*;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescriptorWithCount;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
@@ -615,28 +618,49 @@ public class Translate {
             packet.setDefinition(new SimpleBlockDefinition(translated));
         } else if (p instanceof LevelEventPacket packet) {
             var type = packet.getType();
-            if (type != ParticleType.TERRAIN && type != LevelEvent.PARTICLE_DESTROY_BLOCK && type != LevelEvent.PARTICLE_CRACK_BLOCK) {
-                return;
-            }
             var data = packet.getData();
-            if (data != -1) {
+
+            if (type == ParticleType.ICON_CRACK) {
+                var newItem = TypeConverter.translateItemRuntimeId(input, output, data >> 16, data & 0xFFFF);
+                data = newItem[0] << 16 | newItem[1];
+            } else if (type == LevelEvent.PARTICLE_DESTROY_BLOCK) {
                 data = TypeConverter.translateBlockRuntimeId(input, output, data);
+            } else if (type == LevelEvent.PARTICLE_CRACK_BLOCK) {
+                var face = data >> 24;
+                var runtimeId = data & ~(face << 24);
+                data = TypeConverter.translateBlockRuntimeId(input, output, runtimeId) | face << 24;
             }
             packet.setData(data);
         } else if (p instanceof LevelSoundEventPacket pk) {
             var sound = pk.getSound();
-            if (sound == SoundEvent.PLACE || sound == SoundEvent.HIT || sound == SoundEvent.ITEM_USE_ON || sound == SoundEvent.LAND || sound == SoundEvent.BREAK) {
-                var runtimeId = pk.getExtraData();
-                pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
+            var runtimeId = pk.getExtraData();
+            switch (sound) {
+                case DOOR_OPEN:
+                case DOOR_CLOSE:
+                case TRAPDOOR_OPEN:
+                case TRAPDOOR_CLOSE:
+                case FENCE_GATE_OPEN:
+                case FENCE_GATE_CLOSE:
+                    pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
+                    if (output < Bedrock_v560.CODEC.getProtocolVersion()) {
+                        list.clear();
+                        var newPk = new LevelEventPacket();
+                        newPk.setType(LevelEvent.SOUND_DOOR_OPEN);
+                        newPk.setPosition(pk.getPosition());
+                        list.add(newPk);
+                    }
+                    break;
+                case PLACE:
+                case BREAK_BLOCK:
+                case ITEM_USE_ON:
+                    pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
             }
         } else if (p instanceof EntityEventPacket pk) {
             var type = pk.getType();
             if (type == EntityEventType.EATING_ITEM) {
                 var data = pk.getData();
-                var rtId = data >> 16;
-                var meta = data & 0xFFFF;
-                var newItem = TypeConverter.translateItemData(input, output, ItemData.builder().definition(new SimpleItemDefinition("", rtId, false)).damage(meta).count(1).build());
-                pk.setData((newItem.getDefinition().getRuntimeId() << 16) | newItem.getDamage());
+                var newItem = TypeConverter.translateItemRuntimeId(input, output, data >> 16, data & 0xFFFF);
+                pk.setData((newItem[0] << 16) | newItem[1]);
             }
         } else if (p instanceof AddEntityPacket pk) {
             if (pk.getIdentifier().equals("minecraft:falling_block")) {
