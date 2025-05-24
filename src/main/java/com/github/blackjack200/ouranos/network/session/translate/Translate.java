@@ -38,12 +38,11 @@ import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
+import org.cloudburstmc.protocol.bedrock.data.definitions.SimpleItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
-import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
-import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemData;
-import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemGroup;
-import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityEventType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.*;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.*;
 import org.cloudburstmc.protocol.bedrock.data.inventory.descriptor.ItemDescriptorWithCount;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
@@ -629,6 +628,15 @@ public class Translate {
             if (sound == SoundEvent.PLACE || sound == SoundEvent.HIT || sound == SoundEvent.ITEM_USE_ON || sound == SoundEvent.LAND || sound == SoundEvent.BREAK) {
                 var runtimeId = pk.getExtraData();
                 pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
+            }
+        } else if (p instanceof EntityEventPacket pk) {
+            var type = pk.getType();
+            if (type == EntityEventType.EATING_ITEM) {
+                var data = pk.getData();
+                var rtId = data >> 16;
+                var meta = data & 0xFFFF;
+                var newItem = TypeConverter.translateItemData(input, output, ItemData.builder().definition(new SimpleItemDefinition("", rtId, false)).damage(meta).count(1).build());
+                pk.setData((newItem.getDefinition().getRuntimeId() << 16) | newItem.getDamage());
             }
         } else if (p instanceof AddEntityPacket pk) {
             if (pk.getIdentifier().equals("minecraft:falling_block")) {
