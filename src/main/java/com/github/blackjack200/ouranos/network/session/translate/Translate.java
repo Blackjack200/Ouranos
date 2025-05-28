@@ -43,6 +43,7 @@ import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
 import org.cloudburstmc.protocol.bedrock.data.command.CommandData;
 import org.cloudburstmc.protocol.bedrock.data.command.CommandParam;
+import org.cloudburstmc.protocol.bedrock.data.command.CommandParamData;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
@@ -723,13 +724,20 @@ public class Translate {
                     var overload = command.getOverloads()[j];
                     for (int i = 0, iMax = overload.getOverloads().length; i < iMax; i++) {
                         if (overload.getOverloads()[i].getType() == CommandParam.MESSAGE_ROOT) {
-                            skip = true;
+                            var oldData = overload.getOverloads()[i];
+                            var data = new CommandParamData();
+                            data.setEnumData(oldData.getEnumData());
+                            data.setType(CommandParam.MESSAGE);
+                            data.setName(oldData.getName());
+                            data.setOptional(oldData.isOptional());
+                            data.setPostfix(oldData.getPostfix());
+                            overload.getOverloads()[i] = data;
                         }
                     }
                 }
-                if (!skip) {
-                    newCommands.add(command);
-                }
+
+                newCommands.add(command);
+
                 packet.getCommands().clear();
                 packet.getCommands().addAll(newCommands);
             }
