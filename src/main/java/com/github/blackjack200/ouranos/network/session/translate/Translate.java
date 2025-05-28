@@ -1,5 +1,6 @@
 package com.github.blackjack200.ouranos.network.session.translate;
 
+import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ChunkRewriteException;
@@ -16,6 +17,7 @@ import lombok.val;
 import org.cloudburstmc.math.immutable.vector.ImmutableVectorProvider;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v407.Bedrock_v407;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v419.Bedrock_v419;
 import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
@@ -85,9 +87,9 @@ public class Translate {
         list.add(p);
 
         rewriteProtocol(input, output, fromServer, player, p, list);
-        rewriteItem(input, output, p, list);
-        rewriteBlock(input, output, player, p, list);
-        rewriteChunk(input, output, player, p, list);
+        rewriteItem(input, output, fromServer, player, p, list);
+        rewriteBlock(input, output, fromServer, player, p, list);
+        rewriteChunk(input, output, fromServer, player, p, list);
 
         MovementTranslator.rewriteMovement(input, output, fromServer, player, p, list);
         InventoryTranslator.rewriteInventory(input, output, fromServer, player, p, list);
@@ -100,7 +102,7 @@ public class Translate {
         return list;
     }
 
-    private static void rewriteItem(int input, int output, BedrockPacket p, Collection<BedrockPacket> list) {
+    private static void rewriteItem(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof InventoryContentPacket pk) {
             val contents = new ArrayList<>(pk.getContents());
             contents.replaceAll(itemData -> TypeConverter.translateItemData(input, output, itemData));
@@ -133,18 +135,20 @@ public class Translate {
                 contents.add(item);
             }
             pk.getContents().clear();
-            if (input < output && output < Bedrock_v776.CODEC.getProtocolVersion()) {
-                pk.getContents().addAll(contents);
-            }
-            if (input >= output) {
-                pk.getContents().addAll(contents);
-            }
-            val groups = new ArrayList<CreativeItemGroup>();
-            for (var group : pk.getGroups()) {
-                groups.add(group.toBuilder().icon(TypeConverter.translateItemData(input, output, group.getIcon())).build());
-            }
             pk.getGroups().clear();
-            pk.getGroups().addAll(groups);
+            if (!Ouranos.getOuranos().getConfig().clearCreativeInventory) {
+                if (input < output && output < Bedrock_v776.CODEC.getProtocolVersion()) {
+                    pk.getContents().addAll(contents);
+                }
+                if (input >= output) {
+                    pk.getContents().addAll(contents);
+                }
+                val groups = new ArrayList<CreativeItemGroup>();
+                for (var group : pk.getGroups()) {
+                    groups.add(group.toBuilder().icon(TypeConverter.translateItemData(input, output, group.getIcon())).build());
+                }
+                pk.getGroups().addAll(groups);
+            }
         } else if (p instanceof AddItemEntityPacket pk) {
             pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
         } else if (p instanceof InventorySlotPacket pk) {
@@ -159,7 +163,7 @@ public class Translate {
             pk.getActions().addAll(newActions);
 
             if (pk.getBlockDefinition() != null) {
-                pk.setBlockDefinition(TypeConverter.translateBlockDefinition(input, output, pk.getBlockDefinition()));
+                pk.setBlockDefinition(TypeConverter.translateBlockDefinition(input, output, pk.getBlockDefinition(), player.useStateHash(fromServer)));
             } else {
                 pk.setBlockDefinition(new SimpleBlockDefinition(BlockStateDictionary.getInstance(output).getAirRuntimeId()));
             }
@@ -324,6 +328,9 @@ public class Translate {
         removeNewEntityData(p, output, Bedrock_v503.CODEC,
                 EntityDataTypes.HEARTBEAT_SOUND_EVENT, EntityDataTypes.HEARTBEAT_INTERVAL_TICKS, EntityDataTypes.MOVEMENT_SOUND_DISTANCE_OFFSET
         );
+        removeNewEntityData(p, output, Bedrock_v407.CODEC,
+                EntityDataTypes.HITBOX
+        );
 
         if (input < Bedrock_v685.CODEC.getProtocolVersion()) {
             if (p instanceof ContainerClosePacket pk) {
@@ -462,6 +469,9 @@ public class Translate {
         if (p instanceof ResourcePacksInfoPacket pk) {
             pk.setWorldTemplateId(Objects.requireNonNullElseGet(pk.getWorldTemplateId(), UUID::randomUUID));
             pk.setWorldTemplateVersion(Objects.requireNonNullElse(pk.getWorldTemplateVersion(), "0.0.0"));
+        }
+        if (p instanceof MovePlayerPacket pk) {
+            pk.setTeleportationCause(Objects.requireNonNullElse(pk.getTeleportationCause(), MovePlayerPacket.TeleportationCause.UNKNOWN));
         }
     }
 
@@ -623,10 +633,10 @@ public class Translate {
         }
     }
 
-    private static void rewriteBlock(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
+    private static void rewriteBlock(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof UpdateBlockPacket packet) {
             var runtimeId = packet.getDefinition().getRuntimeId();
-            var translated = TypeConverter.translateBlockRuntimeId(input, output, runtimeId);
+            var translated = TypeConverter.translateBlockRuntimeId(input, output, runtimeId, player.useStateHash(fromServer));
             packet.setDefinition(new SimpleBlockDefinition(translated));
         } else if (p instanceof LevelEventPacket packet) {
             var type = packet.getType();
@@ -636,11 +646,11 @@ public class Translate {
                 var newItem = TypeConverter.translateItemRuntimeId(input, output, data >> 16, data & 0xFFFF);
                 data = newItem[0] << 16 | newItem[1];
             } else if (type == LevelEvent.PARTICLE_DESTROY_BLOCK) {
-                data = TypeConverter.translateBlockRuntimeId(input, output, data);
+                data = TypeConverter.translateBlockRuntimeId(input, output, data, player.useStateHash(fromServer));
             } else if (type == LevelEvent.PARTICLE_CRACK_BLOCK) {
                 var face = data >> 24;
                 var runtimeId = data & ~(face << 24);
-                data = TypeConverter.translateBlockRuntimeId(input, output, runtimeId) | face << 24;
+                data = TypeConverter.translateBlockRuntimeId(input, output, runtimeId, player.useStateHash(fromServer)) | face << 24;
             } else if (type == LevelEvent.PARTICLE_BREAK_BLOCK_DOWN) {
                 if (output < Bedrock_v582.CODEC.getProtocolVersion()) {
                     list.clear();
@@ -661,7 +671,7 @@ public class Translate {
                 case TRAPDOOR_CLOSE:
                 case FENCE_GATE_OPEN:
                 case FENCE_GATE_CLOSE:
-                    pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
+                    pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId, player.useStateHash(fromServer)));
                     if (output < Bedrock_v560.CODEC.getProtocolVersion()) {
                         list.clear();
                         var newPk = new LevelEventPacket();
@@ -673,7 +683,7 @@ public class Translate {
                 case PLACE:
                 case BREAK_BLOCK:
                 case ITEM_USE_ON:
-                    pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
+                    pk.setExtraData(TypeConverter.translateBlockRuntimeId(input, output, runtimeId, player.useStateHash(fromServer)));
             }
         } else if (p instanceof EntityEventPacket pk) {
             var type = pk.getType();
@@ -686,19 +696,19 @@ public class Translate {
             if (pk.getIdentifier().equals("minecraft:falling_block")) {
                 var metaData = pk.getMetadata();
                 int runtimeId = metaData.get(EntityDataTypes.VARIANT);
-                metaData.put(EntityDataTypes.VARIANT, TypeConverter.translateBlockRuntimeId(input, output, runtimeId));
+                metaData.put(EntityDataTypes.VARIANT, TypeConverter.translateBlockRuntimeId(input, output, runtimeId, player.useStateHash(fromServer)));
                 pk.setMetadata(metaData);
             }
         } else if (p instanceof UpdateSubChunkBlocksPacket pk) {
             var newExtraBlocks = new ArrayList<BlockChangeEntry>(pk.getExtraBlocks().size());
             for (var entry : pk.getExtraBlocks()) {
-                newExtraBlocks.add(new BlockChangeEntry(entry.getPosition(), TypeConverter.translateBlockDefinition(input, output, entry.getDefinition()), entry.getUpdateFlags(), entry.getMessageEntityId(), entry.getMessageType()));
+                newExtraBlocks.add(new BlockChangeEntry(entry.getPosition(), TypeConverter.translateBlockDefinition(input, output, entry.getDefinition(), player.useStateHash(fromServer)), entry.getUpdateFlags(), entry.getMessageEntityId(), entry.getMessageType()));
             }
             pk.getExtraBlocks().clear();
             pk.getExtraBlocks().addAll(newExtraBlocks);
             var newStandardBlock = new ArrayList<BlockChangeEntry>(pk.getStandardBlocks().size());
             for (var entry : pk.getStandardBlocks()) {
-                newStandardBlock.add(new BlockChangeEntry(entry.getPosition(), TypeConverter.translateBlockDefinition(input, output, entry.getDefinition()), entry.getUpdateFlags(), entry.getMessageEntityId(), entry.getMessageType()));
+                newStandardBlock.add(new BlockChangeEntry(entry.getPosition(), TypeConverter.translateBlockDefinition(input, output, entry.getDefinition(), player.useStateHash(fromServer)), entry.getUpdateFlags(), entry.getMessageEntityId(), entry.getMessageType()));
             }
             pk.getStandardBlocks().clear();
             pk.getStandardBlocks().addAll(newStandardBlock);
@@ -746,12 +756,12 @@ public class Translate {
         }
     }
 
-    private static void rewriteChunk(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
+    private static void rewriteChunk(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof LevelChunkPacket packet) {
             try {
                 var from = packet.getData();
                 var to = AbstractByteBufAllocator.DEFAULT.buffer(from.readableBytes()).touch();
-                var newSubChunkCount = TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength());
+                var newSubChunkCount = TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength(), player.useStateHash(fromServer));
                 packet.setSubChunksLength(newSubChunkCount);
                 packet.setData(to);
                 ReferenceCountUtil.release(from);
@@ -767,8 +777,8 @@ public class Translate {
                 if (subChunk.getData().readableBytes() > 0) {
                     try {
                         var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
-                        TypeConverter.rewriteSubChunk(input, output, from, to);
-                        TypeConverter.rewriteBlockEntities(input, output, from, to);
+                        TypeConverter.rewriteSubChunk(input, output, from, to, player.useStateHash(fromServer));
+                        TypeConverter.rewriteBlockEntities(input, output, from, to, player.useStateHash(fromServer));
                         to.writeBytes(from);
                         subChunk.setData(to);
                         ReferenceCountUtil.release(from);

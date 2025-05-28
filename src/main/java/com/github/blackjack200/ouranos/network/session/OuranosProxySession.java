@@ -38,6 +38,13 @@ public class OuranosProxySession {
     @Getter
     private int upstreamProtocolId;
 
+    public boolean useStateHash(boolean fromServer) {
+        if (fromServer) {
+            return this.blockNetworkIdAreHashes;
+        }
+        return false;
+    }
+
     public List<BedrockPacket> tickMovement() {
         return List.of(this.movement.tick(this.getUpstreamProtocolId(), this));
     }

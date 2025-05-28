@@ -89,11 +89,11 @@ public class TypeConverter {
     }
 
     @SneakyThrows
-    public int rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
+    public int rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections, boolean blockIdAreHashes) throws ChunkRewriteException {
         var subChunks = new ArrayList<ByteBuf>();
         for (var section = 0; section < sections; section++) {
             var buf = ByteBufAllocator.DEFAULT.buffer();
-            rewriteSubChunk(input, output, from, buf);
+            rewriteSubChunk(input, output, from, buf, blockIdAreHashes);
             subChunks.add(buf);
         }
         var allSubChunks = new ArrayList<>(subChunks);
@@ -121,7 +121,7 @@ public class TypeConverter {
         to.writeByte(borderBlocks);
         to.writeBytes(from, borderBlocks);
 
-        rewriteBlockEntities(input, output, from, to);
+        rewriteBlockEntities(input, output, from, to, blockIdAreHashes);
         return subChunks.size();
     }
 
@@ -177,7 +177,7 @@ public class TypeConverter {
     }
 
     @SneakyThrows
-    public static void rewriteBlockEntities(int input, int output, ByteBuf from, ByteBuf to) {
+    public static void rewriteBlockEntities(int input, int output, ByteBuf from, ByteBuf to, boolean blockIdAreHashes) {
         var inp = new ByteBufInputStream(from);
         var reader = NbtUtils.createNetworkReader(inp);
         var rd = NbtUtils.createNetworkWriter(new ByteBufOutputStream(to));
@@ -216,7 +216,7 @@ public class TypeConverter {
         }
     }
 
-    public static void rewriteSubChunk(int input, int output, ByteBuf from, ByteBuf to) throws ChunkRewriteException {
+    public static void rewriteSubChunk(int input, int output, ByteBuf from, ByteBuf to, boolean blockIdAreHashes) throws ChunkRewriteException {
         var version = from.readUnsignedByte();
         var isNineSubChunkSupported = output >= Bedrock_v465.CODEC.getProtocolVersion();
         if (!isNineSubChunkSupported && version == 9) {
@@ -227,7 +227,7 @@ public class TypeConverter {
         switch (version) {
             case 0, 4, 139 -> to.writeBytes(from, 4096 + 2048);
             case 1 ->
-                    PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
+                    PaletteStorage.translatePaletteStorage(input, output, from, to, (input0, output0, id) -> translateBlockRuntimeId(input0, output0, id, blockIdAreHashes));
             case 8, 9 -> { // New form chunk, baked-in palette
                 var storageCount = from.readUnsignedByte();
                 to.writeByte(storageCount);
@@ -238,7 +238,7 @@ public class TypeConverter {
                     }
                 }
                 for (var storage = 0; storage < storageCount; storage++) {
-                    PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
+                    PaletteStorage.translatePaletteStorage(input, output, from, to, (input0, output0, id) -> translateBlockRuntimeId(input0, output0, id, blockIdAreHashes));
                 }
             }
             default -> // Unsupported
@@ -246,16 +246,22 @@ public class TypeConverter {
         }
     }
 
-    public int translateBlockRuntimeId(int input, int output, int blockRuntimeId) {
+    public int translateBlockRuntimeId(int input, int output, int blockRuntimeId, boolean blockIdAreHashes) {
         val inputDict = BlockStateDictionary.getInstance(input);
         val outputDict = BlockStateDictionary.getInstance(output);
 
-        val entry = inputDict.lookupStateFromStateHash(blockRuntimeId);
-
-        if (entry == null) {
+        Integer stateHash = null;
+        if (blockIdAreHashes) {
+            var entry = inputDict.lookupStateFromStateHash(blockRuntimeId);
+            if (entry != null) {
+                stateHash = entry.latestStateHash();
+            }
+        } else {
+            stateHash = inputDict.toLatestStateHash(blockRuntimeId);
+        }
+        if (stateHash == null) {
             return outputDict.getFallbackRuntimeId();
         }
-        val stateHash = entry.latestStateHash();
 
         var translated = outputDict.toRuntimeId(stateHash);
         if (translated == null) {
@@ -264,8 +270,8 @@ public class TypeConverter {
         return translated;
     }
 
-    public BlockDefinition translateBlockDefinition(int input, int output, BlockDefinition definition) {
-        return new SimpleBlockDefinition(translateBlockRuntimeId(input, output, definition.getRuntimeId()));
+    public BlockDefinition translateBlockDefinition(int input, int output, BlockDefinition definition, boolean blockIdAreHashes) {
+        return new SimpleBlockDefinition(translateBlockRuntimeId(input, output, definition.getRuntimeId(), blockIdAreHashes));
     }
 
     public ItemDescriptor translateItemDescriptor(int input, int output, ItemDescriptor descriptor) {

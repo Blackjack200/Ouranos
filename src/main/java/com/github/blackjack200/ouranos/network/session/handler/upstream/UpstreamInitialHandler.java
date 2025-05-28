@@ -195,9 +195,10 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         }
 
         this.session.upstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(upstreamProtocolId, pk.isBlockNetworkIdsHashed()));
-        this.session.downstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(downstreamProtocolId, pk.isBlockNetworkIdsHashed()));
+        this.session.downstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(downstreamProtocolId, false));
 
         this.session.blockNetworkIdAreHashes = pk.isBlockNetworkIdsHashed();
+        pk.setBlockNetworkIdsHashed(false);
         pk.setServerEngine("Ouranos"); //for telemetry
 
         this.session.downstream.sendPacketImmediately(pk);
