@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.network.session;
 
 import cn.hutool.core.collection.ConcurrentHashSet;
+import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.translate.InventoryData;
 import com.github.blackjack200.ouranos.network.session.translate.MovementData;
 import io.netty.util.concurrent.ScheduledFuture;
@@ -28,6 +29,10 @@ public class OuranosProxySession {
     public MovementData movement = new MovementData();
     public InventoryData inventory = new InventoryData();
     public AuthData identity;
+    @Getter
+    public ItemTypeDictionary.InnerEntry upstreamDictionary;
+    @Getter
+    public ItemTypeDictionary.InnerEntry downstreamDictionary;
     @Getter
     private int downstreamProtocolId;
     @Getter

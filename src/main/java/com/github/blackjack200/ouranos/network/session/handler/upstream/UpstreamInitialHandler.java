@@ -34,10 +34,7 @@ import org.jose4j.lang.JoseException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Log4j2
@@ -159,10 +156,18 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
         var upstreamProtocolId = this.session.getUpstreamProtocolId();
         var downstreamProtocolId = this.session.getDownstreamProtocolId();
-        this.session.upstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamProtocolId));
-        this.session.downstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(downstreamProtocolId));
+        var upstreamDict = new ItemTypeDictionary.InnerEntry(new HashMap<>());
+        upstreamDict.adjust(ItemTypeDictionary.getInstance(upstreamProtocolId).getEntries().values());
+        this.session.upstreamDictionary = upstreamDict;
 
-        List<ItemDefinition> def = ItemTypeDictionary.getInstance(downstreamProtocolId).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
+        var downstreamDict = ItemTypeDictionary.getInstance(downstreamProtocolId);
+       // upstreamDict.adjust(pk.getItemDefinitions());
+        this.session.downstreamDictionary = downstreamDict;
+
+        this.session.upstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamDict));
+        this.session.downstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(downstreamDict));
+
+        List<ItemDefinition> def = downstreamDict.getEntries().values().stream().toList();
         pk.setItemDefinitions(def);
         if (downstreamProtocolId <= Bedrock_v408.CODEC.getProtocolVersion()) {
             if (downstreamProtocolId > Bedrock_v361.CODEC.getProtocolVersion()) {
@@ -185,8 +190,8 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
             }
         }
 
-        this.session.upstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(upstreamProtocolId));
-        this.session.downstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(downstreamProtocolId));
+        this.session.upstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(upstreamProtocolId, pk.isBlockNetworkIdsHashed()));
+        this.session.downstream.getPeer().getCodecHelper().setBlockDefinitions(new BlockDictionaryRegistry(downstreamProtocolId, pk.isBlockNetworkIdsHashed()));
 
         this.session.blockNetworkIdAreHashes = pk.isBlockNetworkIdsHashed();
         pk.setServerEngine("Ouranos"); //for telemetry
@@ -201,9 +206,9 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         if (this.session.getDownstreamProtocolId() < Bedrock_v776.CODEC.getProtocolVersion()) {
             throw new DropPacketException();
         }
-        packet.getItems().clear();
-        List<ItemDefinition> def = ItemTypeDictionary.getInstance(this.session.getDownstreamProtocolId()).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
-        packet.getItems().addAll(def);
+        this.session.upstreamDictionary.clear();
+        this.session.upstreamDictionary.adjust(packet.getItems());
+        //this.session.downstreamDictionary.adjust(packet.getItems());
         return PacketSignal.HANDLED;
     }
 }

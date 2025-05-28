@@ -67,7 +67,8 @@ public class TypeConverter {
             var inputDict = BlockStateDictionary.getInstance(input);
             var outputDict = BlockStateDictionary.getInstance(output);
 
-            var inputState = inputDict.lookupStateFromStateHash(inputDict.toLatestStateHash(itemData.getBlockDefinition().getRuntimeId()));
+            int hash = inputDict.lookupStateFromStateHash(itemData.getBlockDefinition().getRuntimeId()).latestStateHash();
+            var inputState = inputDict.lookupStateFromStateHash(hash);
 
             var outputState = outputDict.lookupStateFromStateHash(inputState.latestStateHash());
             if (outputState != null) {
@@ -82,7 +83,7 @@ public class TypeConverter {
         if (itemTypeInfo == null) {
             return ItemTranslator.makePolyfillItem(input, output, itemData);
         }
-        builder.definition(itemTypeInfo.toDefinition(translatedId))
+        builder.definition(itemTypeInfo)
                 .damage(translatedMeta);
         return builder.build();
     }
@@ -249,11 +250,12 @@ public class TypeConverter {
         val inputDict = BlockStateDictionary.getInstance(input);
         val outputDict = BlockStateDictionary.getInstance(output);
 
-        val stateHash = inputDict.toLatestStateHash(blockRuntimeId);
+        val entry = inputDict.lookupStateFromStateHash(blockRuntimeId);
 
-        if (stateHash == null) {
+        if (entry == null) {
             return outputDict.getFallbackRuntimeId();
         }
+        val stateHash = entry.latestStateHash();
 
         var translated = outputDict.toRuntimeId(stateHash);
         if (translated == null) {
@@ -282,7 +284,7 @@ public class TypeConverter {
             var newMeta = (Integer) downgraded[1];
             var typ = ItemTypeDictionary.getInstance(output).getEntries().get(newStringId);
             //TODO
-            return new DefaultDescriptor(typ.toDefinition(newStringId), newMeta);
+            return new DefaultDescriptor(typ, newMeta);
         } else if (descriptor instanceof InvalidDescriptor d) {
             //noop
         } else if (descriptor instanceof ItemTagDescriptor d) {

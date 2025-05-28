@@ -12,7 +12,7 @@ public class ItemTranslator {
         if (polyfillData != NbtMap.EMPTY) {
             var itemDict = ItemTypeDictionary.getInstance(polyfillData.getInt("Source"));
             var builder = ItemData.builder()
-                    .definition(itemDict.getEntries().get(itemDict.fromIntId(polyfillData.getInt("ItemId"))).toDefinition(polyfillData.getString("StringId")))
+                    .definition(itemDict.getEntries().get(itemDict.fromIntId(polyfillData.getInt("ItemId"))))
                     .tag(polyfillData.getCompound("Nbt"))
                     .count(itemData.getCount())
                     .damage(polyfillData.getInt("Meta"))
@@ -32,7 +32,7 @@ public class ItemTranslator {
 
     public static ItemData makePolyfillItem(int input, int output, ItemData itemData) {
         var def = itemData.getDefinition();
-        var polyfillItem = ItemData.builder().usingNetId(itemData.isUsingNetId()).netId(itemData.getNetId()).count(itemData.getCount()).damage(0).definition(ItemTypeDictionary.getInstance(output).getEntries().get("minecraft:barrier").toDefinition("minecraft:barrier"));
+        var polyfillItem = ItemData.builder().usingNetId(itemData.isUsingNetId()).netId(itemData.getNetId()).count(itemData.getCount()).damage(0).definition(ItemTypeDictionary.getInstance(output).getEntries().get("minecraft:barrier"));
         var polyfillData = NbtMap.builder()
                 .putInt("Source", input)
                 .putInt("Meta", itemData.getDamage())

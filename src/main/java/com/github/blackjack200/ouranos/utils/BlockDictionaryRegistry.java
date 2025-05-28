@@ -8,15 +8,22 @@ import org.cloudburstmc.protocol.common.DefinitionRegistry;
 
 public class BlockDictionaryRegistry implements DefinitionRegistry<BlockDefinition> {
     public final int protocol;
+    public final boolean hashed;
 
-    public BlockDictionaryRegistry(int protocol) {
+    public BlockDictionaryRegistry(int protocol, boolean hashed) {
         this.protocol = protocol;
+        this.hashed = hashed;
     }
 
     @Override
     public BlockDefinition getDefinition(int runtimeId) {
         val entry = BlockStateDictionary.getInstance(this.protocol);
-        val hash = entry.toLatestStateHash(runtimeId);
+        Integer hash;
+        if (this.hashed) {
+            hash = runtimeId;
+        } else {
+            hash = entry.toLatestStateHash(runtimeId);
+        }
         val states = entry.lookupStateFromStateHash(hash);
         if (states == null) {
             return null;

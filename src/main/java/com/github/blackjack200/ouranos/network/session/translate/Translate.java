@@ -232,7 +232,7 @@ public class Translate {
             if (output >= Bedrock_v776.CODEC.getProtocolVersion()) {
                 var newPk = new ItemComponentPacket();
 
-                List<ItemDefinition> def = ItemTypeDictionary.getInstance(output).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
+                List<ItemDefinition> def = ItemTypeDictionary.getInstance(output).getEntries().values().stream().toList();
                 newPk.getItems().addAll(def);
                 list.add(newPk);
             }
