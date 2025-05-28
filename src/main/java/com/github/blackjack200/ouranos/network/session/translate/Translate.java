@@ -71,6 +71,9 @@ import java.util.function.BiFunction;
 @Log4j2
 public class Translate {
     public static Collection<BedrockPacket> translate(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p) {
+        if (input == output) {
+            return List.of(p);
+        }
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -131,17 +134,17 @@ public class Translate {
             }
             pk.getContents().clear();
             if (input < output && output < Bedrock_v776.CODEC.getProtocolVersion()) {
-                // pk.getContents().addAll(contents);
+                pk.getContents().addAll(contents);
             }
             if (input >= output) {
-                //pk.getContents().addAll(contents);
+                pk.getContents().addAll(contents);
             }
             val groups = new ArrayList<CreativeItemGroup>();
             for (var group : pk.getGroups()) {
                 groups.add(group.toBuilder().icon(TypeConverter.translateItemData(input, output, group.getIcon())).build());
             }
             pk.getGroups().clear();
-            //pk.getGroups().addAll(groups);
+            pk.getGroups().addAll(groups);
         } else if (p instanceof AddItemEntityPacket pk) {
             pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
         } else if (p instanceof InventorySlotPacket pk) {
@@ -176,7 +179,7 @@ public class Translate {
         } else if (p instanceof AddPlayerPacket pk) {
             pk.setHand(TypeConverter.translateItemData(input, output, pk.getHand()));
         } else if (p instanceof RequestChunkRadiusPacket pk) {
-            if (output < Bedrock_v582.CODEC.getProtocolVersion()) {
+            if (input < Bedrock_v582.CODEC.getProtocolVersion()) {
                 pk.setMaxRadius(pk.getRadius());
             }
         }
@@ -716,10 +719,9 @@ public class Translate {
             }
 
         }
-        if (p instanceof AvailableCommandsPacket packet) {
+        if (p instanceof AvailableCommandsPacket packet && output < Bedrock_v575.CODEC.getProtocolVersion()) {
             var newCommands = new ArrayList<CommandData>();
             for (var command : packet.getCommands()) {
-                boolean skip = false;
                 for (int j = 0, jMax = command.getOverloads().length; j < jMax; j++) {
                     var overload = command.getOverloads()[j];
                     for (int i = 0, iMax = overload.getOverloads().length; i < iMax; i++) {
@@ -744,8 +746,7 @@ public class Translate {
         }
     }
 
-    private static void rewriteChunk(int input, int output, OuranosProxySession player, BedrockPacket
-            p, Collection<BedrockPacket> list) {
+    private static void rewriteChunk(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof LevelChunkPacket packet) {
             try {
                 var from = packet.getData();
