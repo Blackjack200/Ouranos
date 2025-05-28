@@ -156,6 +156,8 @@ public class Translate {
 
             if (pk.getBlockDefinition() != null) {
                 pk.setBlockDefinition(TypeConverter.translateBlockDefinition(input, output, pk.getBlockDefinition()));
+            } else {
+                pk.setBlockDefinition(new SimpleBlockDefinition(BlockStateDictionary.getInstance(output).getAirRuntimeId()));
             }
             if (pk.getItemInHand() != null) {
                 pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
@@ -172,6 +174,10 @@ public class Translate {
             pk.setLeggings(TypeConverter.translateItemData(input, output, pk.getLeggings()));
         } else if (p instanceof AddPlayerPacket pk) {
             pk.setHand(TypeConverter.translateItemData(input, output, pk.getHand()));
+        } else if (p instanceof RequestChunkRadiusPacket pk) {
+            if (output < Bedrock_v582.CODEC.getProtocolVersion()) {
+                pk.setMaxRadius(pk.getRadius());
+            }
         }
     }
 
