@@ -123,6 +123,8 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                             log.debug("C->S {}", pk.getClass());
                         }
                         session.upstream.sendPacket(pk);
+                    } else {
+                        log.error("dropped C->S {}", pk.getClass());
                     }
                 } else {
                     ReferenceCountUtil.safeRelease(pk);
@@ -140,6 +142,8 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                             log.debug("S->C {}", pk.getClass());
                         }
                         session.downstream.sendPacket(pk);
+                    } else {
+                        log.error("dropped S->C {}", pk.getClass());
                     }
                 } else {
                     ReferenceCountUtil.safeRelease(pk);
@@ -161,7 +165,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         this.session.upstreamDictionary = upstreamDict;
 
         var downstreamDict = ItemTypeDictionary.getInstance(downstreamProtocolId);
-       // upstreamDict.adjust(pk.getItemDefinitions());
+        // upstreamDict.adjust(pk.getItemDefinitions());
         this.session.downstreamDictionary = downstreamDict;
 
         this.session.upstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamDict));
@@ -202,12 +206,12 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
     @Override
     public PacketSignal handle(ItemComponentPacket packet) {
+        this.session.upstreamDictionary.clear();
+        this.session.upstreamDictionary.adjust(packet.getItems());
         //TODO
         if (this.session.getDownstreamProtocolId() < Bedrock_v776.CODEC.getProtocolVersion()) {
             throw new DropPacketException();
         }
-        this.session.upstreamDictionary.clear();
-        this.session.upstreamDictionary.adjust(packet.getItems());
         //this.session.downstreamDictionary.adjust(packet.getItems());
         return PacketSignal.HANDLED;
     }

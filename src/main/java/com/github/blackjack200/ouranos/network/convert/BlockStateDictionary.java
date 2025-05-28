@@ -2,8 +2,6 @@ package com.github.blackjack200.ouranos.network.convert;
 
 import com.github.blackjack200.ouranos.data.AbstractMapping;
 import com.github.blackjack200.ouranos.utils.HashUtils;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -14,8 +12,6 @@ import org.cloudburstmc.nbt.NbtList;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtUtils;
 
-import java.io.InputStreamReader;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +25,8 @@ public final class BlockStateDictionary extends AbstractMapping {
         private final Map<Integer, Integer> runtimeToLatestStateHash;
         @Getter
         private Integer fallbackRuntimeId;
+        @Getter
+        private Integer airRuntimeId;
         @Getter
         private Integer fallbackCurrentStateHash;
         @Getter
@@ -50,11 +48,16 @@ public final class BlockStateDictionary extends AbstractMapping {
                 if (v.getValue().name.equals("minecraft:info_update")) {
                     this.fallbackRuntimeId = this.toRuntimeId(v.getKey());
                     this.fallbackCurrentStateHash = v.getValue().currentStateHash;
-                    break;
+                }
+                if (v.getValue().name.equals("minecraft:air")) {
+                    this.airRuntimeId = this.toRuntimeId(v.getKey());
                 }
             }
             if (this.fallbackRuntimeId == null) {
                 throw new RuntimeException("no fallback minecraft:info_update found.");
+            }
+            if (this.airRuntimeId == null) {
+                throw new RuntimeException("no fallback minecraft:air found.");
             }
         }
 

@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.network.session.translate;
 
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
+import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ChunkRewriteException;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.convert.TypeConverter;
@@ -17,6 +18,7 @@ import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v419.Bedrock_v419;
+import org.cloudburstmc.protocol.bedrock.codec.v465.Bedrock_v465;
 import org.cloudburstmc.protocol.bedrock.codec.v475.Bedrock_v475;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 import org.cloudburstmc.protocol.bedrock.codec.v527.Bedrock_v527;
@@ -25,6 +27,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v544.Bedrock_v544;
 import org.cloudburstmc.protocol.bedrock.codec.v554.Bedrock_v554;
 import org.cloudburstmc.protocol.bedrock.codec.v560.Bedrock_v560;
 import org.cloudburstmc.protocol.bedrock.codec.v575.Bedrock_v575;
+import org.cloudburstmc.protocol.bedrock.codec.v582.Bedrock_v582;
 import org.cloudburstmc.protocol.bedrock.codec.v589.Bedrock_v589;
 import org.cloudburstmc.protocol.bedrock.codec.v594.Bedrock_v594;
 import org.cloudburstmc.protocol.bedrock.codec.v618.Bedrock_v618;
@@ -38,6 +41,8 @@ import org.cloudburstmc.protocol.bedrock.codec.v800.Bedrock_v800;
 import org.cloudburstmc.protocol.bedrock.data.*;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitions;
+import org.cloudburstmc.protocol.bedrock.data.command.CommandData;
+import org.cloudburstmc.protocol.bedrock.data.command.CommandParam;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataType;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
@@ -65,9 +70,6 @@ import java.util.function.BiFunction;
 @Log4j2
 public class Translate {
     public static Collection<BedrockPacket> translate(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p) {
-        if (input == output) {
-            return List.of(p);
-        }
         if (p instanceof ResourcePackStackPacket pk) {
             pk.setGameVersion("*");
         } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -128,17 +130,17 @@ public class Translate {
             }
             pk.getContents().clear();
             if (input < output && output < Bedrock_v776.CODEC.getProtocolVersion()) {
-                pk.getContents().addAll(contents);
+                // pk.getContents().addAll(contents);
             }
             if (input >= output) {
-                pk.getContents().addAll(contents);
+                //pk.getContents().addAll(contents);
             }
             val groups = new ArrayList<CreativeItemGroup>();
             for (var group : pk.getGroups()) {
                 groups.add(group.toBuilder().icon(TypeConverter.translateItemData(input, output, group.getIcon())).build());
             }
             pk.getGroups().clear();
-            pk.getGroups().addAll(groups);
+            //pk.getGroups().addAll(groups);
         } else if (p instanceof AddItemEntityPacket pk) {
             pk.setItemInHand(TypeConverter.translateItemData(input, output, pk.getItemInHand()));
         } else if (p instanceof InventorySlotPacket pk) {
@@ -629,6 +631,14 @@ public class Translate {
                 var face = data >> 24;
                 var runtimeId = data & ~(face << 24);
                 data = TypeConverter.translateBlockRuntimeId(input, output, runtimeId) | face << 24;
+            } else if (type == LevelEvent.PARTICLE_BREAK_BLOCK_DOWN) {
+                if (output < Bedrock_v582.CODEC.getProtocolVersion()) {
+                    list.clear();
+                    var newPk = new UpdateBlockPacket();
+                    newPk.setBlockPosition(packet.getPosition().toInt());
+                    newPk.setDefinition(new SimpleBlockDefinition(BlockStateDictionary.getInstance(output).getAirRuntimeId()));
+                    list.add(newPk);
+                }
             }
             packet.setData(data);
         } else if (p instanceof LevelSoundEventPacket pk) {
@@ -682,10 +692,46 @@ public class Translate {
             }
             pk.getStandardBlocks().clear();
             pk.getStandardBlocks().addAll(newStandardBlock);
+            if (output < Bedrock_v465.CODEC.getProtocolVersion()) {
+                list.clear();
+                for (var entry : pk.getStandardBlocks()) {
+                    var newPk = new UpdateBlockPacket();
+                    newPk.setBlockPosition(entry.getPosition());
+                    newPk.setDefinition(entry.getDefinition());
+                    list.add(newPk);
+                }
+                for (var entry : pk.getExtraBlocks()) {
+                    var newPk = new UpdateBlockPacket();
+                    newPk.setBlockPosition(entry.getPosition());
+                    newPk.setDefinition(entry.getDefinition());
+                    list.add(newPk);
+                }
+            }
+
+        }
+        if (p instanceof AvailableCommandsPacket packet) {
+            var newCommands = new ArrayList<CommandData>();
+            for (var command : packet.getCommands()) {
+                boolean skip = false;
+                for (int j = 0, jMax = command.getOverloads().length; j < jMax; j++) {
+                    var overload = command.getOverloads()[j];
+                    for (int i = 0, iMax = overload.getOverloads().length; i < iMax; i++) {
+                        if (overload.getOverloads()[i].getType() == CommandParam.MESSAGE_ROOT) {
+                            skip = true;
+                        }
+                    }
+                }
+                if (!skip) {
+                    newCommands.add(command);
+                }
+                packet.getCommands().clear();
+                packet.getCommands().addAll(newCommands);
+            }
         }
     }
 
-    private static void rewriteChunk(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
+    private static void rewriteChunk(int input, int output, OuranosProxySession player, BedrockPacket
+            p, Collection<BedrockPacket> list) {
         if (p instanceof LevelChunkPacket packet) {
             try {
                 var from = packet.getData();
