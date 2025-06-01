@@ -177,7 +177,8 @@ public class Ouranos {
                 if (p.subMotd().isEmpty()) {
                     p = p.subMotd("Ouranos");
                 }
-                var buf = p.ipv4Port(this.config.server_port_v4).ipv6Port(this.config.server_port_v6).toByteBuf();
+                var count = OuranosProxySession.ouranosPlayers.size();
+                var buf = p.ipv4Port(this.config.server_port_v4).ipv6Port(this.config.server_port_v6).playerCount(count).maximumPlayerCount(this.config.maximum_player).toByteBuf();
                 for (val channel : channels) {
                     channel.config().setOption(RakChannelOption.RAK_ADVERTISEMENT, buf);
                 }
