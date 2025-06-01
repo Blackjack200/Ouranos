@@ -260,7 +260,9 @@ public class Ouranos {
                     .channel(NioSocketChannel.class)
                     .option(ChannelOption.TCP_NODELAY, true)
                     .option(ChannelOption.SO_LINGER, 0)
-                    .option(ChannelOption.SO_KEEPALIVE, true);
+                    .option(ChannelOption.SO_KEEPALIVE, true)
+                    .option(ChannelOption.SO_RCVBUF, 1024 * 1024 * 8)
+                    .option(ChannelOption.SO_SNDBUF, 1024 * 1024 * 8);
         }
         return this.preparePingBootstrap();
     }
