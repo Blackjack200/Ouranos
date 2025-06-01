@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.network.session.handler.downstream;
 
 import com.github.blackjack200.ouranos.Ouranos;
+import com.github.blackjack200.ouranos.TcpChannelInitializer;
 import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.*;
@@ -52,7 +53,11 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
                 throw new RuntimeException(e);
             }
         }
-        connect();
+        if (Ouranos.getOuranos().getConfig().proxy_protocol) {
+            connectProxy();
+        } else {
+            connect();
+        }
     }
 
     @SneakyThrows
@@ -72,42 +77,76 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
 
                     @Override
                     protected void initSession(ProxyClientSession upstream) {
-                        //TODO: auto determine which codec should be used.
-                        upstream.setCodec(Ouranos.REMOTE_CODEC);
-                        upstream.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
-
-                        val session = new OuranosProxySession(keyPair, upstream, downstream);
-                        session.movement.inputMode = InputMode.from(Integer.parseInt(clientData.get("CurrentInputMode").toString()));
-
-                        val downstreamProtocolId = downstream.getCodec().getProtocolVersion();
-                        val upstreamProtocolId = upstream.getCodec().getProtocolVersion();
-
-                        log.info("{}[{}({})] connected to the remote server, {}=>{}", DownstreamLoginHandler.this.identityData.displayName(), downstream.getPeer().getSocketAddress(), downstreamProtocolId, downstreamProtocolId, upstreamProtocolId);
-
-                        session.setDownstreamHandler(new DownstreamRewriteHandler(session));
-
-                        CompletableFuture.supplyAsync(() -> {
-                            BlockStateDictionary.getInstance(downstreamProtocolId);
-                            ItemTypeDictionary.getInstance(downstreamProtocolId);
-                            BlockStateDictionary.getInstance(upstreamProtocolId);
-                            ItemTypeDictionary.getInstance(upstreamProtocolId);
-                            return new UpstreamInitialHandler(session, assembleLoginPacket(session));
-                        }, Ouranos.getOuranos().getScheduler()).thenAcceptAsync(handler -> {
-                            if (!session.isAlive()) {
-                                return;
-                            }
-                            session.upstream.getPeer().getChannel().eventLoop().execute(() -> session.setUpstreamHandler(handler));
-                        }).exceptionally(ex -> {
-                            if (!session.isAlive()) {
-                                return null;
-                            }
-                            log.error("Error while initializing data mapping/assemble login packet", ex);
-                            session.disconnect("Error while initializing data mapping/assemble login packet: " + ex.getMessage());
-                            return null;
-                        });
+                        initSession0(upstream);
                     }
-                })
-                .connect(Ouranos.getOuranos().getConfig().getRemote());
+                }).connect(Ouranos.getOuranos().getConfig().getRemote());
+    }
+
+    @SneakyThrows
+    private ChannelFuture connectProxy() {
+        return Ouranos.getOuranos().prepareUpstreamBootstrap()
+                .handler(new TcpChannelInitializer<ProxyClientSession>() {
+                    @Override
+                    protected ProxyClientSession createSession0(BedrockPeer peer, int subClientId) {
+                        return new ProxyClientSession((CustomPeer) peer, subClientId);
+                    }
+
+                    @Override
+                    protected BedrockPeer createPeer(Channel channel) {
+                        return new CustomPeer(channel, this::createSession) {
+                            @Override
+                            public int getRakVersion() {
+                                return Ouranos.REMOTE_CODEC.getRaknetProtocolVersion();
+                            }
+                        };
+                    }
+
+                    @Override
+                    protected void initSession(ProxyClientSession upstream) {
+                        initSession0(upstream);
+                    }
+
+                    @Override
+                    protected int getRakVersion() {
+                        return Ouranos.REMOTE_CODEC.getRaknetProtocolVersion();
+                    }
+                }).connect(Ouranos.getOuranos().getConfig().getRemote());
+    }
+
+    private void initSession0(ProxyClientSession upstream) {
+        //TODO: auto determine which codec should be used.
+        upstream.setCodec(Ouranos.REMOTE_CODEC);
+        upstream.getPeer().getCodecHelper().setEncodingSettings(EncodingSettings.UNLIMITED);
+
+        val session = new OuranosProxySession(keyPair, upstream, downstream);
+        session.movement.inputMode = InputMode.from(Integer.parseInt(clientData.get("CurrentInputMode").toString()));
+
+        val downstreamProtocolId = downstream.getCodec().getProtocolVersion();
+        val upstreamProtocolId = upstream.getCodec().getProtocolVersion();
+
+        log.info("{}[{}({})] connected to the remote server, {}=>{}", DownstreamLoginHandler.this.identityData.displayName(), downstream.getPeer().getSocketAddress(), downstreamProtocolId, downstreamProtocolId, upstreamProtocolId);
+
+        session.setDownstreamHandler(new DownstreamRewriteHandler(session));
+
+        CompletableFuture.supplyAsync(() -> {
+            BlockStateDictionary.getInstance(downstreamProtocolId);
+            ItemTypeDictionary.getInstance(downstreamProtocolId);
+            BlockStateDictionary.getInstance(upstreamProtocolId);
+            ItemTypeDictionary.getInstance(upstreamProtocolId);
+            return new UpstreamInitialHandler(session, assembleLoginPacket(session));
+        }, Ouranos.getOuranos().getScheduler()).thenAcceptAsync(handler -> {
+            if (!session.isAlive()) {
+                return;
+            }
+            session.upstream.getPeer().getChannel().eventLoop().execute(() -> session.setUpstreamHandler(handler));
+        }).exceptionally(ex -> {
+            if (!session.isAlive()) {
+                return null;
+            }
+            log.error("Error while initializing data mapping/assemble login packet", ex);
+            session.disconnect("Error while initializing data mapping/assemble login packet: " + ex.getMessage());
+            return null;
+        });
     }
 
     @SneakyThrows

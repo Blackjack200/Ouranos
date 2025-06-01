@@ -1,10 +1,7 @@
 package com.github.blackjack200.ouranos;
 
 import cn.hutool.core.io.FileUtil;
-import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
-import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
-import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
@@ -17,9 +14,11 @@ import com.google.gson.reflect.TypeToken;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.ResourceLeakDetector;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -43,7 +42,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Scanner;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -96,34 +94,37 @@ public class Ouranos {
             ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
             log.warn("Resource leak detector has enabled");
         }
-        log.info("Connecting to {}...", this.config.getRemote());
-        int retry = 10;
-        BedrockPong pong = null;
-        while (retry-- > 0) {
-            pong = PingUtils.ping(this.config.getRemote(), 1, TimeUnit.SECONDS).get();
-            if (pong != null) {
-                break;
+        if (!this.config.proxy_protocol) {
+            log.info("Connecting to {}...", this.config.getRemote());
+            int retry = 10;
+            BedrockPong pong = null;
+            while (retry-- > 0) {
+                pong = PingUtils.ping(this.config.getRemote(), 1, TimeUnit.SECONDS).get();
+                if (pong != null) {
+                    break;
+                }
+            }
+            if (pong == null) {
+                log.fatal("Failed to connect to {}...", this.config.getRemote());
+                this.shutdown(true);
+                return;
+            }
+            REMOTE_CODEC = ProtocolInfo.getPacketCodec(pong.protocolVersion());
+            if (REMOTE_CODEC == null) {
+                log.fatal("Unsupported minecraft version {}({})", pong.version(), pong.protocolVersion());
+                this.shutdown(true);
+                return;
+            }
+        } else {
+            REMOTE_CODEC = ProtocolInfo.getPacketCodec(this.config.protocol);
+            if (REMOTE_CODEC == null) {
+                log.fatal("Unsupported protocol version {}", this.config.protocol);
+                this.shutdown(true);
+                return;
             }
         }
-        if (pong == null) {
-            log.fatal("Failed to connect to {}...", this.config.getRemote());
-            this.shutdown(true);
-            return;
-        }
-        REMOTE_CODEC = ProtocolInfo.getPacketCodec(pong.protocolVersion());
-
-        if (REMOTE_CODEC == null) {
-            log.fatal("Unsupported minecraft version {}({})", pong.version(), pong.protocolVersion());
-            this.shutdown(true);
-            return;
-        }
-
-        CompletableFuture.runAsync(() -> BlockStateDictionary.getInstance(REMOTE_CODEC.getProtocolVersion()));
-        CompletableFuture.runAsync(() -> ItemTypeDictionary.getInstance(REMOTE_CODEC.getProtocolVersion()));
-        CompletableFuture.runAsync(GlobalItemDataHandlers::getUpgrader);
 
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
-        BlockStateDictionary.getInstance(361);
         var boostrap = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
@@ -263,6 +264,12 @@ public class Ouranos {
     }
 
     public Bootstrap prepareUpstreamBootstrap() {
+        if (this.config.proxy_protocol) {
+            return new Bootstrap().group(this.bossGroup)
+                    .channel(NioSocketChannel.class)
+                    .option(ChannelOption.TCP_NODELAY, true)
+                    .option(ChannelOption.SO_KEEPALIVE, true);
+        }
         return new Bootstrap().group(this.bossGroup)
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_COMPATIBILITY_MODE, true)

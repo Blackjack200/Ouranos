@@ -16,12 +16,10 @@ import java.util.stream.Stream;
 
 @Log4j2
 public class CustomPeer extends BedrockPeer {
-
     private final boolean packetBuffering;
 
     public CustomPeer(Channel channel, BedrockSessionFactory sessionFactory) {
         super(channel, sessionFactory);
-        var rakChannel = (RakChannel) this.getChannel();
         this.packetBuffering = Ouranos.getOuranos().getConfig().packet_buffering;
         this.getChannel().pipeline().addAfter(BedrockPacketCodec.NAME, "protocol-error-handler", new ChannelInboundHandlerAdapter() {
             @Override
@@ -36,8 +34,10 @@ public class CustomPeer extends BedrockPeer {
                 log.error("Exception in CustomPeer.exceptionCaught", rootCause);
             }
         });
-        if (rakChannel.rakPipeline().get(RakUnhandledMessagesQueue.class) != null) {
-            rakChannel.rakPipeline().replace(RakUnhandledMessagesQueue.class, RakUnhandledMessagesQueue.NAME, new RakUnhandledMessagesQueueOverride(rakChannel));
+        if (this.getChannel() instanceof RakChannel rakChannel) {
+            if (rakChannel.rakPipeline().get(RakUnhandledMessagesQueue.class) != null) {
+                rakChannel.rakPipeline().replace(RakUnhandledMessagesQueue.class, RakUnhandledMessagesQueue.NAME, new RakUnhandledMessagesQueueOverride(rakChannel));
+            }
         }
     }
 
