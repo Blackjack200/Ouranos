@@ -94,36 +94,26 @@ public class Ouranos {
             ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
             log.warn("Resource leak detector has enabled");
         }
-        if (!this.config.proxy_protocol) {
-            log.info("Connecting to {}...", this.config.getRemote());
-            int retry = 10;
-            BedrockPong pong = null;
-            while (retry-- > 0) {
-                pong = PingUtils.ping(this.config.getRemote(), 1, TimeUnit.SECONDS).get();
-                if (pong != null) {
-                    break;
-                }
-            }
-            if (pong == null) {
-                log.fatal("Failed to connect to {}...", this.config.getRemote());
-                this.shutdown(true);
-                return;
-            }
-            REMOTE_CODEC = ProtocolInfo.getPacketCodec(pong.protocolVersion());
-            if (REMOTE_CODEC == null) {
-                log.fatal("Unsupported minecraft version {}({})", pong.version(), pong.protocolVersion());
-                this.shutdown(true);
-                return;
-            }
-        } else {
-            REMOTE_CODEC = ProtocolInfo.getPacketCodec(this.config.protocol);
-            if (REMOTE_CODEC == null) {
-                log.fatal("Unsupported protocol version {}", this.config.protocol);
-                this.shutdown(true);
-                return;
+        log.info("Connecting to {}...", this.config.getRemote());
+        int retry = 10;
+        BedrockPong pong = null;
+        while (retry-- > 0) {
+            pong = PingUtils.ping(this.config.getRemote(), 1, TimeUnit.SECONDS).get();
+            if (pong != null) {
+                break;
             }
         }
-
+        if (pong == null) {
+            log.fatal("Failed to connect to {}...", this.config.getRemote());
+            this.shutdown(true);
+            return;
+        }
+        REMOTE_CODEC = ProtocolInfo.getPacketCodec(pong.protocolVersion());
+        if (REMOTE_CODEC == null) {
+            log.fatal("Unsupported minecraft version {}({})", pong.version(), pong.protocolVersion());
+            this.shutdown(true);
+            return;
+        }
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
         var boostrap = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
@@ -268,8 +258,13 @@ public class Ouranos {
             return new Bootstrap().group(this.bossGroup)
                     .channel(NioSocketChannel.class)
                     .option(ChannelOption.TCP_NODELAY, true)
+                    .option(ChannelOption.SO_LINGER, 0)
                     .option(ChannelOption.SO_KEEPALIVE, true);
         }
+        return this.preparePingBootstrap();
+    }
+
+    public Bootstrap preparePingBootstrap() {
         return new Bootstrap().group(this.bossGroup)
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_COMPATIBILITY_MODE, true)

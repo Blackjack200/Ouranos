@@ -45,7 +45,6 @@ public abstract class TcpChannelInitializer<T extends BedrockSession> extends Ch
         channel.pipeline().addLast(BedrockPeer.NAME, this.createPeer(channel));
 
         this.postInitChannel(channel);
-        log.info(channel.pipeline().toString());
     }
 
     protected void preInitChannel(Channel channel) throws Exception {

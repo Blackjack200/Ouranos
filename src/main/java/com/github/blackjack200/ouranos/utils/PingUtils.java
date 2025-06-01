@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 @UtilityClass
 public class PingUtils {
     public void ping(Consumer<BedrockPong> consumer, InetSocketAddress address, long timeout, TimeUnit timeUnit) {
-        Ouranos.getOuranos().prepareUpstreamBootstrap().handler(new ClientPingHandler(consumer, timeout, timeUnit))
+        Ouranos.getOuranos().preparePingBootstrap().handler(new ClientPingHandler(consumer, timeout, timeUnit))
                 .bind(0)
                 .addListener((ChannelFutureListener) fut -> {
                     if (!fut.isSuccess()) {
@@ -32,7 +32,7 @@ public class PingUtils {
 
     public Future<BedrockPong> ping(InetSocketAddress address, long timeout, TimeUnit timeUnit) {
         var f = new CompletableFuture<BedrockPong>();
-        Ouranos.getOuranos().prepareUpstreamBootstrap().handler(new ClientPingHandler(f::complete, timeout, timeUnit))
+        Ouranos.getOuranos().preparePingBootstrap().handler(new ClientPingHandler(f::complete, timeout, timeUnit))
                 .bind(0)
                 .addListener((ChannelFutureListener) fut -> {
                     if (!fut.isSuccess()) {

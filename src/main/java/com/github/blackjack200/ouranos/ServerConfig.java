@@ -28,7 +28,6 @@ public class ServerConfig {
     public boolean packet_buffering = true;
 
     public boolean proxy_protocol = false;
-    public Integer protocol;
 
     public InetSocketAddress getBindv4() {
         return new InetSocketAddress(this.server_ipv4, this.server_port_v4);
