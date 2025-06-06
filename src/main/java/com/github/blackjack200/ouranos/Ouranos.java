@@ -265,7 +265,9 @@ public class Ouranos {
         if (this.config.proxy_protocol) {
             return new Bootstrap().group(this.bossGroup)
                     .channel(NioSocketChannel.class)
-                    .option(ChannelOption.TCP_NODELAY, true);
+                    .option(ChannelOption.TCP_NODELAY, true)
+                    .option(ChannelOption.SO_RCVBUF, 128)
+                    .option(ChannelOption.SO_SNDBUF, 128);
         }
         return this.preparePingBootstrap();
     }
