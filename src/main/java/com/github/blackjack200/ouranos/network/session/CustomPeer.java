@@ -12,6 +12,7 @@ import org.cloudburstmc.protocol.bedrock.BedrockSessionFactory;
 import org.cloudburstmc.protocol.bedrock.netty.codec.packet.BedrockPacketCodec;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 
+import java.net.SocketException;
 import java.util.stream.Stream;
 
 @Log4j2
@@ -32,6 +33,9 @@ public class CustomPeer extends BedrockPeer {
                         .findFirst()
                         .orElse(cause);
                 log.error("Exception in CustomPeer.exceptionCaught", rootCause);
+                if (rootCause instanceof SocketException) {
+                    ctx.close();
+                }
             }
         });
         if (this.getChannel() instanceof RakChannel rakChannel) {

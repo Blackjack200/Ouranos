@@ -122,7 +122,7 @@
         <dependency>
             <groupId>com.github.Blackjack200</groupId>
             <artifactId>Network</artifactId>
-            <version>develop-35a221affa-1</version>
+            <version>5303c2e708</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/cn.hutool/hutool-core -->
         <dependency>

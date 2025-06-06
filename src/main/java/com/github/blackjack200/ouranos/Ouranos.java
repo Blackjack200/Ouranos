@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos;
 
 import cn.hutool.core.io.FileUtil;
+import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
@@ -16,7 +17,8 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.ResourceLeakDetector;
@@ -42,10 +44,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 @Log4j2
 public class Ouranos {
@@ -83,8 +87,8 @@ public class Ouranos {
             Configurator.setRootLevel(Level.INFO);
         }
 
-        this.bossGroup = new NioEventLoopGroup();
-        this.workerGroup = new NioEventLoopGroup();
+        this.bossGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+        this.workerGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
     }
 
     @SneakyThrows
@@ -115,6 +119,9 @@ public class Ouranos {
             return;
         }
         log.info("Using codec: {} {}", REMOTE_CODEC.getProtocolVersion(), REMOTE_CODEC.getMinecraftVersion());
+
+        CompletableFuture.runAsync(GlobalItemDataHandlers::getUpgrader);
+
         var boostrap = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
@@ -258,11 +265,7 @@ public class Ouranos {
         if (this.config.proxy_protocol) {
             return new Bootstrap().group(this.bossGroup)
                     .channel(NioSocketChannel.class)
-                    .option(ChannelOption.TCP_NODELAY, true)
-                    .option(ChannelOption.SO_LINGER, 0)
-                    .option(ChannelOption.SO_KEEPALIVE, true)
-                    .option(ChannelOption.SO_RCVBUF, 1024 * 1024 * 8)
-                    .option(ChannelOption.SO_SNDBUF, 1024 * 1024 * 8);
+                    .option(ChannelOption.TCP_NODELAY, true);
         }
         return this.preparePingBootstrap();
     }

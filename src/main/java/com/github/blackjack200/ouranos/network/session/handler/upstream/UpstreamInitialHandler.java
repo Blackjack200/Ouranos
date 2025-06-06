@@ -17,6 +17,8 @@ import lombok.val;
 import org.cloudburstmc.nbt.NbtList;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtType;
+import org.cloudburstmc.netty.channel.raknet.RakChannel;
+import org.cloudburstmc.netty.handler.codec.raknet.common.RakSessionCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v361.Bedrock_v361;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Log4j2
 public class UpstreamInitialHandler implements BedrockPacketHandler {
@@ -205,5 +208,17 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         List<ItemDefinition> def = ItemTypeDictionary.getInstance(this.session.getDownstreamProtocolId()).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
         packet.getItems().addAll(def);
         return PacketSignal.HANDLED;
+    }
+
+    @Override
+    public PacketSignal handle(NetworkStackLatencyPacket packet) {
+        var downstreamChannel = (RakChannel) this.session.downstream.getPeer().getChannel();
+        var ping = ((RakSessionCodec) downstreamChannel.rakPipeline().get(RakSessionCodec.NAME)).getPing();
+        this.session.upstream.getPeer().getChannel().eventLoop().schedule(() -> {
+            if (this.session.upstream.isConnected()) {
+                this.session.upstream.sendPacketImmediately(packet);
+            }
+        }, ping, TimeUnit.MILLISECONDS);
+        throw new DropPacketException();
     }
 }
