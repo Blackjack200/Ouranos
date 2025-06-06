@@ -209,16 +209,4 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         packet.getItems().addAll(def);
         return PacketSignal.HANDLED;
     }
-
-    @Override
-    public PacketSignal handle(NetworkStackLatencyPacket packet) {
-        var downstreamChannel = (RakChannel) this.session.downstream.getPeer().getChannel();
-        var ping = ((RakSessionCodec) downstreamChannel.rakPipeline().get(RakSessionCodec.NAME)).getPing();
-        this.session.upstream.getPeer().getChannel().eventLoop().schedule(() -> {
-            if (this.session.upstream.isConnected()) {
-                this.session.upstream.sendPacketImmediately(packet);
-            }
-        }, ping, TimeUnit.MILLISECONDS);
-        throw new DropPacketException();
-    }
 }
