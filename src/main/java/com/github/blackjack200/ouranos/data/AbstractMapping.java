@@ -5,6 +5,7 @@ import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import lombok.extern.log4j.Log4j2;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.function.BiConsumer;
@@ -15,9 +16,12 @@ public class AbstractMapping {
         ProtocolInfo.getPacketCodecs().forEach((codec) -> {
             int protocolId = codec.getProtocolVersion();
             String name = lookupAvailableFile(file, protocolId);
-            var rawData = open(name);
-            log.debug("Loading packet codec {} from {}", codec.getProtocolVersion(), name);
-            handler.accept(protocolId, rawData);
+            try (var rawData = open(name)) {
+                log.debug("Loading packet codec {} from {}", codec.getProtocolVersion(), name);
+                handler.accept(protocolId, rawData);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         });
     }
 
@@ -43,7 +47,7 @@ public class AbstractMapping {
         if (Ouranos.class.getClassLoader().getResource(name) == null) {
             name = file;
         }
-            return name;
+        return name;
     }
 
     protected static void loadFile(String file, BiConsumer<Integer, URL> handler) {

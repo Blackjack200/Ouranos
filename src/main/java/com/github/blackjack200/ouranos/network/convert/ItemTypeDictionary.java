@@ -8,6 +8,7 @@ import lombok.Getter;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemVersion;
 
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,16 +27,26 @@ public final class ItemTypeDictionary extends AbstractMapping {
     public static InnerEntry getInstance(int protocolId) {
         return entries.computeIfAbsent(protocolId, (protocol) -> {
             if (protocol > Bedrock_v408.CODEC.getProtocolVersion()) {
-                return new InnerEntry(new Gson().fromJson(new InputStreamReader(open(lookupAvailableFile("required_item_list.json", protocol))), new TypeToken<Map<String, ItemTypeInfo>>() {
-                }.getType()));
+                try (var requiredItemList = open(lookupAvailableFile("required_item_list.json", protocol));
+                     var reader = new InputStreamReader(requiredItemList)) {
+                    return new InnerEntry(new Gson().fromJson(reader, new TypeToken<Map<String, ItemTypeInfo>>() {
+                    }.getType()));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
-            Map<String, Integer> rawEntries = new Gson().fromJson(new InputStreamReader(open(lookupAvailableFile("item_id_map.json", protocol))), new TypeToken<Map<String, Integer>>() {
-            }.getType());
-            var entries = new HashMap<String, ItemTypeInfo>(rawEntries.size());
-            rawEntries.forEach((key, value) -> {
-                entries.put(key, new ItemTypeInfo(value, false, ItemVersion.LEGACY.ordinal(), null));
-            });
-            return new InnerEntry(entries);
+            try (var itemIdMap = open(lookupAvailableFile("item_id_map.json", protocol));
+                 var reader = new InputStreamReader(itemIdMap)) {
+                Map<String, Integer> rawEntries = new Gson().fromJson(reader, new TypeToken<Map<String, Integer>>() {
+                }.getType());
+                var entries = new HashMap<String, ItemTypeInfo>(rawEntries.size());
+                rawEntries.forEach((key, value) -> {
+                    entries.put(key, new ItemTypeInfo(value, false, ItemVersion.LEGACY.ordinal(), null));
+                });
+                return new InnerEntry(entries);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         });
     }
 

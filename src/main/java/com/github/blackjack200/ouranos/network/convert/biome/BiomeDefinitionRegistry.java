@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
 import org.cloudburstmc.protocol.bedrock.data.biome.BiomeDefinitionData;
 
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,13 +23,18 @@ public class BiomeDefinitionRegistry extends AbstractMapping {
 
     public static BiomeDefinitionRegistry.InnerEntry getInstance(int protocolId) {
         return entries.computeIfAbsent(protocolId, (protocol) -> {
-            Map<String, BiomeDefinitionDataBean> rawEntries = new Gson().fromJson(new InputStreamReader(open(lookupAvailableFile("biome_definitions.json", protocol))), new TypeToken<Map<String, BiomeDefinitionDataBean>>() {
-            }.getType());
-            var entries = new HashMap<String, BiomeDefinitionData>(rawEntries.size());
-            rawEntries.forEach((key, value) -> {
-                entries.put(key, value.toData());
-            });
-            return new BiomeDefinitionRegistry.InnerEntry(entries);
+            try (var in = open(lookupAvailableFile("biome_definitions.json", protocol));
+                 var reader = new InputStreamReader(in)) {
+                Map<String, BiomeDefinitionDataBean> rawEntries = new Gson().fromJson(reader, new TypeToken<Map<String, BiomeDefinitionDataBean>>() {
+                }.getType());
+                var entries = new HashMap<String, BiomeDefinitionData>(rawEntries.size());
+                rawEntries.forEach((key, value) -> {
+                    entries.put(key, value.toData());
+                });
+                return new BiomeDefinitionRegistry.InnerEntry(entries);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         });
     }
 

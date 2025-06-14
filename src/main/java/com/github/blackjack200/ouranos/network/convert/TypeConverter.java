@@ -177,16 +177,18 @@ public class TypeConverter {
 
     @SneakyThrows
     public static void rewriteBlockEntities(int input, int output, ByteBuf from, ByteBuf to) {
-        var inp = new ByteBufInputStream(from);
-        var reader = NbtUtils.createNetworkReader(inp);
-        var rd = NbtUtils.createNetworkWriter(new ByteBufOutputStream(to));
-        while (inp.available() > 0) {
-            var tag = (NbtMap) reader.readTag();
-            var id = tag.getString("id");
-            if (id.isEmpty()) {
-                continue;
+        try (var inp = new ByteBufInputStream(from);
+             var reader = NbtUtils.createNetworkReader(inp);
+             var toStream = new ByteBufOutputStream(to);
+             var rd = NbtUtils.createNetworkWriter(toStream)) {
+            while (inp.available() > 0) {
+                var tag = (NbtMap) reader.readTag();
+                var id = tag.getString("id");
+                if (id.isEmpty()) {
+                    continue;
+                }
+                rd.writeTag(translateBlockEntity(input, output, tag));
             }
-            rd.writeTag(translateBlockEntity(input, output, tag));
         }
     }
 

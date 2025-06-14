@@ -47,7 +47,6 @@ public class Xbox {
     }
 
     public String getUserToken(ECPublicKey publicKey, ECPrivateKey privateKey) throws Exception {
-
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("RelyingParty", "http://auth.xboxlive.com");
         jsonObject.addProperty("TokenType", "JWT");
@@ -84,7 +83,6 @@ public class Xbox {
     }
 
     public String getDeviceToken(ECPublicKey publicKey, ECPrivateKey privateKey) throws Exception {
-
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("RelyingParty", "http://auth.xboxlive.com");
         jsonObject.addProperty("TokenType", "JWT");
@@ -116,13 +114,13 @@ public class Xbox {
 
         this.writeJsonObjectToPost(connection, jsonObject);
 
-        JsonObject responceJsonObject = JsonParser.parseReader(new InputStreamReader(connection.getInputStream())).getAsJsonObject();
-
-        return responceJsonObject.get("Token").getAsString();
+        try (var reader = new InputStreamReader(connection.getInputStream())) {
+            JsonObject responceJsonObject = JsonParser.parseReader(reader).getAsJsonObject();
+            return responceJsonObject.get("Token").getAsString();
+        }
     }
 
     public String getTitleToken(ECPublicKey publicKey, ECPrivateKey privateKey, String deviceToken) throws Exception {
-
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("RelyingParty", "http://auth.xboxlive.com");
         jsonObject.addProperty("TokenType", "JWT");
@@ -153,13 +151,14 @@ public class Xbox {
 
         this.writeJsonObjectToPost(connection, jsonObject);
 
-        JsonObject responceJsonObject = JsonParser.parseReader(new InputStreamReader(connection.getInputStream())).getAsJsonObject();
+        try (var reader = new InputStreamReader(connection.getInputStream())) {
+            JsonObject responceJsonObject = JsonParser.parseReader(reader).getAsJsonObject();
 
-        return responceJsonObject.get("Token").getAsString();
+            return responceJsonObject.get("Token").getAsString();
+        }
     }
 
     public String getXstsToken(String userToken, String deviceToken, String titleToken, ECPublicKey publicKey, ECPrivateKey privateKey) throws Exception {
-
         JsonObject jsonObject = new JsonObject();
 
         jsonObject.addProperty("RelyingParty", "https://multiplayer.minecraft.net/");

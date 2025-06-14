@@ -12,7 +12,10 @@ public class GlobalBlockDataHandlers {
     @SneakyThrows
     public static BlockIdMetaUpgrader getUpgrader() {
         if (blockIdMetaUpgrader == null) {
-            blockIdMetaUpgrader = BlockIdMetaUpgrader.loadFromString(new BinaryStream(Ouranos.class.getClassLoader().getResourceAsStream("block_schema/id_meta_to_nbt/1.12.0.bin").readAllBytes()));
+            try (var bin = Ouranos.class.getClassLoader().getResourceAsStream("block_schema/id_meta_to_nbt/1.12.0.bin")) {
+                assert bin != null;
+                blockIdMetaUpgrader = BlockIdMetaUpgrader.loadFromString(new BinaryStream(bin.readAllBytes()));
+            }
         }
         return blockIdMetaUpgrader;
     }

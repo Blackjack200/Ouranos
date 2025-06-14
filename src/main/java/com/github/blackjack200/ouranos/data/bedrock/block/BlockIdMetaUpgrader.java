@@ -36,10 +36,11 @@ public class BlockIdMetaUpgrader {
             var pairs = VarInt.readUnsignedVarInt(data);
             for (int j = 0; j < pairs; j++) {
                 var meta = VarInt.readUnsignedVarInt(data);
-                var reader = NbtUtils.createReaderLE(data);
-                var rawState = (NbtMap) reader.readTag();
-                var state = HashUtils.computeBlockStateHash(BlockStateDictionary.hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION));
-                mappingTable.put(state, new Block(legacyStringId, meta));
+                try (var reader = NbtUtils.createReaderLE(data)) {
+                    var rawState = (NbtMap) reader.readTag();
+                    var state = HashUtils.computeBlockStateHash(BlockStateDictionary.hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION));
+                    mappingTable.put(state, new Block(legacyStringId, meta));
+                }
             }
 
         }

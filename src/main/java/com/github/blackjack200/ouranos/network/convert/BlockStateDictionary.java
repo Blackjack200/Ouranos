@@ -107,27 +107,28 @@ public final class BlockStateDictionary extends AbstractMapping {
 
         @SneakyThrows
         private static Dictionary load(int protocolId) {
-            var block_state = open(lookupAvailableFile("canonical_block_states.nbt", protocolId));
-            var reader = NbtUtils.createNetworkReader(block_state);
-            var list = new Int2ObjectRBTreeMap<BlockEntry>();
-            while (block_state.available() > 0) {
-                var rawTag = reader.readTag();
-                if (rawTag instanceof NbtList<?> rawList) {
-                    for (var rawEntry : rawList) {
-                        var entry = (NbtMap) rawEntry;
-                        var rawState = (NbtMap) entry.get("block");
+            try (var block_state = open(lookupAvailableFile("canonical_block_states.nbt", protocolId))) {
+                var reader = NbtUtils.createNetworkReader(block_state);
+                var list = new Int2ObjectRBTreeMap<BlockEntry>();
+                while (block_state.available() > 0) {
+                    var rawTag = reader.readTag();
+                    if (rawTag instanceof NbtList<?> rawList) {
+                        for (var rawEntry : rawList) {
+                            var entry = (NbtMap) rawEntry;
+                            var rawState = (NbtMap) entry.get("block");
+                            var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
+                            var latestStateHash = HashUtils.computeBlockStateHash(state);
+                            list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
+                        }
+                    } else if (rawTag instanceof NbtMap rawState) {
+                        //TODO HACK! blame on BlockStateUpdaters
                         var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
-                        var latestStateHash = HashUtils.computeBlockStateHash(state);
+                        var latestStateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
                         list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
                     }
-                } else if (rawTag instanceof NbtMap rawState) {
-                    //TODO HACK! blame on BlockStateUpdaters
-                    var state = hackedUpgradeBlockState(rawState, BlockStateUpdaters.LATEST_VERSION);
-                    var latestStateHash = HashUtils.computeBlockStateHash(state.getString("name"), state);
-                    list.put(list.size(), new BlockEntry(rawState.getString("name"), state.getString("name"), rawState, latestStateHash, HashUtils.computeBlockStateHash(rawState)));
                 }
+                return new Dictionary(list);
             }
-            return new Dictionary(list);
         }
     }
 

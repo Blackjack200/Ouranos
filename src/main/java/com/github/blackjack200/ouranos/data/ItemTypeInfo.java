@@ -18,7 +18,10 @@ public record ItemTypeInfo(int runtime_id, boolean component_based, int version,
     @SneakyThrows
     public NbtMap getComponentNbt() {
         if (component_nbt != null) {
-            return (NbtMap) NbtUtils.createReaderLE(new ByteArrayInputStream(Base64.getDecoder().decode(component_nbt))).readTag();
+            try (var stream = new ByteArrayInputStream(Base64.getDecoder().decode(component_nbt));
+                 var reader = NbtUtils.createReaderLE(stream)) {
+                return (NbtMap) reader.readTag();
+            }
         }
         return NbtMap.EMPTY;
     }

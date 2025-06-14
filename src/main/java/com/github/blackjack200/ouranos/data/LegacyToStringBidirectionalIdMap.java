@@ -7,6 +7,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.objects.Object2IntRBTreeMap;
 import lombok.val;
 
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Map;
 
@@ -16,16 +17,20 @@ public abstract class LegacyToStringBidirectionalIdMap extends AbstractMapping {
 
     public LegacyToStringBidirectionalIdMap(String file) {
         load(file, (protocolId, rawData) -> {
-            Map<String, Integer> data = (new Gson()).fromJson(new InputStreamReader(rawData), new TypeToken<Map<String, Integer>>() {
-            }.getType());
-            val stringToInt = new Object2IntRBTreeMap<String>();
-            val intToString = new Int2ObjectRBTreeMap<String>();
-            data.forEach((stringId, numericId) -> {
-                stringToInt.put(stringId, numericId);
-                intToString.put(numericId, stringId);
-            });
-            this.intToStringMap.put(protocolId, intToString);
-            this.stringToIntMap.put(protocolId, stringToInt);
+            try (var reader = new InputStreamReader(rawData)) {
+                Map<String, Integer> data = (new Gson()).fromJson(reader, new TypeToken<Map<String, Integer>>() {
+                }.getType());
+                val stringToInt = new Object2IntRBTreeMap<String>();
+                val intToString = new Int2ObjectRBTreeMap<String>();
+                data.forEach((stringId, numericId) -> {
+                    stringToInt.put(stringId, numericId);
+                    intToString.put(numericId, stringId);
+                });
+                this.intToStringMap.put(protocolId, intToString);
+                this.stringToIntMap.put(protocolId, stringToInt);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         });
     }
 
