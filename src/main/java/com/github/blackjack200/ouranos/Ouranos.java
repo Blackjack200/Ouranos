@@ -49,7 +49,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
 @Log4j2
 public class Ouranos {
@@ -224,7 +223,7 @@ public class Ouranos {
                         log.info("Debug mode disabled");
                     }
                     break;
-                case "gc":
+                case "gc": {
                     val runtime = Runtime.getRuntime();
                     val usedMemory = runtime.totalMemory() - runtime.freeMemory();
                     log.info("Memory used: {} MB", Math.round((usedMemory / 1024d / 1024d)));
@@ -232,6 +231,14 @@ public class Ouranos {
                     val freedMemory = usedMemory - (runtime.totalMemory() - runtime.freeMemory());
                     log.info("Memory freed: {} MB", Math.round((freedMemory / 1024d / 1024d)));
                     break;
+                }
+                case "status": {
+                    val runtime = Runtime.getRuntime();
+                    val usedMemory = runtime.totalMemory() - runtime.freeMemory();
+                    log.info("Total memory: {} MB", Math.round((runtime.totalMemory() / 1024d / 1024d)));
+                    log.info("Memory used: {} MB", Math.round((usedMemory / 1024d / 1024d)));
+                    break;
+                }
                 default:
                     log.error("Unknown command: {}", input);
             }
@@ -263,7 +270,7 @@ public class Ouranos {
 
     public Bootstrap prepareUpstreamBootstrap() {
         if (this.config.proxy_protocol) {
-            return new Bootstrap().group(this.bossGroup)
+            return new Bootstrap().group(this.workerGroup)
                     .channel(NioSocketChannel.class)
                     .option(ChannelOption.TCP_NODELAY, true)
                     .option(ChannelOption.SO_RCVBUF, 128)
@@ -273,7 +280,7 @@ public class Ouranos {
     }
 
     public Bootstrap preparePingBootstrap() {
-        return new Bootstrap().group(this.bossGroup)
+        return new Bootstrap().group(this.workerGroup)
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
                 .option(RakChannelOption.RAK_COMPATIBILITY_MODE, true)
                 .option(RakChannelOption.RAK_AUTO_FLUSH, true)

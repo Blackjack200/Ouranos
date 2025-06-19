@@ -8,7 +8,6 @@ import com.github.blackjack200.ouranos.network.convert.biome.BiomeDefinitionRegi
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
 import io.netty.buffer.AbstractByteBufAllocator;
-import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
@@ -687,33 +686,37 @@ public class Translate {
 
     private static void rewriteChunk(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof LevelChunkPacket packet) {
+            var from = packet.getData();
+            var to = AbstractByteBufAllocator.DEFAULT.buffer(from.readableBytes()).touch();
             try {
-                var from = packet.getData();
-                var to = AbstractByteBufAllocator.DEFAULT.buffer(from.readableBytes()).touch();
                 var newSubChunkCount = TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength());
                 packet.setSubChunksLength(newSubChunkCount);
                 packet.setData(to);
-                ReferenceCountUtil.release(from);
             } catch (ChunkRewriteException exception) {
                 log.error("Failed to rewrite chunk: ", exception);
                 player.disconnect("Failed to rewrite chunk: " + exception.getMessage());
+            } finally {
+                ReferenceCountUtil.release(from);
+                ReferenceCountUtil.release(to);
             }
             return;
         }
         if (p instanceof SubChunkPacket packet) {
             for (var subChunk : packet.getSubChunks()) {
-                ByteBuf from = subChunk.getData();
                 if (subChunk.getData().readableBytes() > 0) {
+                    var from = subChunk.getData();
+                    var to = AbstractByteBufAllocator.DEFAULT.buffer(from.readableBytes());
                     try {
-                        var to = AbstractByteBufAllocator.DEFAULT.ioBuffer(from.readableBytes());
                         TypeConverter.rewriteSubChunk(input, output, from, to);
                         TypeConverter.rewriteBlockEntities(input, output, from, to);
                         to.writeBytes(from);
                         subChunk.setData(to);
-                        ReferenceCountUtil.release(from);
                     } catch (ChunkRewriteException exception) {
                         log.error("Failed to rewrite chunk: ", exception);
                         player.disconnect("Failed to rewrite chunk: " + exception.getMessage());
+                    } finally {
+                        ReferenceCountUtil.release(from);
+                        ReferenceCountUtil.release(to);
                     }
                 }
             }

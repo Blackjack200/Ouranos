@@ -119,7 +119,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
     private void setupRedirect() {
         session.downstream.setPacketRedirect((_upstream, packet) -> {
-            ReferenceCountUtil.retain(ReferenceCountUtil.touch(packet));
+            ReferenceCountUtil.touch(packet);
             var packets = Translate.translate(session.getDownstreamProtocolId(), session.getUpstreamProtocolId(), false, session, packet);
             for (var pk : packets) {
                 ReferenceCountUtil.touch(pk);
@@ -128,15 +128,15 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                         if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(packet instanceof NetworkStackLatencyPacket)) {
                             log.debug("C->S {}", pk.getClass());
                         }
-                        session.upstream.sendPacket(pk);
+                        session.upstream.sendPacket(ReferenceCountUtil.retain(pk));
                     }
                 } else {
-                    ReferenceCountUtil.safeRelease(pk);
+                    ReferenceCountUtil.release(pk);
                 }
             }
         });
         session.upstream.setPacketRedirect((_downstream, packet) -> {
-            ReferenceCountUtil.retain(ReferenceCountUtil.touch(packet));
+            ReferenceCountUtil.touch(packet);
             var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), true, session, packet);
             for (var pk : packets) {
                 ReferenceCountUtil.touch(pk);
@@ -145,10 +145,10 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                         if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelEventPacket) && !(pk instanceof UpdateSoftEnumPacket) && !(pk instanceof SetTimePacket) && !(packet instanceof UpdateAttributesPacket) && !(packet instanceof NetworkStackLatencyPacket) && !(packet instanceof SetScorePacket)) {
                             log.debug("S->C {}", pk.getClass());
                         }
-                        session.downstream.sendPacket(pk);
+                        session.downstream.sendPacket(ReferenceCountUtil.retain(pk));
                     }
                 } else {
-                    ReferenceCountUtil.safeRelease(pk);
+                    ReferenceCountUtil.release(pk);
                 }
             }
         });
