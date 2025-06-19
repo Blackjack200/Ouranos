@@ -53,12 +53,12 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
         }
         log.info("{} log-in using minecraft {} {}", this.downstream.getPeer().getSocketAddress(), codec.getMinecraftVersion(), codec.getProtocolVersion());
 
-        var chain = EncryptionUtils.validateChain(packet.getChain());
+        var chain = EncryptionUtils.validatePayload(packet.getAuthPayload());
 
         var claims = chain.identityClaims();
         var extraData = claims.extraData;
         var identityData = new AuthData(extraData.displayName,
-                extraData.identity, extraData.xuid);
+                extraData.xuid);
 
         if (identityData.xuid().isEmpty() && Ouranos.getOuranos().getConfig().online_mode) {
             this.downstream.disconnect("You need to authenticate to Xbox Live.");
@@ -69,7 +69,7 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
 
         var jws = new JsonWebSignature();
         jws.setKey(claims.parsedIdentityPublicKey());
-        jws.setCompactSerialization(packet.getExtra());
+        jws.setCompactSerialization(packet.getClientJwt());
         jws.setPayloadCharEncoding(String.valueOf(StandardCharsets.UTF_8));
         jws.verifySignature();
         var rawExtraData = Convert.toMap(String.class, Object.class, chain.rawIdentityClaims().get("extraData"));

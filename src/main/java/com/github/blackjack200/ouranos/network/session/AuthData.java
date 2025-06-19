@@ -1,6 +1,4 @@
 package com.github.blackjack200.ouranos.network.session;
 
-import java.util.UUID;
-
-public record AuthData(String displayName, UUID identity, String xuid) {
+public record AuthData(String displayName, String xuid) {
 }

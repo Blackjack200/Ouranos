@@ -424,7 +424,7 @@ public class Translate {
             pk.setChatRestrictionLevel(Optional.ofNullable(pk.getChatRestrictionLevel()).orElse(ChatRestrictionLevel.NONE));
             pk.setPlayerPropertyData(Optional.ofNullable(pk.getPlayerPropertyData()).orElse(NbtMap.EMPTY));
             pk.setWorldTemplateId(Optional.ofNullable(pk.getWorldTemplateId()).orElse(UUID.randomUUID()));
-
+            pk.setOwnerId(Objects.requireNonNullElse(pk.getOwnerId(), ""));
         }
         if (p instanceof PlayerAuthInputPacket pk) {
             pk.setDelta(Objects.requireNonNullElseGet(pk.getDelta(), () -> provider.createVector3f(0, 0, 0)));
@@ -691,7 +691,7 @@ public class Translate {
             try {
                 var newSubChunkCount = TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength());
                 packet.setSubChunksLength(newSubChunkCount);
-                packet.setData(to);
+                packet.setData(to.retain());
             } catch (ChunkRewriteException exception) {
                 log.error("Failed to rewrite chunk: ", exception);
                 player.disconnect("Failed to rewrite chunk: " + exception.getMessage());
@@ -710,7 +710,7 @@ public class Translate {
                         TypeConverter.rewriteSubChunk(input, output, from, to);
                         TypeConverter.rewriteBlockEntities(input, output, from, to);
                         to.writeBytes(from);
-                        subChunk.setData(to);
+                        subChunk.setData(to.retain());
                     } catch (ChunkRewriteException exception) {
                         log.error("Failed to rewrite chunk: ", exception);
                         player.disconnect("Failed to rewrite chunk: " + exception.getMessage());

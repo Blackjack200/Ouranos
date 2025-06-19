@@ -19,6 +19,8 @@ import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
+import org.cloudburstmc.protocol.bedrock.data.auth.AuthType;
+import org.cloudburstmc.protocol.bedrock.data.auth.CertificateChainPayload;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
@@ -157,22 +159,20 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
         if (System.getenv("USE_XBOX") != null) {
             var x = new Xbox(accessToken);
             List<String> chain = new Auth().getOnlineChainData(x, this.keyPair);
-            newLogin.getChain().addAll(chain);
+            newLogin.setAuthPayload(new CertificateChainPayload(chain, AuthType.FULL));
             var chainD = EncryptionUtils.validateChain(chain);
 
             var claims = chainD.identityClaims();
             var extraData = claims.extraData;
-            session.identity = new AuthData(extraData.displayName,
-                    extraData.identity, extraData.xuid);
+            session.identity = new AuthData(extraData.displayName, extraData.xuid);
         } else {
-            newLogin.getChain().add(this.chainData);
+            newLogin.setAuthPayload(new CertificateChainPayload(List.of(this.chainData), AuthType.FULL));
             var chainD = EncryptionUtils.validateChain(List.of(this.chainData));
             var claims = chainD.identityClaims();
             var extraData = claims.extraData;
-            session.identity = new AuthData(extraData.displayName,
-                    extraData.identity, extraData.xuid);
+            session.identity = new AuthData(extraData.displayName, extraData.xuid);
         }
-        newLogin.setExtra(newClientData);
+        newLogin.setClientJwt(newClientData);
         newLogin.setProtocolVersion(session.upstream.getCodec().getProtocolVersion());
         return newLogin;
     }
