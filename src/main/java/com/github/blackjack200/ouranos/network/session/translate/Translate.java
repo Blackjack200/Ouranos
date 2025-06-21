@@ -425,6 +425,7 @@ public class Translate {
             pk.setPlayerPropertyData(Optional.ofNullable(pk.getPlayerPropertyData()).orElse(NbtMap.EMPTY));
             pk.setWorldTemplateId(Optional.ofNullable(pk.getWorldTemplateId()).orElse(UUID.randomUUID()));
             pk.setOwnerId(Objects.requireNonNullElse(pk.getOwnerId(), ""));
+            pk.setAuthoritativeMovementMode(Objects.requireNonNullElse(pk.getAuthoritativeMovementMode(), AuthoritativeMovementMode.SERVER));
         }
         if (p instanceof PlayerAuthInputPacket pk) {
             pk.setDelta(Objects.requireNonNullElseGet(pk.getDelta(), () -> provider.createVector3f(0, 0, 0)));
