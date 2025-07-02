@@ -17,8 +17,6 @@ import lombok.val;
 import org.cloudburstmc.nbt.NbtList;
 import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.nbt.NbtType;
-import org.cloudburstmc.netty.channel.raknet.RakChannel;
-import org.cloudburstmc.netty.handler.codec.raknet.common.RakSessionCodec;
 import org.cloudburstmc.protocol.bedrock.codec.v361.Bedrock_v361;
 import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
@@ -31,17 +29,11 @@ import org.jose4j.json.JsonUtil;
 import org.jose4j.json.internal.json_simple.JSONObject;
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwx.HeaderParameterNames;
-import org.jose4j.lang.JoseException;
 
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 @Log4j2
 public class UpstreamInitialHandler implements BedrockPacketHandler {
@@ -76,21 +68,14 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
     @Override
     public PacketSignal handle(ServerToClientHandshakePacket pk) {
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                var jws = new JsonWebSignature();
-                jws.setCompactSerialization(pk.getJwt());
-                var saltJwt = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
-                var x5u = jws.getHeader(HeaderParameterNames.X509_URL);
-                var serverKey = EncryptionUtils.parseKey(x5u);
-                var key = EncryptionUtils.getSecretKey(this.session.getKeyPair().getPrivate(), serverKey,
-                        Base64.getDecoder().decode(JsonUtils.childAsType(saltJwt, "salt", String.class)));
-                return key;
-            } catch (JoseException | NoSuchAlgorithmException | InvalidKeySpecException |
-                     InvalidKeyException e) {
-                throw new RuntimeException(e);
-            }
-        }, Ouranos.getOuranos().getScheduler()).thenAcceptAsync(key -> {
+        try {
+            var jws = new JsonWebSignature();
+            jws.setCompactSerialization(pk.getJwt());
+            var saltJwt = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
+            var x5u = jws.getHeader(HeaderParameterNames.X509_URL);
+            var serverKey = EncryptionUtils.parseKey(x5u);
+            var key = EncryptionUtils.getSecretKey(this.session.getKeyPair().getPrivate(), serverKey,
+                    Base64.getDecoder().decode(JsonUtils.childAsType(saltJwt, "salt", String.class)));
             this.session.upstream.getPeer().getChannel().eventLoop().execute(() -> {
                 if (!this.session.isAlive()) {
                     return;
@@ -98,14 +83,14 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                 this.session.upstream.enableEncryption(key);
                 this.session.upstream.sendPacketImmediately(new ClientToServerHandshakePacket());
             });
-        }).exceptionally(ex -> {
+        } catch (Throwable ex) {
             log.error("Error while enabling upstream encryption", ex);
             if (!this.session.isAlive()) {
                 return null;
             }
             this.session.disconnect("Error while enabling upstream encryption: " + ex.getMessage());
             return null;
-        });
+        }
         return PacketSignal.HANDLED;
     }
 
@@ -130,8 +115,8 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                         }
                         session.upstream.sendPacket(ReferenceCountUtil.retain(pk));
                     }
-                } else {
-                    ReferenceCountUtil.release(pk);
+                } else if (pk != packet) {
+                    ReferenceCountUtil.safeRelease(pk);
                 }
             }
         });
@@ -147,8 +132,8 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
                         }
                         session.downstream.sendPacket(ReferenceCountUtil.retain(pk));
                     }
-                } else {
-                    ReferenceCountUtil.release(pk);
+                } else if (pk != packet) {
+                    ReferenceCountUtil.safeRelease(pk);
                 }
             }
         });
@@ -167,6 +152,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
 
         List<ItemDefinition> def = ItemTypeDictionary.getInstance(downstreamProtocolId).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
         pk.setItemDefinitions(def);
+        Translate.writeProtocolDefault(this.session, pk);
         if (downstreamProtocolId <= Bedrock_v408.CODEC.getProtocolVersion()) {
             if (downstreamProtocolId > Bedrock_v361.CODEC.getProtocolVersion()) {
                 var states = BlockStateDictionary.getInstance(downstreamProtocolId).getKnownStates().stream().map((e) -> {

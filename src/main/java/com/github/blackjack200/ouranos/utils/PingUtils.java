@@ -26,7 +26,11 @@ public class PingUtils {
                         return;
                     }
                     var ping = new RakPing(System.currentTimeMillis(), address);
-                    fut.channel().writeAndFlush(ping);
+                    fut.channel().writeAndFlush(ping).addListener(future1 -> {
+                        if (future1.cause() != null) {
+                            fut.channel().close();
+                        }
+                    });
                 });
     }
 
@@ -41,7 +45,11 @@ public class PingUtils {
                         return;
                     }
                     var ping = new RakPing(System.currentTimeMillis(), address);
-                    fut.channel().writeAndFlush(ping);
+                    fut.channel().writeAndFlush(ping).addListener(future1 -> {
+                        if (future1.cause() != null) {
+                            fut.channel().close();
+                        }
+                    });
                 });
         return f;
     }

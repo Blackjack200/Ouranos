@@ -14,6 +14,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.AdaptiveByteBufAllocator;
+import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
@@ -21,6 +24,7 @@ import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.ReferenceCountUtil;
 import io.netty.util.ResourceLeakDetector;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -123,6 +127,7 @@ public class Ouranos {
 
         var boostrap = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
+                .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
                 .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[]{11, 10, 9})
                 .group(this.bossGroup, this.workerGroup)
@@ -186,9 +191,11 @@ public class Ouranos {
                 var count = OuranosProxySession.ouranosPlayers.size();
                 var buf = p.ipv4Port(this.config.server_port_v4).ipv6Port(this.config.server_port_v6).playerCount(count).maximumPlayerCount(this.config.maximum_player).toByteBuf();
                 for (val channel : channels) {
+                    ReferenceCountUtil.release(channel.config().getOption(RakChannelOption.RAK_ADVERTISEMENT));
                     channel.config().setOption(RakChannelOption.RAK_ADVERTISEMENT, buf);
                 }
                 motdLoading.set(false);
+                ReferenceCountUtil.release(p);
             }, this.config.getRemote(), 5, TimeUnit.SECONDS);
         }, 0, 1, TimeUnit.SECONDS);
 
@@ -235,6 +242,16 @@ public class Ouranos {
                 case "status": {
                     val runtime = Runtime.getRuntime();
                     val usedMemory = runtime.totalMemory() - runtime.freeMemory();
+                    var metric = UnpooledByteBufAllocator.DEFAULT.metric();
+                    log.info("Unpooled Netty Heap Memory Used: {} KB", Math.round(metric.usedHeapMemory() / 1024D));
+                    log.info("Unpooled Netty Direct Memory Used: {} KB", Math.round(metric.usedDirectMemory() / 1024D));
+                    metric = PooledByteBufAllocator.DEFAULT.metric();
+                    log.info("Pooled Netty Heap Memory Used: {} KB", Math.round(metric.usedHeapMemory() / 1024D));
+                    log.info("Pooled Netty Direct Memory Used: {} KB", Math.round(metric.usedDirectMemory() / 1024D));
+                    metric = ((AdaptiveByteBufAllocator) AdaptiveByteBufAllocator.DEFAULT).metric();
+                    log.info("Adaptive Netty Heap Memory Used: {} KB", Math.round(metric.usedHeapMemory() / 1024D));
+                    log.info("Adaptive Netty Direct Memory Used: {} KB", Math.round(metric.usedDirectMemory() / 1024D));
+
                     log.info("Total memory: {} MB", Math.round((runtime.totalMemory() / 1024d / 1024d)));
                     log.info("Memory used: {} MB", Math.round((usedMemory / 1024d / 1024d)));
                     break;
@@ -282,6 +299,7 @@ public class Ouranos {
     public Bootstrap preparePingBootstrap() {
         return new Bootstrap().group(this.workerGroup)
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
+                .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .option(RakChannelOption.RAK_COMPATIBILITY_MODE, true)
                 .option(RakChannelOption.RAK_AUTO_FLUSH, true)
                 .option(RakChannelOption.RAK_FLUSH_INTERVAL, 10);
