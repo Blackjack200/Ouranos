@@ -8,15 +8,20 @@ import org.cloudburstmc.protocol.common.DefinitionRegistry;
 
 public class BlockDictionaryRegistry implements DefinitionRegistry<BlockDefinition> {
     public final int protocol;
+    public final boolean blockNetworkIdAreHashes;
 
-    public BlockDictionaryRegistry(int protocol) {
+    public BlockDictionaryRegistry(int protocol, boolean blockNetworkIdAreHashes) {
         this.protocol = protocol;
+        this.blockNetworkIdAreHashes = blockNetworkIdAreHashes;
     }
 
     @Override
     public BlockDefinition getDefinition(int runtimeId) {
         val entry = BlockStateDictionary.getInstance(this.protocol);
-        val hash = entry.toLatestStateHash(runtimeId);
+        var hash = runtimeId;
+        if (!this.blockNetworkIdAreHashes) {
+            hash = entry.toLatestStateHash(runtimeId);
+        }
         val states = entry.lookupStateFromStateHash(hash);
         if (states == null) {
             return null;

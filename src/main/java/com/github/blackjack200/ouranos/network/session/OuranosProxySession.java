@@ -20,6 +20,14 @@ public class OuranosProxySession {
     public final ProxyServerSession downstream;
     private ScheduledFuture<?> fut;
     public boolean blockNetworkIdAreHashes = false;
+
+    public boolean isBlockNetworkIdAreHashes(boolean fromServer) {
+        if (fromServer) {
+            return blockNetworkIdAreHashes;
+        }
+        return false;
+    }
+
     @Getter
     private final KeyPair keyPair;
     public int lastFormId = -1;

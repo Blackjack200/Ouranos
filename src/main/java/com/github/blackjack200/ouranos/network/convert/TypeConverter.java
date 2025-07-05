@@ -29,12 +29,12 @@ import java.util.ArrayList;
 @Log4j2
 @UtilityClass
 public class TypeConverter {
-    public int[] translateItemRuntimeId(int input, int output, int runtimeId, int meta) {
-        var newItem = TypeConverter.translateItemData(input, output, ItemData.builder().definition(new SimpleItemDefinition("", runtimeId, false)).damage(meta).count(1).build());
+    public int[] translateItemRuntimeId(boolean idAreHashes, int input, int output, int runtimeId, int meta) {
+        var newItem = TypeConverter.translateItemData(idAreHashes, input, output, ItemData.builder().definition(new SimpleItemDefinition("", runtimeId, false)).damage(meta).count(1).build());
         return new int[]{newItem.getDefinition().getRuntimeId(), newItem.getDamage()};
     }
 
-    public ItemData translateItemData(int input, int output, ItemData itemData) {
+    public ItemData translateItemData(boolean idAreHashes, int input, int output, ItemData itemData) {
         if (itemData.isNull() || !itemData.isValid()) {
             return itemData;
         }
@@ -67,7 +67,11 @@ public class TypeConverter {
             var inputDict = BlockStateDictionary.getInstance(input);
             var outputDict = BlockStateDictionary.getInstance(output);
 
-            var inputState = inputDict.lookupStateFromStateHash(inputDict.toLatestStateHash(itemData.getBlockDefinition().getRuntimeId()));
+            Integer hash = itemData.getBlockDefinition().getRuntimeId();
+            if (!idAreHashes) {
+                hash = inputDict.toLatestStateHash(itemData.getBlockDefinition().getRuntimeId());
+            }
+            var inputState = inputDict.lookupStateFromStateHash(hash);
 
             var outputState = outputDict.lookupStateFromStateHash(inputState.latestStateHash());
             if (outputState != null) {
@@ -88,11 +92,11 @@ public class TypeConverter {
     }
 
     @SneakyThrows
-    public int rewriteFullChunk(int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
+    public int rewriteFullChunk(boolean idAreHashes, int input, int output, ByteBuf from, ByteBuf to, int dimension, int sections) throws ChunkRewriteException {
         var subChunks = new ArrayList<ByteBuf>();
         for (var section = 0; section < sections; section++) {
             var buf = ByteBufAllocator.DEFAULT.buffer();
-            rewriteSubChunk(input, output, from, buf);
+            rewriteSubChunk(idAreHashes, input, output, from, buf);
             subChunks.add(buf);
         }
         var allSubChunks = new ArrayList<>(subChunks);
@@ -217,7 +221,7 @@ public class TypeConverter {
         }
     }
 
-    public static void rewriteSubChunk(int input, int output, ByteBuf from, ByteBuf to) throws ChunkRewriteException {
+    public static void rewriteSubChunk(boolean idAreHashes, int input, int output, ByteBuf from, ByteBuf to) throws ChunkRewriteException {
         var version = from.readUnsignedByte();
         var isNineSubChunkSupported = output >= Bedrock_v465.CODEC.getProtocolVersion();
         if (!isNineSubChunkSupported && version == 9) {
@@ -228,7 +232,7 @@ public class TypeConverter {
         switch (version) {
             case 0, 4, 139 -> to.writeBytes(from, 4096 + 2048);
             case 1 ->
-                    PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
+                    PaletteStorage.translatePaletteStorage(input, output, from, to, (i, o, v) -> translateBlockRuntimeId(idAreHashes, i, o, v));
             case 8, 9 -> { // New form chunk, baked-in palette
                 var storageCount = from.readUnsignedByte();
                 to.writeByte(storageCount);
@@ -239,7 +243,7 @@ public class TypeConverter {
                     }
                 }
                 for (var storage = 0; storage < storageCount; storage++) {
-                    PaletteStorage.translatePaletteStorage(input, output, from, to, TypeConverter::translateBlockRuntimeId);
+                    PaletteStorage.translatePaletteStorage(input, output, from, to, (i, o, v) -> translateBlockRuntimeId(idAreHashes, i, o, v));
                 }
             }
             default -> // Unsupported
@@ -247,11 +251,14 @@ public class TypeConverter {
         }
     }
 
-    public int translateBlockRuntimeId(int input, int output, int blockRuntimeId) {
+    public int translateBlockRuntimeId(boolean idAreHashes, int input, int output, int blockRuntimeId) {
         val inputDict = BlockStateDictionary.getInstance(input);
         val outputDict = BlockStateDictionary.getInstance(output);
 
-        val stateHash = inputDict.toLatestStateHash(blockRuntimeId);
+        Integer stateHash = blockRuntimeId;
+        if (!idAreHashes) {
+            stateHash = inputDict.toLatestStateHash(blockRuntimeId);
+        }
 
         if (stateHash == null) {
             return outputDict.getFallbackRuntimeId();
@@ -264,15 +271,15 @@ public class TypeConverter {
         return translated;
     }
 
-    public BlockDefinition translateBlockDefinition(int input, int output, BlockDefinition definition) {
-        return new SimpleBlockDefinition(translateBlockRuntimeId(input, output, definition.getRuntimeId()));
+    public BlockDefinition translateBlockDefinition(boolean idAreHashes, int input, int output, BlockDefinition definition) {
+        return new SimpleBlockDefinition(translateBlockRuntimeId(idAreHashes, input, output, definition.getRuntimeId()));
     }
 
-    public ItemDescriptor translateItemDescriptor(int input, int output, ItemDescriptor descriptor) {
+    public ItemDescriptor translateItemDescriptor(boolean idAreHashes, int input, int output, ItemDescriptor descriptor) {
         if (descriptor instanceof ComplexAliasDescriptor d) {
             return d;
         } else if (descriptor instanceof DefaultDescriptor d) {
-            var itemData = translateItemData(input, output, ItemData.builder().count(1).damage(d.getAuxValue()).definition(d.getItemId()).build());
+            var itemData = translateItemData(idAreHashes, input, output, ItemData.builder().count(1).damage(d.getAuxValue()).definition(d.getItemId()).build());
             if (itemData == null) {
                 return InvalidDescriptor.INSTANCE;
             }
@@ -298,8 +305,8 @@ public class TypeConverter {
         return InvalidDescriptor.INSTANCE;
     }
 
-    public static CreativeItemData translateCreativeItemData(int input, int output, CreativeItemData itemData) {
-        var item = translateItemData(input, output, itemData.getItem());
+    public static CreativeItemData translateCreativeItemData(boolean idAreHashes, int input, int output, CreativeItemData itemData) {
+        var item = translateItemData(idAreHashes, input, output, itemData.getItem());
         return new CreativeItemData(item, itemData.getNetId(), itemData.getGroupId());
     }
 }
