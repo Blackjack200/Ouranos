@@ -6,6 +6,7 @@ import com.github.blackjack200.ouranos.network.convert.BlockStateDictionary;
 import com.github.blackjack200.ouranos.network.convert.ItemTypeDictionary;
 import com.github.blackjack200.ouranos.network.session.*;
 import com.github.blackjack200.ouranos.network.session.handler.upstream.UpstreamInitialHandler;
+import com.github.blackjack200.ouranos.utils.EncUtils;
 import com.github.blackjack200.ouranos.utils.LoginPacketUtils;
 import com.github.blackjack200.ouranos.utils.auth.Auth;
 import com.github.blackjack200.ouranos.utils.auth.Xbox;
@@ -24,7 +25,6 @@ import org.cloudburstmc.protocol.bedrock.data.auth.CertificateChainPayload;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
-import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.jose4j.json.internal.json_simple.JSONObject;
 
 import java.security.KeyPair;
@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 @Log4j2
 public class DownstreamLoginHandler implements BedrockPacketHandler {
     private final ProxyServerSession downstream;
-    private final KeyPair keyPair = EncryptionUtils.createKeyPair();
+    private final KeyPair keyPair = EncUtils.createKeyPair();
     private final AuthData identityData;
     private final Map<String, Object> rawExtraData;
     private final JSONObject clientData;
@@ -160,14 +160,14 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
             var x = new Xbox(accessToken);
             List<String> chain = new Auth().getOnlineChainData(x, this.keyPair);
             newLogin.setAuthPayload(new CertificateChainPayload(chain, AuthType.FULL));
-            var chainD = EncryptionUtils.validateChain(chain);
+            var chainD = EncUtils.validateChain(chain);
 
             var claims = chainD.identityClaims();
             var extraData = claims.extraData;
             session.identity = new AuthData(extraData.displayName, extraData.xuid);
         } else {
             newLogin.setAuthPayload(new CertificateChainPayload(List.of(this.chainData), AuthType.FULL));
-            var chainD = EncryptionUtils.validateChain(List.of(this.chainData));
+            var chainD = EncUtils.validateChain(List.of(this.chainData));
             var claims = chainD.identityClaims();
             var extraData = claims.extraData;
             session.identity = new AuthData(extraData.displayName, extraData.xuid);

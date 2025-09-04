@@ -1,8 +1,8 @@
 package com.github.blackjack200.ouranos.utils.auth;
 
+import com.github.blackjack200.ouranos.utils.EncUtils;
 import com.google.gson.*;
 import lombok.extern.slf4j.Slf4j;
-import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -135,7 +135,7 @@ public class Auth {
 
         Gson gson = new GsonBuilder().disableHtmlEscaping().create();
         //KeyPair ecdsa256KeyPair = Auth.createKeyPair();//for xbox live, xbox live requests use, ES256, ECDSA256
-        KeyPair ecdsa256KeyPair = EncryptionUtils.createKeyPair();
+        KeyPair ecdsa256KeyPair = EncUtils.createKeyPair();
         this.publicKey = (ECPublicKey) ecdsa256KeyPair.getPublic();
         this.privateKey = (ECPrivateKey) ecdsa256KeyPair.getPrivate();
 

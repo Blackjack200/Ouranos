@@ -10,6 +10,7 @@ import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.handler.downstream.DownstreamRewriteHandler;
 import com.github.blackjack200.ouranos.network.session.translate.Translate;
 import com.github.blackjack200.ouranos.utils.BlockDictionaryRegistry;
+import com.github.blackjack200.ouranos.utils.EncUtils;
 import com.github.blackjack200.ouranos.utils.ItemTypeDictionaryRegistry;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
@@ -22,7 +23,6 @@ import org.cloudburstmc.protocol.bedrock.codec.v408.Bedrock_v408;
 import org.cloudburstmc.protocol.bedrock.codec.v776.Bedrock_v776;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.packet.*;
-import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.jose4j.json.JsonUtil;
@@ -73,8 +73,8 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
             jws.setCompactSerialization(pk.getJwt());
             var saltJwt = new JSONObject(JsonUtil.parseJson(jws.getUnverifiedPayload()));
             var x5u = jws.getHeader(HeaderParameterNames.X509_URL);
-            var serverKey = EncryptionUtils.parseKey(x5u);
-            var key = EncryptionUtils.getSecretKey(this.session.getKeyPair().getPrivate(), serverKey,
+            var serverKey = EncUtils.parseKey(x5u);
+            var key = EncUtils.getSecretKey(this.session.getKeyPair().getPrivate(), serverKey,
                     Base64.getDecoder().decode(JsonUtils.childAsType(saltJwt, "salt", String.class)));
             this.session.upstream.getPeer().getChannel().eventLoop().execute(() -> {
                 if (!this.session.isAlive()) {

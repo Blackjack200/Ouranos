@@ -5,6 +5,7 @@ import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.session.AuthData;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
+import com.github.blackjack200.ouranos.utils.EncUtils;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
@@ -12,7 +13,6 @@ import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.compat.BedrockCompat;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
 import org.cloudburstmc.protocol.bedrock.packet.*;
-import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.jose4j.json.JsonUtil;
 import org.jose4j.json.internal.json_simple.JSONObject;
@@ -53,7 +53,7 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
         }
         log.info("{} log-in using minecraft {} {}", this.downstream.getPeer().getSocketAddress(), codec.getMinecraftVersion(), codec.getProtocolVersion());
 
-        var chain = EncryptionUtils.validatePayload(packet.getAuthPayload());
+        var chain = EncUtils.validatePayload(packet.getAuthPayload());
 
         var claims = chain.identityClaims();
         var extraData = claims.extraData;
