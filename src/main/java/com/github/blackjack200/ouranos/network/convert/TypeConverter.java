@@ -183,6 +183,9 @@ public class TypeConverter {
              var rd = NbtUtils.createNetworkWriter(toStream)) {
             while (inp.available() > 0) {
                 var tag = (NbtMap) reader.readTag();
+                if (tag == null) {
+                    continue;
+                }
                 var id = tag.getString("id");
                 if (id.isEmpty()) {
                     continue;
