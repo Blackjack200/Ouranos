@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.utils.auth;
 
 import cn.hutool.core.util.URLUtil;
+import cn.hutool.core.util.ZipUtil;
 import com.google.gson.JsonObject;
 import lombok.experimental.UtilityClass;
 
@@ -21,11 +22,11 @@ public class XboxLogin {
         HttpsURLConnection connection = (HttpsURLConnection) new URL(XBOX_PRE_AUTH_URL).openConnection();
         connection.setRequestMethod("GET");
         OtherUtil.setBaseHeaders(connection);
-        String responce = FileUtil.uncompressGzip(connection.getInputStream());
+        String responce = new String(ZipUtil.unGzip(connection.getInputStream()));
         JsonObject resJson = new JsonObject();
-        resJson.addProperty("urlPost", findArgs(responce, "urlPost:'"));
-        String argTmp = findArgs(responce, "sFTTag:'");
-        argTmp = argTmp.substring(argTmp.indexOf("value=\"") + 7);
+        resJson.addProperty("urlPost", findArgs(responce, "urlPost\":\""));
+        String argTmp = findArgs(responce, "sFTTag\":\"");
+        argTmp = argTmp.substring(argTmp.indexOf("value=\\\"") + 8, argTmp.length()-3);
         resJson.addProperty("PPFT", argTmp);
         List<String> cookies = connection.getHeaderFields().get("Set-Cookie");
         StringBuilder allCookie = new StringBuilder();
@@ -54,6 +55,8 @@ public class XboxLogin {
 
         connection.connect();
         InputStream is = connection.getInputStream();
+        var body = new String(ZipUtil.unGzip(is.readAllBytes()));
+
         String url = connection.getURL().toString(), hash, accessToken = "";
         hash = url.split("#")[1];
         String[] hashes = hash.split("&");
@@ -71,8 +74,8 @@ public class XboxLogin {
         if (str.contains(args)) {
             int pos = str.indexOf(args);
             String result = str.substring(pos + args.length());
-            pos = result.indexOf("',");
-            result = result.substring(0, pos);
+            pos = result.indexOf("\",");
+            result = result.substring(0, pos - 1);
             return result;
         } else {
             throw new IllegalArgumentException("CANNOT FIND ARGUMENT");

@@ -61,6 +61,7 @@ import java.util.*;
 import java.util.List;
 import java.util.function.BiFunction;
 
+@SuppressWarnings("deprecation")
 @Log4j2
 public class Translate {
     public static Collection<BedrockPacket> translate(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p) {

@@ -91,6 +91,7 @@ public class InventoryTranslator {
         }
     }
 
+    @SuppressWarnings("deprecation")
     private static void handleServerside(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof CreativeContentPacket pk) {
             if (output < Bedrock_v407.CODEC.getProtocolVersion()) {

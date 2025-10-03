@@ -40,8 +40,6 @@ public class Xbox {
     private static final String xboxTitleAuthURL = "https://title.auth.xboxlive.com/title/authenticate";
     private static final String minecraftAuthURL = "https://multiplayer.minecraft.net/authentication";
 
-    private final JsonParser jsonParser = new JsonParser();
-
     public Xbox(String accessToken) {
         this.accessToken = accessToken;
     }
@@ -77,7 +75,7 @@ public class Xbox {
         this.writeJsonObjectToPost(connection, jsonObject);
 
         String responce = IoUtil.read(connection.getInputStream()).toString();
-        JsonObject responceJsonObject = this.jsonParser.parse(responce).getAsJsonObject();
+        JsonObject responceJsonObject = JsonParser.parseString(responce).getAsJsonObject();
 
         return responceJsonObject.get("Token").getAsString();
     }
@@ -198,7 +196,7 @@ public class Xbox {
     }
 
     public String requestMinecraftChain(String xsts, ECPublicKey publicKey) throws Exception {
-        JsonObject xstsObject = this.jsonParser.parse(xsts).getAsJsonObject();
+        JsonObject xstsObject = JsonParser.parseString(xsts).getAsJsonObject();
 
         String pubKeyData = Base64.getEncoder().encodeToString(publicKey.getEncoded());
 

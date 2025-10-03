@@ -61,7 +61,7 @@ public class JoseStuff {
     public enum AlgorithmType {
         ECDSA256(32), ECDSA384(48);
 
-        public int ecNumberSize;
+        public final int ecNumberSize;
 
         AlgorithmType(int ecNumberSize) {
             this.ecNumberSize = ecNumberSize;

@@ -3,6 +3,7 @@ package com.github.blackjack200.ouranos;
 import cn.hutool.core.io.FileUtil;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
+import com.github.blackjack200.ouranos.network.convert.biome.BiomeDefinitionRegistry;
 import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;

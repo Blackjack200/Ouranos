@@ -141,6 +141,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public PacketSignal handle(StartGamePacket pk) {
         this.session.uniqueEntityId = pk.getUniqueEntityId();
         this.session.runtimeEntityId = pk.getRuntimeEntityId();
@@ -150,7 +151,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         this.session.upstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(upstreamProtocolId));
         this.session.downstream.getPeer().getCodecHelper().setItemDefinitions(new ItemTypeDictionaryRegistry(downstreamProtocolId));
 
-        List<ItemDefinition> def = ItemTypeDictionary.getInstance(downstreamProtocolId).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
+        List<ItemDefinition> def = ItemTypeDictionary.getInstance(downstreamProtocolId).getEntries().entrySet().stream().map((e) -> e.getValue().toDefinition(e.getKey())).toList();
         pk.setItemDefinitions(def);
         Translate.writeProtocolDefault(this.session, pk);
         if (downstreamProtocolId <= Bedrock_v408.CODEC.getProtocolVersion()) {
@@ -191,7 +192,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
             throw new DropPacketException();
         }
         packet.getItems().clear();
-        List<ItemDefinition> def = ItemTypeDictionary.getInstance(this.session.getDownstreamProtocolId()).getEntries().entrySet().stream().<ItemDefinition>map((e) -> e.getValue().toDefinition(e.getKey())).toList();
+        List<ItemDefinition> def = ItemTypeDictionary.getInstance(this.session.getDownstreamProtocolId()).getEntries().entrySet().stream().map((e) -> e.getValue().toDefinition(e.getKey())).toList();
         packet.getItems().addAll(def);
         return PacketSignal.HANDLED;
     }

@@ -18,7 +18,7 @@ public class DownstreamRewriteHandler implements BedrockPacketHandler {
     }
 
     @Override
-    public void onDisconnect(String reason) {
+    public void onDisconnect(CharSequence reason) {
         this.session.disconnect(reason);
     }
 

@@ -102,6 +102,7 @@ public class MovementTranslator {
         }
     }
 
+    @SuppressWarnings("deprecation")
     private static ItemUseTransaction convertItemUseTx(InventoryTransactionPacket pk) {
         var tx = new ItemUseTransaction();
         tx.setActionType(pk.getActionType());

@@ -23,11 +23,13 @@ public abstract class LegacyToStringBidirectionalIdMap extends AbstractMapping {
                 val stringToInt = new Object2IntRBTreeMap<String>();
                 val intToString = new Int2ObjectRBTreeMap<String>();
                 data.forEach((stringId, numericId) -> {
-                    stringToInt.put(stringId, numericId);
-                    intToString.put(numericId, stringId);
+                    int primNumId = numericId;
+                    stringToInt.put(stringId, primNumId);
+                    intToString.put(primNumId, stringId);
                 });
-                this.intToStringMap.put(protocolId, intToString);
-                this.stringToIntMap.put(protocolId, stringToInt);
+                int primProtocolId = protocolId;
+                this.intToStringMap.put(primProtocolId, intToString);
+                this.stringToIntMap.put(primProtocolId, stringToInt);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

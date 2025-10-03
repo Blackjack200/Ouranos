@@ -61,7 +61,7 @@ public class OuranosProxySession {
     }
 
     @SneakyThrows
-    public void disconnect(String reason, boolean hideReason) {
+    public void disconnect(CharSequence reason, boolean hideReason) {
         this.downstream.setPacketHandler(null);
         this.upstream.setPacketHandler(null);
         this.downstream.setPacketRedirect(null);
@@ -94,7 +94,7 @@ public class OuranosProxySession {
         OuranosProxySession.ouranosPlayers.remove(this);
     }
 
-    public void disconnect(String reason) {
+    public void disconnect(CharSequence reason) {
         this.disconnect(reason, false);
     }
 

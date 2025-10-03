@@ -35,7 +35,7 @@ public class ProxyServerSession extends BedrockServerSession {
         }
     }
 
-    public void addDisconnectListener(Consumer<String> listener) {
+    public void addDisconnectListener(Consumer<CharSequence> listener) {
         this.getPeer().getChannel().closeFuture().addListener(future -> listener.accept(this.getDisconnectReason()));
     }
 }

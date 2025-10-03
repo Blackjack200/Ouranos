@@ -53,6 +53,7 @@ public class LoginPacketUtils {
         return signedJWT.serialize();
     }
 
+    @SuppressWarnings("unchecked")
     @SneakyThrows
     public static String writeClientData(KeyPair pair, OuranosProxySession player, AuthData identityData, JSONObject clientData, boolean login_extra) {
         String publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
@@ -124,6 +125,7 @@ public class LoginPacketUtils {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static void validateClientData(JSONObject clientData) {
         var geometryData = Base64.getDecoder().decode(clientData.getOrDefault("SkinGeometryData", "").toString());
         if (geometryData.length > 1024 * 256) {
