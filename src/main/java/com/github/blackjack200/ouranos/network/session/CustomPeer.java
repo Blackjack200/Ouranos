@@ -1,6 +1,7 @@
 package com.github.blackjack200.ouranos.network.session;
 
 import com.github.blackjack200.ouranos.Ouranos;
+import com.github.blackjack200.ouranos.utils.EncUtils;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -9,10 +10,17 @@ import org.cloudburstmc.netty.channel.raknet.RakChannel;
 import org.cloudburstmc.netty.handler.codec.raknet.common.RakUnhandledMessagesQueue;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.BedrockSessionFactory;
+import org.cloudburstmc.protocol.bedrock.codec.v428.Bedrock_v428;
+import org.cloudburstmc.protocol.bedrock.netty.codec.FrameIdCodec;
+import org.cloudburstmc.protocol.bedrock.netty.codec.encryption.BedrockEncryptionDecoder;
+import org.cloudburstmc.protocol.bedrock.netty.codec.encryption.BedrockEncryptionEncoder;
 import org.cloudburstmc.protocol.bedrock.netty.codec.packet.BedrockPacketCodec;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
+import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
 
+import javax.crypto.SecretKey;
 import java.net.SocketException;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 @Log4j2
@@ -52,5 +60,27 @@ public class CustomPeer extends BedrockPeer {
         } else {
             super.sendPacketImmediately(senderClientId, targetClientId, packet);
         }
+    }
+
+    public void enableEncryption(SecretKey secretKey) {
+        Objects.requireNonNull(secretKey, "secretKey");
+        if (!secretKey.getAlgorithm().equals("AES")) {
+            throw new IllegalArgumentException("Invalid key algorithm");
+        }
+        // Check if the codecs exist in the pipeline
+        if (this.channel.pipeline().get(BedrockEncryptionEncoder.class) != null ||
+                this.channel.pipeline().get(BedrockEncryptionDecoder.class) != null) {
+            throw new IllegalStateException("Encryption is already enabled");
+        }
+
+        int protocolVersion = this.getCodec().getProtocolVersion();
+        boolean useCtr = protocolVersion >= Bedrock_v428.CODEC.getProtocolVersion();
+
+        this.channel.pipeline().addAfter(FrameIdCodec.NAME, BedrockEncryptionEncoder.NAME,
+                new BedrockEncryptionEncoder(secretKey, EncUtils.createCipher(useCtr, true, secretKey)));
+        this.channel.pipeline().addAfter(FrameIdCodec.NAME, BedrockEncryptionDecoder.NAME,
+                new BedrockEncryptionDecoder(secretKey, EncUtils.createCipher(useCtr, false, secretKey)));
+
+        log.debug("Encryption enabled for {}", getSocketAddress());
     }
 }

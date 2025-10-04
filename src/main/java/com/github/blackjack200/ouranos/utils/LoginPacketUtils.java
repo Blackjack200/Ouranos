@@ -7,8 +7,10 @@ import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.ECDSASigner;
+import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
 import org.cloudburstmc.protocol.bedrock.codec.v544.Bedrock_v544;
@@ -23,12 +25,26 @@ import org.jose4j.lang.JoseException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.interfaces.ECPrivateKey;
 import java.time.Instant;
 import java.util.*;
 
 @UtilityClass
 public class LoginPacketUtils {
+    @Getter
+    private static final KeyPair privateKeyPair;
+
+    static {
+        try {
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
+            generator.initialize(Curve.P_384.toECParameterSpec());
+            privateKeyPair = generator.generateKeyPair();
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to generate private keyPair!", e);
+        }
+    }
+
     @SneakyThrows
     public static String createChainDataJwt(KeyPair pair, Map<String, ?> extraData) {
         var publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());

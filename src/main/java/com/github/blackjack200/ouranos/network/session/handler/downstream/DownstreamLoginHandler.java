@@ -166,7 +166,7 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
             var extraData = claims.extraData;
             session.identity = new AuthData(extraData.displayName, extraData.xuid);
         } else {
-            newLogin.setAuthPayload(new CertificateChainPayload(List.of(this.chainData), AuthType.FULL));
+            newLogin.setAuthPayload(new CertificateChainPayload(List.of(this.chainData), AuthType.SELF_SIGNED));
             var chainD = EncUtils.validateChain(List.of(this.chainData));
             var claims = chainD.identityClaims();
             var extraData = claims.extraData;

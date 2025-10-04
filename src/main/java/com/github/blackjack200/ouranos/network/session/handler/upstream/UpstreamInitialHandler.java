@@ -196,4 +196,10 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
         packet.getItems().addAll(def);
         return PacketSignal.HANDLED;
     }
+
+    @Override
+    public PacketSignal handle(GameRulesChangedPacket packet) {
+        log.info(packet);
+        return BedrockPacketHandler.super.handle(packet);
+    }
 }

@@ -68,7 +68,7 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
         log.info("{}[{}] authorized {} {}", identityData.displayName(), this.downstream.getPeer().getSocketAddress(), codec.getMinecraftVersion(), codec.getProtocolVersion());
 
         var jws = new JsonWebSignature();
-        jws.setKey(claims.parsedIdentityPublicKey());
+        jws.setKey(EncUtils.parseKey(claims.identityPublicKey));
         jws.setCompactSerialization(packet.getClientJwt());
         jws.setPayloadCharEncoding(String.valueOf(StandardCharsets.UTF_8));
         jws.verifySignature();
