@@ -45,6 +45,22 @@ A mapping table file is then given to PocketMine-MP's [schema generator script](
 #### Written by hand
 Since the schemas are JSON, they can be created and modified by humans. This is useful when Mojang themselves have incorrectly performed upgrades, or if it's not possible to generate a schema for some reason. However, more work will be needed to test and verify correctness.
 
+#### File name structure
+Every JSON schema has three variables, and is structured like this: `<schemaID>_<oldPaletteVersion>_to_<newPaletteVersion>.json`.
+
+- Schema ID: a number assigned by us to keep the schemas sorted properly. By convention, the final digit is usually left as a 1 for new schemas, to allow us to slot in extra schemas between existing ones if necessary without renaming all subsequent files.
+- Old palette version: filename (without `.nbt` extension) of the palette in [BedrockBlockPaletteArchive](https://github.com/pmmp/BedrockBlockPaletteArchive) that this schema applies to
+- New palette version: filename (without `.nbt` extension) of the palette in the archive which all of the upgraded states should be testable against
+
+This file name structure allows us to test and regenerate the schemas using [BedrockBlockPaletteArchive](https://github.com/pmmp/BedrockBlockPaletteArchive).
+
+> [!CAUTION]
+> A common mistake is to name the old version according to the previous schema. This is not correct and will lead to testing errors.
+>
+> For example, a new palette might add new blocks without changing existing ones (so no new schema), but the subsequent version might modify the blocks added in the newer version.
+>
+> This mistake was made with the 1.21.50 -> 1.21.60 schema (incorrectly used 1.21.40 as base version) which led to testing errors.
+
 ## `block_legacy_id_map.json`
 This JSON file contains a mapping of string ID -> legacy ID for all blocks known up 1.16.0.
 

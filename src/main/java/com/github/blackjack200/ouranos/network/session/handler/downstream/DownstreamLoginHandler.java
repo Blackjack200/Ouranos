@@ -20,6 +20,7 @@ import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.data.EncodingSettings;
 import org.cloudburstmc.protocol.bedrock.data.InputMode;
+import org.cloudburstmc.protocol.bedrock.data.auth.AuthPayload;
 import org.cloudburstmc.protocol.bedrock.data.auth.AuthType;
 import org.cloudburstmc.protocol.bedrock.data.auth.CertificateChainPayload;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockChannelInitializer;
@@ -29,25 +30,23 @@ import org.jose4j.json.internal.json_simple.JSONObject;
 
 import java.security.KeyPair;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Log4j2
 public class DownstreamLoginHandler implements BedrockPacketHandler {
     private final ProxyServerSession downstream;
-    private final KeyPair keyPair = EncUtils.createKeyPair();
+    private final KeyPair keyPair;
     private final AuthData identityData;
-    private final Map<String, Object> rawExtraData;
     private final JSONObject clientData;
-    private final String chainData;
+    private final AuthPayload authPayload;
     private String accessToken;
 
-    public DownstreamLoginHandler(ProxyServerSession downstream, AuthData identityData, Map<String, Object> rawExtraData, JSONObject clientData) {
+    public DownstreamLoginHandler(KeyPair keyPair, ProxyServerSession downstream, AuthData identityData, AuthPayload payload, JSONObject clientData) {
+        this.keyPair = keyPair;
         this.downstream = downstream;
         this.identityData = identityData;
-        this.rawExtraData = rawExtraData;
         this.clientData = clientData;
-        this.chainData = LoginPacketUtils.createChainDataJwt(this.keyPair, this.rawExtraData);
+        this.authPayload = payload;
         if (System.getenv("USE_XBOX") != null) {
             try {
                 accessToken = XboxLogin.getAccessToken(System.getenv("XBOX_ACCOUNT"), System.getenv("XBOX_PASSWORD"));
@@ -166,11 +165,8 @@ public class DownstreamLoginHandler implements BedrockPacketHandler {
             var extraData = claims.extraData;
             session.identity = new AuthData(extraData.displayName, extraData.xuid);
         } else {
-            newLogin.setAuthPayload(new CertificateChainPayload(List.of(this.chainData), AuthType.SELF_SIGNED));
-            var chainD = EncUtils.validateChain(List.of(this.chainData));
-            var claims = chainD.identityClaims();
-            var extraData = claims.extraData;
-            session.identity = new AuthData(extraData.displayName, extraData.xuid);
+            newLogin.setAuthPayload(this.authPayload);
+            session.identity = this.identityData;
         }
         newLogin.setClientJwt(newClientData);
         newLogin.setProtocolVersion(session.upstream.getCodec().getProtocolVersion());

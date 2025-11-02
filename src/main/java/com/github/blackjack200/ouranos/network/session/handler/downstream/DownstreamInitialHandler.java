@@ -6,12 +6,16 @@ import com.github.blackjack200.ouranos.network.ProtocolInfo;
 import com.github.blackjack200.ouranos.network.session.AuthData;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
 import com.github.blackjack200.ouranos.utils.EncUtils;
+import com.github.blackjack200.ouranos.utils.LoginPacketUtils;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.compat.BedrockCompat;
 import org.cloudburstmc.protocol.bedrock.data.PacketCompressionAlgorithm;
+import org.cloudburstmc.protocol.bedrock.data.auth.AuthType;
+import org.cloudburstmc.protocol.bedrock.data.auth.CertificateChainPayload;
+import org.cloudburstmc.protocol.bedrock.data.auth.TokenPayload;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.jose4j.json.JsonUtil;
@@ -19,6 +23,8 @@ import org.jose4j.json.internal.json_simple.JSONObject;
 import org.jose4j.jws.JsonWebSignature;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
 
 @Log4j2
 public class DownstreamInitialHandler implements BedrockPacketHandler {
@@ -72,11 +78,24 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
         jws.setCompactSerialization(packet.getClientJwt());
         jws.setPayloadCharEncoding(String.valueOf(StandardCharsets.UTF_8));
         jws.verifySignature();
-        var rawExtraData = Convert.toMap(String.class, Object.class, chain.rawIdentityClaims().get("extraData"));
 
+        var keyPair = EncUtils.createKeyPair();
         var clientData = new JSONObject(JsonUtil.parseJson(jws.getPayload()));
+        var pld = packet.getAuthPayload();
 
-        this.downstream.setPacketHandler(new DownstreamLoginHandler(this.downstream, identityData, rawExtraData, clientData));
+        if (pld instanceof TokenPayload payload) {
+            var id = new HashMap<String, Object>();
+            id.put("displayName", extraData.displayName);
+            id.put("identity", extraData.identity);
+            id.put("XUID", extraData.xuid);
+            id.put("titleId", extraData.titleId);
+
+            pld = new CertificateChainPayload(List.of(LoginPacketUtils.createChainDataJwt(keyPair, id)), AuthType.SELF_SIGNED);
+        } else {
+            pld = new CertificateChainPayload(List.of(LoginPacketUtils.createChainDataJwt(keyPair, Convert.toMap(String.class, Object.class, chain.rawIdentityClaims().get("extraData")))), AuthType.SELF_SIGNED);
+        }
+
+        this.downstream.setPacketHandler(new DownstreamLoginHandler(keyPair, this.downstream, identityData, pld, clientData));
         return PacketSignal.HANDLED;
     }
 

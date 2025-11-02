@@ -46,6 +46,30 @@ public class LoginPacketUtils {
     }
 
     @SneakyThrows
+    public static String createClientDataToken(KeyPair pair, String displayName, String xuid) {
+        var publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
+        var now = Instant.now();
+
+        var jwsObject = new JWTClaimsSet.Builder()
+                .issuer("self")
+                .notBeforeTime(Date.from(now.minusSeconds(3600)))
+                .expirationTime(Date.from(now.plusSeconds(24 * 3600)))
+                .issueTime(Date.from(now))
+                .claim("cpk", publicKeyBase64)
+                .claim("xid", xuid)
+                .claim("xname", displayName)
+                .build();
+
+        var x5u = URI.create(publicKeyBase64);
+
+        var signedJWT = new SignedJWT(
+                new JWSHeader.Builder(JWSAlgorithm.ES384).x509CertURL(x5u).build(),
+                jwsObject);
+        signedJWT.sign(new ECDSASigner((ECPrivateKey) pair.getPrivate()));
+        return signedJWT.serialize();
+    }
+
+    @SneakyThrows
     public static String createChainDataJwt(KeyPair pair, Map<String, ?> extraData) {
         var publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
         var now = Instant.now();
