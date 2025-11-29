@@ -1,14 +1,14 @@
 package com.github.blackjack200.ouranos;
 
-import com.github.blackjack200.ouranos.network.session.ProxySessionRegistry;
-import java.net.InetSocketAddress;
+import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.BedrockPong;
 import org.cloudburstmc.protocol.bedrock.codec.v503.Bedrock_v503;
 
+import java.net.InetSocketAddress;
+
 @Log4j2
 public class ServerConfig {
-
     public String server_ipv4 = "0.0.0.0";
     public short server_port_v4 = 19132;
     public boolean server_ipv6_enabled = true;
@@ -43,16 +43,16 @@ public class ServerConfig {
 
     public BedrockPong getFallbackPong() {
         return new BedrockPong()
-            .edition("MCPE")
-            .motd("Ouranos Proxy")
-            .subMotd("Ouranos")
-            .version("1.18.30")
-            .protocolVersion(Bedrock_v503.CODEC.getProtocolVersion())
-            .playerCount(ProxySessionRegistry.instance().size())
-            .maximumPlayerCount(this.maximum_player)
-            .gameType("Survival")
-            .serverId(114514L)
-            .ipv4Port(this.server_port_v4)
-            .ipv6Port(this.server_port_v6);
+                .edition("MCPE")
+                .motd("Ouranos Proxy")
+                .subMotd("Ouranos")
+                .version("1.18.30")
+                .protocolVersion(Bedrock_v503.CODEC.getProtocolVersion())
+                .playerCount(OuranosProxySession.ouranosPlayers.size())
+                .maximumPlayerCount(this.maximum_player)
+                .gameType("Survival")
+                .serverId(114514L)
+                .ipv4Port(this.server_port_v4)
+                .ipv6Port(this.server_port_v6);
     }
 }

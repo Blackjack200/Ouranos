@@ -42,8 +42,8 @@ public class InventoryTranslator {
                 var bInv = parseContainerId(b.getSource().getContainerId());
 
                 if (a.getSource().getType() == InventorySource.Type.CONTAINER && b.getSource().getType() == InventorySource.Type.CONTAINER) {
-                    var source = player.inventory().inventories.get(a.getSource().getContainerId()).get(a.getSlot());
-                    var destination = player.inventory().inventories.get(b.getSource().getContainerId()).get(b.getSlot());
+                    var source = player.inventory.inventories.get(a.getSource().getContainerId()).get(a.getSlot());
+                    var destination = player.inventory.inventories.get(b.getSource().getContainerId()).get(b.getSlot());
                     if (!source.isNull()) {
                         var count = Math.abs(source.getCount() - a.getToItem().getCount());
                         if (destination.isNull()) {
@@ -54,9 +54,9 @@ public class InventoryTranslator {
                                             new ItemStackRequestSlotData(bInv, b.getSlot(), destination.getNetId(), new FullContainerName(bInv, 0))
                                     )
                             }, new String[]{}));
-                            player.inventory().xa.put(0, (slots) -> {
-                                player.inventory().inventories.get(a.getSource().getContainerId()).set(a.getSlot(), source.toBuilder().count(source.getCount() - count).build());
-                                player.inventory().inventories.get(b.getSource().getContainerId()).set(b.getSlot(), source.toBuilder().count(count).build());
+                            player.inventory.xa.put(0, (slots) -> {
+                                player.inventory.inventories.get(a.getSource().getContainerId()).set(a.getSlot(), source.toBuilder().count(source.getCount() - count).build());
+                                player.inventory.inventories.get(b.getSource().getContainerId()).set(b.getSlot(), source.toBuilder().count(count).build());
                             });
                         } else {
                             newPk.getRequests().add(new ItemStackRequest(1, new ItemStackRequestAction[]{
@@ -66,9 +66,9 @@ public class InventoryTranslator {
                                             new ItemStackRequestSlotData(bInv, b.getSlot(), destination.getNetId(), new FullContainerName(bInv, 0))
                                     )
                             }, new String[]{}));
-                            player.inventory().xa.put(1, (slots) -> {
-                                player.inventory().inventories.get(a.getSource().getContainerId()).set(a.getSlot(), source.toBuilder().count(source.getCount() - count).build());
-                                player.inventory().inventories.get(b.getSource().getContainerId()).set(b.getSlot(), destination.toBuilder().count(destination.getCount() + count).build());
+                            player.inventory.xa.put(1, (slots) -> {
+                                player.inventory.inventories.get(a.getSource().getContainerId()).set(a.getSlot(), source.toBuilder().count(source.getCount() - count).build());
+                                player.inventory.inventories.get(b.getSource().getContainerId()).set(b.getSlot(), destination.toBuilder().count(destination.getCount() + count).build());
                             });
                         }
                     } else {
@@ -78,9 +78,9 @@ public class InventoryTranslator {
                                         new ItemStackRequestSlotData(bInv, b.getSlot(), destination.getNetId(), new FullContainerName(bInv, 0))
                                 )
                         }, new String[]{}));
-                        player.inventory().xa.put(2, (slots) -> {
-                            player.inventory().inventories.get(a.getSource().getContainerId()).set(a.getSlot(), destination);
-                            player.inventory().inventories.get(b.getSource().getContainerId()).set(b.getSlot(), source);
+                        player.inventory.xa.put(2, (slots) -> {
+                            player.inventory.inventories.get(a.getSource().getContainerId()).set(a.getSlot(), destination);
+                            player.inventory.inventories.get(b.getSource().getContainerId()).set(b.getSlot(), source);
                         });
                     }
 
@@ -103,32 +103,32 @@ public class InventoryTranslator {
                 list.add(newPk);
             }
         } else if (p instanceof InventoryContentPacket pk) {
-            player.inventory().inventories.put(pk.getContainerId(), new ArrayList<>(pk.getContents()));
+            player.inventory.inventories.put(pk.getContainerId(), new ArrayList<>(pk.getContents()));
         } else if (p instanceof InventorySlotPacket pk) {
-            player.inventory().inventories.putIfAbsent(pk.getContainerId(), new ArrayList<>());
-            var inv = player.inventory().inventories.get(pk.getContainerId());
+            player.inventory.inventories.putIfAbsent(pk.getContainerId(), new ArrayList<>());
+            var inv = player.inventory.inventories.get(pk.getContainerId());
             while (inv.size() <= pk.getSlot()) {
                 inv.add(ItemData.AIR);
             }
             inv.set(pk.getSlot(), pk.getItem());
         } else if (p instanceof MobEquipmentPacket pk) {
-            player.inventory().inventories.putIfAbsent(pk.getContainerId(), new ArrayList<>());
-            var inv = player.inventory().inventories.get(pk.getContainerId());
+            player.inventory.inventories.putIfAbsent(pk.getContainerId(), new ArrayList<>());
+            var inv = player.inventory.inventories.get(pk.getContainerId());
             while (inv.size() < pk.getInventorySlot()) {
                 inv.add(ItemData.AIR);
             }
             inv.set(pk.getInventorySlot(), pk.getItem());
         } else if (p instanceof ItemStackResponsePacket pk) {
             for (var entry : pk.getEntries()) {
-                var xa = player.inventory().xa.get(entry.getRequestId());
-                player.inventory().xa.remove(entry.getRequestId());
+                var xa = player.inventory.xa.get(entry.getRequestId());
+                player.inventory.xa.remove(entry.getRequestId());
                 if (entry.getResult() == ItemStackResponseStatus.OK) {
                     if (xa != null) {
                         xa.accept(entry.getContainers());
                     }
                     for (var slot : entry.getContainers()) {
                         var id = parseContainerId(slot.getContainerName().getContainer());
-                        var container = player.inventory().inventories.get(id);
+                        var container = player.inventory.inventories.get(id);
                         if (container != null) {
                             for (var item : slot.getItems()) {
                                 container.set(item.getSlot(), container.get(item.getSlot()).toBuilder().count(item.getCount()).damage(item.getDurabilityCorrection()).usingNetId(true).netId(item.getStackNetworkId()).build());
@@ -136,7 +136,7 @@ public class InventoryTranslator {
                         }
                     }
                 } else {
-                    player.inventory().inventories.forEach((containerId, contents) -> {
+                    player.inventory.inventories.forEach((containerId, contents) -> {
                         var pp = new InventoryContentPacket();
                         pp.setContainerId(containerId);
                         pp.setContents(contents);

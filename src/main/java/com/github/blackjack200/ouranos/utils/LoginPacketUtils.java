@@ -1,5 +1,6 @@
 package com.github.blackjack200.ouranos.utils;
 
+
 import com.github.blackjack200.ouranos.Ouranos;
 import com.github.blackjack200.ouranos.network.session.AuthData;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
@@ -9,13 +10,6 @@ import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import java.net.InetSocketAddress;
-import java.net.URI;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.interfaces.ECPrivateKey;
-import java.time.Instant;
-import java.util.*;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
@@ -28,9 +22,16 @@ import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwx.HeaderParameterNames;
 import org.jose4j.lang.JoseException;
 
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.ECPrivateKey;
+import java.time.Instant;
+import java.util.*;
+
 @UtilityClass
 public class LoginPacketUtils {
-
     @Getter
     private static final KeyPair privateKeyPair;
 
@@ -40,86 +41,62 @@ public class LoginPacketUtils {
             generator.initialize(Curve.P_384.toECParameterSpec());
             privateKeyPair = generator.generateKeyPair();
         } catch (Exception e) {
-            throw new RuntimeException(
-                "Unable to generate private keyPair!",
-                e
-            );
+            throw new RuntimeException("Unable to generate private keyPair!", e);
         }
     }
 
     @SneakyThrows
-    public static String createClientDataToken(
-        KeyPair pair,
-        String displayName,
-        String xuid
-    ) {
-        var publicKeyBase64 = Base64.getEncoder().encodeToString(
-            pair.getPublic().getEncoded()
-        );
+    public static String createClientDataToken(KeyPair pair, String displayName, String xuid) {
+        var publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
         var now = Instant.now();
 
         var jwsObject = new JWTClaimsSet.Builder()
-            .issuer("self")
-            .notBeforeTime(Date.from(now.minusSeconds(3600)))
-            .expirationTime(Date.from(now.plusSeconds(24 * 3600)))
-            .issueTime(Date.from(now))
-            .claim("cpk", publicKeyBase64)
-            .claim("xid", xuid)
-            .claim("xname", displayName)
-            .build();
+                .issuer("self")
+                .notBeforeTime(Date.from(now.minusSeconds(3600)))
+                .expirationTime(Date.from(now.plusSeconds(24 * 3600)))
+                .issueTime(Date.from(now))
+                .claim("cpk", publicKeyBase64)
+                .claim("xid", xuid)
+                .claim("xname", displayName)
+                .build();
 
         var x5u = URI.create(publicKeyBase64);
 
         var signedJWT = new SignedJWT(
-            new JWSHeader.Builder(JWSAlgorithm.ES384).x509CertURL(x5u).build(),
-            jwsObject
-        );
+                new JWSHeader.Builder(JWSAlgorithm.ES384).x509CertURL(x5u).build(),
+                jwsObject);
         signedJWT.sign(new ECDSASigner((ECPrivateKey) pair.getPrivate()));
         return signedJWT.serialize();
     }
 
     @SneakyThrows
-    public static String createChainDataJwt(
-        KeyPair pair,
-        Map<String, ?> extraData
-    ) {
-        var publicKeyBase64 = Base64.getEncoder().encodeToString(
-            pair.getPublic().getEncoded()
-        );
+    public static String createChainDataJwt(KeyPair pair, Map<String, ?> extraData) {
+        var publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
         var now = Instant.now();
         var jwsObject = new JWTClaimsSet.Builder()
-            .issuer("self")
-            .notBeforeTime(Date.from(now.minusSeconds(3600)))
-            .expirationTime(Date.from(now.plusSeconds(24 * 3600)))
-            .issueTime(Date.from(now))
-            .claim("certificateAuthority", true)
-            .claim("extraData", extraData)
-            .claim("randomNonce", UUID.randomUUID().getLeastSignificantBits())
-            .claim("identityPublicKey", publicKeyBase64)
-            .build();
+                .issuer("self")
+                .notBeforeTime(Date.from(now.minusSeconds(3600)))
+                .expirationTime(Date.from(now.plusSeconds(24 * 3600)))
+                .issueTime(Date.from(now))
+                .claim("certificateAuthority", true)
+                .claim("extraData", extraData)
+                .claim("randomNonce", UUID.randomUUID().getLeastSignificantBits())
+                .claim("identityPublicKey", publicKeyBase64)
+                .build();
 
         var x5u = URI.create(publicKeyBase64);
 
         var signedJWT = new SignedJWT(
-            new JWSHeader.Builder(JWSAlgorithm.ES384).x509CertURL(x5u).build(),
-            jwsObject
-        );
+                new JWSHeader.Builder(JWSAlgorithm.ES384).x509CertURL(x5u).build(),
+                jwsObject);
         signedJWT.sign(new ECDSASigner((ECPrivateKey) pair.getPrivate()));
         return signedJWT.serialize();
     }
 
     @SuppressWarnings("unchecked")
     @SneakyThrows
-    public static String writeClientData(
-        KeyPair pair,
-        OuranosProxySession player,
-        AuthData identityData,
-        JSONObject clientData,
-        boolean login_extra
-    ) {
-        String publicKeyBase64 = Base64.getEncoder().encodeToString(
-            pair.getPublic().getEncoded()
-        );
+    public static String writeClientData(KeyPair pair, OuranosProxySession player, AuthData identityData, JSONObject clientData, boolean login_extra) {
+        String publicKeyBase64 = Base64.getEncoder().encodeToString(pair.getPublic().getEncoded());
 
         JsonWebSignature jws = new JsonWebSignature();
         jws.setAlgorithmHeaderValue("ES384");
@@ -154,34 +131,17 @@ public class LoginPacketUtils {
         clientData.putIfAbsent("SkinAnimationData", "");
         clientData.putIfAbsent("SkinColor", "#b37b62");
 
-        try (
-            var stream = Ouranos.class.getClassLoader().getResourceAsStream(
-                "default_skin_geometry.json"
-            )
-        ) {
-            clientData.putIfAbsent(
-                "SkinGeometryData",
-                Base64.getEncoder().encodeToString(
-                    Objects.requireNonNull(stream).readAllBytes()
-                )
-            );
+        try (var stream = Ouranos.class.getClassLoader().getResourceAsStream("default_skin_geometry.json")) {
+            clientData.putIfAbsent("SkinGeometryData", Base64.getEncoder().encodeToString(Objects.requireNonNull(stream).readAllBytes()));
         }
-        try (
-            var stream = Ouranos.class.getClassLoader().getResourceAsStream(
-                "default_skin_resource_patch.json"
-            )
-        ) {
-            clientData.putIfAbsent(
-                "SkinResourcePatch",
-                Base64.getEncoder().encodeToString(
-                    Objects.requireNonNull(stream).readAllBytes()
-                )
-            );
+        try (var stream = Ouranos.class.getClassLoader().getResourceAsStream("default_skin_resource_patch.json")) {
+            clientData.putIfAbsent("SkinResourcePatch", Base64.getEncoder().encodeToString(Objects.requireNonNull(stream).readAllBytes()));
         }
 
         clientData.putIfAbsent("SkinImageHeight", 64);
         clientData.putIfAbsent("SkinImageWidth", 64);
         clientData.putIfAbsent("ThirdPartyNameOnly", false);
+
 
         clientData.remove("SkinGeometryName");
         clientData.remove("SkinGeometry");
@@ -190,14 +150,10 @@ public class LoginPacketUtils {
         clientData.put("AnimatedImageData", List.of());
         clientData.putIfAbsent("PlayFabId", "");
 
+
         if (login_extra) {
             clientData.put("OuranosXUID", identityData.xuid());
-            clientData.put(
-                "OuranosIP",
-                ((InetSocketAddress) player
-                        .getDownstream()
-                        .getSocketAddress()).getHostString()
-            );
+            clientData.put("OuranosIP", ((InetSocketAddress) player.downstream.getSocketAddress()).getHostString());
         }
         jws.setPayload(clientData.toJSONString());
         jws.setKey(pair.getPrivate());
@@ -211,9 +167,7 @@ public class LoginPacketUtils {
 
     @SuppressWarnings("unchecked")
     public static void validateClientData(JSONObject clientData) {
-        var geometryData = Base64.getDecoder().decode(
-            clientData.getOrDefault("SkinGeometryData", "").toString()
-        );
+        var geometryData = Base64.getDecoder().decode(clientData.getOrDefault("SkinGeometryData", "").toString());
         if (geometryData.length > 1024 * 256) {
             throw new RuntimeException("Skin geometry data is too long");
         }

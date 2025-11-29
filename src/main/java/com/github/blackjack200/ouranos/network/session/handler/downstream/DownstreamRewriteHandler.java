@@ -11,7 +11,6 @@ import org.cloudburstmc.protocol.common.PacketSignal;
 
 @Log4j2
 public class DownstreamRewriteHandler implements BedrockPacketHandler {
-
     private final OuranosProxySession session;
 
     public DownstreamRewriteHandler(OuranosProxySession session) {
@@ -25,17 +24,14 @@ public class DownstreamRewriteHandler implements BedrockPacketHandler {
 
     @Override
     public PacketSignal handle(DisconnectPacket packet) {
-        this.session.disconnect(
-            packet.getKickMessage(),
-            packet.isMessageSkipped()
-        );
+        this.session.disconnect(packet.getKickMessage(), packet.isMessageSkipped());
         return PacketSignal.HANDLED;
     }
 
     @Override
     public PacketSignal handle(TextPacket pk) {
-        pk.setSourceName(session.getIdentity().displayName());
-        pk.setXuid(session.getIdentity().xuid());
+        pk.setSourceName(session.identity.displayName());
+        pk.setXuid(session.identity.xuid());
         return PacketSignal.HANDLED;
     }
 
@@ -43,7 +39,7 @@ public class DownstreamRewriteHandler implements BedrockPacketHandler {
     public PacketSignal handle(PlayerAuthInputPacket packet) {
         InputMode inputMode = packet.getInputMode();
         if (inputMode != null) {
-            session.movement().inputMode = inputMode;
+            session.movement.inputMode = inputMode;
         }
         return PacketSignal.HANDLED;
     }

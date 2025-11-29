@@ -147,7 +147,7 @@
         <dependency>
             <groupId>org.allaymc.stateupdater</groupId>
             <artifactId>block-updater</artifactId>
-            <version>1.21.110-R1</version>
+            <version>1.21.60-R3</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.allaymc</groupId>
