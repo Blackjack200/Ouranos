@@ -159,7 +159,7 @@
         <dependency>
             <groupId>org.cloudburstmc.protocol</groupId>
             <artifactId>bedrock-connection</artifactId>
-            <version>3.0.0.Beta10-SNAPSHOT</version>
+            <version>3.0.0.Beta11-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.cloudburstmc.netty</groupId>

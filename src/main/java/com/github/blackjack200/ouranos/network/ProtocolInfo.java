@@ -64,6 +64,7 @@ public final class ProtocolInfo {
 
     static {
         // 1.21.x
+        addPacketCodec(Bedrock_v860.CODEC, 241);
         addPacketCodec(Bedrock_v859.CODEC, 241);
         addPacketCodec(Bedrock_v844.CODEC, 241);
         addPacketCodec(Bedrock_v827.CODEC, 241);
