@@ -11,7 +11,7 @@
     <properties>
         <maven.compiler.release>16</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <log4j.version>2.25.2</log4j.version>
+        <log4j.version>2.25.3</log4j.version>
     </properties>
 
     <repositories>
@@ -147,7 +147,7 @@
         <dependency>
             <groupId>org.allaymc.stateupdater</groupId>
             <artifactId>block-updater</artifactId>
-            <version>1.21.60-R3</version>
+            <version>1.21.110-R1</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.allaymc</groupId>

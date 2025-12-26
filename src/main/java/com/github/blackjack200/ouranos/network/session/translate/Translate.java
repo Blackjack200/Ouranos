@@ -7,6 +7,7 @@ import com.github.blackjack200.ouranos.network.convert.TypeConverter;
 import com.github.blackjack200.ouranos.network.convert.biome.BiomeDefinitionRegistry;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.utils.SimpleBlockDefinition;
+import com.github.blackjack200.ouranos.utils.EntityDataCompat;
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
@@ -61,18 +62,20 @@ import java.util.*;
 import java.util.List;
 import java.util.function.BiFunction;
 
-@SuppressWarnings("deprecation")
-@Log4j2
-public class Translate {
-    public static Collection<BedrockPacket> translate(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p) {
-        if (input == output) {
-            return List.of(p);
-        }
-        if (p instanceof ResourcePackStackPacket pk) {
-            pk.setGameVersion("*");
-        } else if (p instanceof ClientCacheStatusPacket pk) {
-            //TODO forcibly disable client blob caches for security
-            pk.setSupported(false);
+    @SuppressWarnings("deprecation")
+    @Log4j2
+    public class Translate {
+        public static Collection<BedrockPacket> translate(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p) {
+            if (input == output) {
+                return List.of(p);
+            }
+
+            normalizeEntityData(p);
+            if (p instanceof ResourcePackStackPacket pk) {
+                pk.setGameVersion("*");
+            } else if (p instanceof ClientCacheStatusPacket pk) {
+                //TODO forcibly disable client blob caches for security
+                pk.setSupported(false);
         }
 
         var list = new HashSet<BedrockPacket>();
@@ -91,13 +94,25 @@ public class Translate {
         if (output > Bedrock_v408.CODEC.getProtocolVersion()) {
             list.removeIf((b) -> b instanceof EntityFallPacket);
         }
-        return list;
-    }
+            return list;
+        }
 
-    private static void rewriteItem(int input, int output, BedrockPacket p, Collection<BedrockPacket> list) {
-        if (p instanceof InventoryContentPacket pk) {
-            val contents = new ArrayList<>(pk.getContents());
-            contents.replaceAll(itemData -> TypeConverter.translateItemData(input, output, itemData));
+        private static void normalizeEntityData(BedrockPacket p) {
+            if (p instanceof SetEntityDataPacket pk) {
+                EntityDataCompat.normalizeEntityDataFlags(pk.getMetadata());
+            } else if (p instanceof AddEntityPacket pk) {
+                EntityDataCompat.normalizeEntityDataFlags(pk.getMetadata());
+            } else if (p instanceof AddPlayerPacket pk) {
+                EntityDataCompat.normalizeEntityDataFlags(pk.getMetadata());
+            } else if (p instanceof AddItemEntityPacket pk) {
+                EntityDataCompat.normalizeEntityDataFlags(pk.getMetadata());
+            }
+        }
+
+        private static void rewriteItem(int input, int output, BedrockPacket p, Collection<BedrockPacket> list) {
+            if (p instanceof InventoryContentPacket pk) {
+                val contents = new ArrayList<>(pk.getContents());
+                contents.replaceAll(itemData -> TypeConverter.translateItemData(input, output, itemData));
             pk.setContents(contents);
         } else if (p instanceof CraftingDataPacket pk) {
            /* var newCraftingData = new ArrayList<RecipeData>(pk.getCraftingData().size());
