@@ -70,7 +70,7 @@ import java.util.function.BiFunction;
                 return List.of(p);
             }
 
-            normalizeEntityData(p);
+            normalizeEntityData(output, p);
             if (p instanceof ResourcePackStackPacket pk) {
                 pk.setGameVersion("*");
             } else if (p instanceof ClientCacheStatusPacket pk) {
@@ -78,7 +78,7 @@ import java.util.function.BiFunction;
                 pk.setSupported(false);
         }
 
-        var list = new HashSet<BedrockPacket>();
+        var list = new ArrayList<BedrockPacket>(1);
         list.add(p);
 
         rewriteProtocol(input, output, fromServer, player, p, list);
@@ -97,15 +97,19 @@ import java.util.function.BiFunction;
             return list;
         }
 
-        private static void normalizeEntityData(BedrockPacket p) {
+        private static void normalizeEntityData(int output, BedrockPacket p) {
             if (p instanceof SetEntityDataPacket pk) {
                 EntityDataCompat.normalizeEntityDataFlags(pk.getMetadata());
+                EntityDataCompat.filterEntityData(output, pk.getMetadata());
             } else if (p instanceof AddEntityPacket pk) {
                 EntityDataCompat.normalizeEntityDataFlags(pk.getMetadata());
+                EntityDataCompat.filterEntityData(output, pk.getMetadata());
             } else if (p instanceof AddPlayerPacket pk) {
                 EntityDataCompat.normalizeEntityDataFlags(pk.getMetadata());
+                EntityDataCompat.filterEntityData(output, pk.getMetadata());
             } else if (p instanceof AddItemEntityPacket pk) {
                 EntityDataCompat.normalizeEntityDataFlags(pk.getMetadata());
+                EntityDataCompat.filterEntityData(output, pk.getMetadata());
             }
         }
 
@@ -244,6 +248,7 @@ import java.util.function.BiFunction;
     private static void rewriteProtocol(int input, int output, boolean fromServer, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         writeProtocolDefault(player, p);
         if (p instanceof StartGamePacket pk) {
+            player.currentDimension = pk.getDimensionId();
             if (output >= Bedrock_v776.CODEC.getProtocolVersion()) {
                 var newPk = new ItemComponentPacket();
 
@@ -328,10 +333,22 @@ import java.util.function.BiFunction;
                 EntityDataTypes.HEARTBEAT_SOUND_EVENT, EntityDataTypes.HEARTBEAT_INTERVAL_TICKS, EntityDataTypes.MOVEMENT_SOUND_DISTANCE_OFFSET
         );
 
-        if (input < Bedrock_v685.CODEC.getProtocolVersion()) {
+        if (p instanceof ChangeDimensionPacket pk) {
+            player.currentDimension = pk.getDimension();
+        }
+        if (input < Bedrock_v685.CODEC.getProtocolVersion() && output >= Bedrock_v685.CODEC.getProtocolVersion()) {
             if (p instanceof ContainerClosePacket pk) {
-                //TODO context based value: container type
-                pk.setType(ContainerType.NONE);
+                var type = player.openContainers.remove(pk.getId());
+                if (type == null) {
+                    type = pk.getType();
+                }
+                pk.setType(Objects.requireNonNullElse(type, ContainerType.NONE));
+            }
+        }
+        if (p instanceof ContainerOpenPacket pk) {
+            var type = pk.getType();
+            if (type != null) {
+                player.openContainers.put(pk.getId(), type);
             }
         }
         if (input < Bedrock_v671.CODEC.getProtocolVersion()) {
@@ -339,23 +356,27 @@ import java.util.function.BiFunction;
                 pk.setHasEditorPacks(false);
             }
         }
-        if (input < Bedrock_v649.CODEC.getProtocolVersion()) {
+        if (input < Bedrock_v649.CODEC.getProtocolVersion() && output >= Bedrock_v649.CODEC.getProtocolVersion()) {
             if (p instanceof LevelChunkPacket pk) {
-                //FIXME overworld?
-                pk.setDimension(0);
+                pk.setDimension(player.currentDimension);
             } else if (p instanceof PlayerListPacket pk) {
                 for (var e : pk.getEntries()) {
-                    //FIXME context based value: subclient
-                    e.setSubClient(false);
+                    boolean isSelf = e.getEntityId() == player.runtimeEntityId;
+                    e.setSubClient(isSelf && player.downstream.isSubClient());
                 }
             }
         }
 
-        if (input < Bedrock_v589.CODEC.getProtocolVersion()) {
+        if (input < Bedrock_v589.CODEC.getProtocolVersion() && output >= Bedrock_v589.CODEC.getProtocolVersion()) {
             if (p instanceof EmotePacket pk) {
-                //FIXME? context based value: xuid platformId
-                pk.setXuid("");
-                pk.setPlatformId("");
+                if ((pk.getXuid() == null || pk.getXuid().isEmpty())
+                        && player.identity != null
+                        && pk.getRuntimeEntityId() == player.runtimeEntityId) {
+                    pk.setXuid(player.identity.xuid());
+                }
+                if (pk.getPlatformId() == null) {
+                    pk.setPlatformId("");
+                }
                 pk.setEmoteDuration(20);
             }
         }
@@ -394,17 +415,23 @@ import java.util.function.BiFunction;
             }
         }
         if (p instanceof BiomeDefinitionListPacket pk) {
-            //TODO fix biome for v800
+            // v800+ requires BiomeDefinitions (not NBT).
             if (output >= Bedrock_v800.CODEC.getProtocolVersion()) {
-                if (pk.getBiomes() == null && pk.getDefinitions() != null) {
-                    BiomeDefinitions defs = new BiomeDefinitions(new HashMap<>());
-                    pk.getDefinitions().forEach((id, n) -> {
-                        var def = BiomeDefinitionRegistry.getInstance(input).fromStringId(id);
-                        if (def != null) {
-                            defs.getDefinitions().put(id, def);
-                        }
-                    });
-                    pk.setBiomes(defs);
+                if (pk.getBiomes() == null || pk.getBiomes().getDefinitions().isEmpty()) {
+                    var definitions = new HashMap<String, BiomeDefinitionData>();
+                    var registry = BiomeDefinitionRegistry.getInstance(output).getEntries();
+                    if (pk.getDefinitions() != null && !pk.getDefinitions().isEmpty()) {
+                        pk.getDefinitions().forEach((id, n) -> {
+                            var def = registry.get(id);
+                            if (def != null) {
+                                definitions.put(id, def);
+                            }
+                        });
+                    }
+                    if (definitions.isEmpty()) {
+                        definitions.putAll(registry);
+                    }
+                    pk.setBiomes(new BiomeDefinitions(definitions));
                 }
             } else {
                 if (pk.getBiomes() != null && pk.getDefinitions() == null) {
@@ -704,16 +731,27 @@ import java.util.function.BiFunction;
     private static void rewriteChunk(int input, int output, OuranosProxySession player, BedrockPacket p, Collection<BedrockPacket> list) {
         if (p instanceof LevelChunkPacket packet) {
             var from = packet.getData();
+            var readerIndex = from.readerIndex();
+            var writerIndex = from.writerIndex();
             var to = AbstractByteBufAllocator.DEFAULT.buffer(from.readableBytes()).touch();
+            var rewritten = false;
             try {
                 var newSubChunkCount = TypeConverter.rewriteFullChunk(input, output, from, to, packet.getDimension(), packet.getSubChunksLength());
                 packet.setSubChunksLength(newSubChunkCount);
                 packet.setData(to.retain());
+                rewritten = true;
             } catch (ChunkRewriteException exception) {
                 log.error("Failed to rewrite chunk: ", exception);
                 player.disconnect("Failed to rewrite chunk: " + exception.getMessage());
+                list.clear();
+                return;
             } finally {
-                ReferenceCountUtil.release(from);
+                if (!rewritten) {
+                    from.readerIndex(readerIndex);
+                    from.writerIndex(writerIndex);
+                } else {
+                    ReferenceCountUtil.release(from);
+                }
                 ReferenceCountUtil.release(to);
             }
             return;
@@ -722,17 +760,28 @@ import java.util.function.BiFunction;
             for (var subChunk : packet.getSubChunks()) {
                 if (subChunk.getData().readableBytes() > 0) {
                     var from = subChunk.getData();
+                    var readerIndex = from.readerIndex();
+                    var writerIndex = from.writerIndex();
                     var to = AbstractByteBufAllocator.DEFAULT.buffer(from.readableBytes());
+                    var rewritten = false;
                     try {
                         TypeConverter.rewriteSubChunk(input, output, from, to);
                         TypeConverter.rewriteBlockEntities(input, output, from, to);
                         to.writeBytes(from);
                         subChunk.setData(to.retain());
+                        rewritten = true;
                     } catch (ChunkRewriteException exception) {
                         log.error("Failed to rewrite chunk: ", exception);
                         player.disconnect("Failed to rewrite chunk: " + exception.getMessage());
+                        list.clear();
+                        return;
                     } finally {
-                        ReferenceCountUtil.release(from);
+                        if (!rewritten) {
+                            from.readerIndex(readerIndex);
+                            from.writerIndex(writerIndex);
+                        } else {
+                            ReferenceCountUtil.release(from);
+                        }
                         ReferenceCountUtil.release(to);
                     }
                 }

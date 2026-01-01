@@ -118,6 +118,7 @@ public class LoginPacketUtils {
         if (outputProtocol >= Bedrock_v786.CODEC.getProtocolVersion()) {
             clientData.putIfAbsent("GraphicsMode", 0);
         }
+
         clientData.putIfAbsent("IsEditorMode", false);
         clientData.putIfAbsent("SkinGeometryDataEngineVersion", "");
         clientData.putIfAbsent("ArmSize", "wide");

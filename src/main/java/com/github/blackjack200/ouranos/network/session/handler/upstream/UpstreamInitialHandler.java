@@ -105,36 +105,45 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
     private void setupRedirect() {
         session.downstream.setPacketRedirect((_upstream, packet) -> {
             ReferenceCountUtil.touch(packet);
-            var packets = Translate.translate(session.getDownstreamProtocolId(), session.getUpstreamProtocolId(), false, session, packet);
-            for (var pk : packets) {
-                ReferenceCountUtil.touch(pk);
-                if (session.upstream.isConnected()) {
-                    if (session.upstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
-                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(packet instanceof NetworkStackLatencyPacket)) {
-                            log.debug("C->S {}", pk.getClass());
+            try {
+                var packets = Translate.translate(session.getDownstreamProtocolId(), session.getUpstreamProtocolId(), false, session, packet);
+                for (var pk : packets) {
+                    ReferenceCountUtil.touch(pk);
+                    if (session.upstream.isConnected()) {
+                        if (session.upstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
+                            if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(packet instanceof NetworkStackLatencyPacket)) {
+                                log.debug("C->S {}", pk.getClass());
+                            }
+                            session.upstream.sendPacket(ReferenceCountUtil.retain(pk));
                         }
-                        session.upstream.sendPacket(ReferenceCountUtil.retain(pk));
+                    } else if (pk != packet) {
+                        ReferenceCountUtil.safeRelease(pk);
                     }
-                } else if (pk != packet) {
-                    ReferenceCountUtil.safeRelease(pk);
                 }
+            } catch (Throwable ex) {
+                log.error("Error while handling upstream packet redirect", ex);
             }
         });
         session.upstream.setPacketRedirect((_downstream, packet) -> {
             ReferenceCountUtil.touch(packet);
-            var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), true, session, packet);
-            for (var pk : packets) {
-                ReferenceCountUtil.touch(pk);
-                if (session.downstream.isConnected()) {
-                    if (session.downstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
-                        if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelEventPacket) && !(pk instanceof UpdateSoftEnumPacket) && !(pk instanceof SetTimePacket) && !(packet instanceof UpdateAttributesPacket) && !(packet instanceof NetworkStackLatencyPacket) && !(packet instanceof SetScorePacket)) {
-                            log.debug("S->C {}", pk.getClass());
+            try {
+                var packets = Translate.translate(session.getUpstreamProtocolId(), session.getDownstreamProtocolId(), true, session, packet);
+
+                for (var pk : packets) {
+                    ReferenceCountUtil.touch(pk);
+                    if (session.downstream.isConnected()) {
+                        if (session.downstream.getCodec().getPacketDefinition(pk.getClass()) != null) {
+                            if (Ouranos.getOuranos().getConfig().debug && !(pk instanceof PlayerAuthInputPacket) && !(pk instanceof LevelChunkPacket) && !(pk instanceof NetworkChunkPublisherUpdatePacket) && !(pk instanceof LevelEventPacket) && !(pk instanceof UpdateSoftEnumPacket) && !(pk instanceof SetTimePacket) && !(packet instanceof UpdateAttributesPacket) && !(packet instanceof NetworkStackLatencyPacket) && !(packet instanceof SetScorePacket)) {
+                                log.debug("S->C {}", pk.getClass());
+                            }
+                            session.downstream.sendPacket(ReferenceCountUtil.retain(pk));
                         }
-                        session.downstream.sendPacket(ReferenceCountUtil.retain(pk));
+                    } else if (pk != packet) {
+                        ReferenceCountUtil.safeRelease(pk);
                     }
-                } else if (pk != packet) {
-                    ReferenceCountUtil.safeRelease(pk);
                 }
+            } catch (Throwable throwable) {
+                log.error("Error while handling downstream packet redirect", throwable);
             }
         });
         session.downstream.setPacketHandler(new DownstreamRewriteHandler(this.session));
@@ -145,6 +154,7 @@ public class UpstreamInitialHandler implements BedrockPacketHandler {
     public PacketSignal handle(StartGamePacket pk) {
         this.session.uniqueEntityId = pk.getUniqueEntityId();
         this.session.runtimeEntityId = pk.getRuntimeEntityId();
+        this.session.setServerAuthoritativeInventories(pk.isInventoriesServerAuthoritative());
 
         var upstreamProtocolId = this.session.getUpstreamProtocolId();
         var downstreamProtocolId = this.session.getDownstreamProtocolId();

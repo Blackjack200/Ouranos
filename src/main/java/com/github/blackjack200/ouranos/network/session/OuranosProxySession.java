@@ -5,13 +5,17 @@ import com.github.blackjack200.ouranos.network.session.translate.InventoryData;
 import com.github.blackjack200.ouranos.network.session.translate.MovementData;
 import io.netty.util.concurrent.ScheduledFuture;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 
 import java.security.KeyPair;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Log4j2
 public class OuranosProxySession {
@@ -25,8 +29,13 @@ public class OuranosProxySession {
     public int lastFormId = -1;
     public long uniqueEntityId;
     public long runtimeEntityId;
+    public volatile int currentDimension = 0;
     public MovementData movement = new MovementData();
     public InventoryData inventory = new InventoryData();
+    public final Map<Byte, ContainerType> openContainers = new ConcurrentHashMap<>();
+    @Getter
+    @Setter
+    private boolean serverAuthoritativeInventories;
     public AuthData identity;
     @Getter
     private int downstreamProtocolId;
