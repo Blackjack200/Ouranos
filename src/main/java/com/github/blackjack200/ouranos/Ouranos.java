@@ -3,7 +3,6 @@ package com.github.blackjack200.ouranos;
 import cn.hutool.core.io.FileUtil;
 import com.github.blackjack200.ouranos.data.bedrock.GlobalItemDataHandlers;
 import com.github.blackjack200.ouranos.network.ProtocolInfo;
-import com.github.blackjack200.ouranos.network.convert.biome.BiomeDefinitionRegistry;
 import com.github.blackjack200.ouranos.network.session.CustomPeer;
 import com.github.blackjack200.ouranos.network.session.OuranosProxySession;
 import com.github.blackjack200.ouranos.network.session.ProxyServerSession;
@@ -131,6 +130,7 @@ public class Ouranos {
                 .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
                 .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[]{11, 10, 9})
+                .option(RakChannelOption.RAK_SEND_COOKIE, true)
                 .group(this.bossGroup, this.workerGroup)
                 .childHandler(new BedrockChannelInitializer<ProxyServerSession>() {
                     @Override
@@ -302,6 +302,7 @@ public class Ouranos {
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
                 .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .option(RakChannelOption.RAK_COMPATIBILITY_MODE, true)
+                .option(RakChannelOption.RAK_GUID, -0xdeadbeefL)
                 .option(RakChannelOption.RAK_AUTO_FLUSH, true)
                 .option(RakChannelOption.RAK_FLUSH_INTERVAL, 10);
     }

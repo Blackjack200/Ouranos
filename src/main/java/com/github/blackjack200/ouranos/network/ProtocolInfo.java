@@ -54,6 +54,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v844.Bedrock_v844;
 import org.cloudburstmc.protocol.bedrock.codec.v859.Bedrock_v859;
 import org.cloudburstmc.protocol.bedrock.codec.v860.Bedrock_v860;
 import org.cloudburstmc.protocol.bedrock.codec.v898.Bedrock_v898;
+import org.cloudburstmc.protocol.bedrock.codec.v924.Bedrock_v924;
 
 import java.util.Collections;
 import java.util.Set;
@@ -65,6 +66,8 @@ public final class ProtocolInfo {
     private static final Set<BedrockCodec> UNMODIFIABLE_PACKET_CODECS = Collections.unmodifiableSet(PACKET_CODECS);
 
     static {
+        // 1.26.x LMAO
+        addPacketCodec(Bedrock_v924.CODEC, 251);
         // 1.21.x
         addPacketCodec(Bedrock_v898.CODEC, 251);
         addPacketCodec(Bedrock_v860.CODEC, 251);

@@ -41,7 +41,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.4.2</version>
+                <version>3.5.0</version>
                 <configuration>
                     <archive>
                         <manifest>
@@ -55,7 +55,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.1</version>
+                <version>3.15.0</version>
                 <configuration>
                     <release>${maven.compiler.release}</release>
                     <annotationProcessorPaths>
@@ -159,7 +159,7 @@
         <dependency>
             <groupId>org.cloudburstmc.protocol</groupId>
             <artifactId>bedrock-connection</artifactId>
-            <version>3.0.0.Beta11-SNAPSHOT</version>
+            <version>3.0.0.Beta12-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.cloudburstmc.netty</groupId>
@@ -180,13 +180,13 @@
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-core</artifactId>
-            <version>5.8.40</version>
+            <version>5.8.43</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/cn.hutool/hutool-http -->
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-http</artifactId>
-            <version>5.8.40</version>
+            <version>5.8.43</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api -->
         <dependency>
@@ -219,7 +219,7 @@
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
-            <version>10.5</version>
+            <version>10.7</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/net.minecrell/terminalconsoleappender -->
         <dependency>
