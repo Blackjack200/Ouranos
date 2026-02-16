@@ -80,7 +80,7 @@ public class InventoryTranslator {
         if (player.getDownstreamProtocolId() >= Bedrock_v407.CODEC.getProtocolVersion()) {
             return;
         }
-        if (!player.isServerAuthoritativeInventories()) {
+        if (player.isServerAuthoritativeInventories()) {
             return;
         }
         if (fromServer) {
