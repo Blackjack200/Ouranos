@@ -46,10 +46,13 @@ import java.util.Map;
 @UtilityClass
 public class EncUtils {
     private static final ECPublicKey MOJANG_PUBLIC_KEY;
+    private static final ECPublicKey OLD_MOJANG_PUBLIC_KEY;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String MOJANG_PUBLIC_KEY_BASE64 =
             "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAECRXueJeTDqNRRgJi/vlRufByu/2G0i2Ebt6YMar5QX/R0DIIyrJMcUpruK4QveTfJSTp3Shlq4Gk34cD/4GUWwkv0DVuzeuB+tXija7HBxii03NHDbPAD0AKnLr2wdAp";
+    private static final String OLD_MOJANG_PUBLIC_KEY_BASE64 =
+            "MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE8ELkixyLcwlZryUQcu1TvPOmI2B7vX83ndnWRUaXm74wFfa5f/lwQNTfrLVHa2PmenpGI6JhIMUJaWZrjmMj90NoKNFSNBuKdm8rYiXsfaz3K36x/1U26HpG0ZxK/V1V";
     private static final KeyPairGenerator KEY_PAIR_GEN;
 
     public static final String ALGORITHM_TYPE = AlgorithmIdentifiers.ECDSA_USING_P384_CURVE_AND_SHA384;
@@ -76,6 +79,7 @@ public class EncUtils {
 
     private static final JwtConsumer OFFLINE_CONSUMER = new JwtConsumerBuilder()
             .setSkipAllValidators()
+            .setSkipSignatureVerification()
             .setRequireExpirationTime()
             .setSkipDefaultAudienceValidation()
             .build();
@@ -90,6 +94,7 @@ public class EncUtils {
             KEY_PAIR_GEN = KeyPairGenerator.getInstance("EC");
             KEY_PAIR_GEN.initialize(new ECGenParameterSpec("secp384r1"));
             MOJANG_PUBLIC_KEY = parseKey(MOJANG_PUBLIC_KEY_BASE64);
+            OLD_MOJANG_PUBLIC_KEY = parseKey(OLD_MOJANG_PUBLIC_KEY_BASE64);
         } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | InvalidKeySpecException e) {
             throw new AssertionError("Unable to initialize required encryption", e);
         }
@@ -98,7 +103,7 @@ public class EncUtils {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> getDiscoveryData() {
         try {
-            try (StringReader reader = new StringReader("{\"result\":{\"serviceEnvironments\":{\"persona\":{\"prod\":{\"serviceUri\":\"https://persona-secondary.franchise.minecraft-services.net\",\"playfabTitleId\":\"20CA2\"}},\"store\":{\"prod\":{\"serviceUri\":\"https://store.mktpl.minecraft-services.net\",\"playfabTitleId\":\"20CA2\",\"eduPlayFabTitleId\":\"6955F\"}},\"auth\":{\"prod\":{\"serviceUri\":\"https://authorization.franchise.minecraft-services.net\",\"issuer\":\"https://authorization.franchise.minecraft-services.net\",\"playfabTitleId\":\"20CA2\",\"eduPlayFabTitleId\":\"6955F\"}},\"signaling\":{\"prod\":{\"serviceUri\":\"wss://signal.franchise.minecraft-services.net\",\"stunUri\":\"stun:turn.azure.com:3478\",\"turnUri\":\"turn:turn.azure.com:3478\"}},\"filetocloud\":{\"prod\":{\"serviceUri\":\"https://client.support-files.minecraft-services.net\"}},\"safety\":{\"prod\":{\"serviceUri\":\"https://safety-secondary.franchise.minecraft-services.net\"}},\"mpsas\":{\"prod\":{\"serviceUri\":\"https://secondary.allocation.multiplayer.minecraft-services.net\"}},\"gatherings\":{\"prod\":{\"serviceUri\":\"https://gatherings-secondary.franchise.minecraft-services.net\"}},\"messaging\":{\"prod\":{\"serviceUri\":\"https://messaging.mktpl.minecraft-services.net\"}},\"entitlements\":{\"prod\":{\"serviceUri\":\"https://entitlements.mktpl.minecraft-services.net\",\"playfabTitleId\":\"20CA2\"}},\"frontend\":{\"prod\":{\"serviceUri\":\"https://client.allocation.multiplayer.minecraft-services.net\"}},\"multiplayer\":{\"prod\":{\"serviceUri\":\"https://secondary.multiplayer.minecraft-services.net\"}},\"cdn\":{\"prod\":{\"serviceUri\":\"https://cdn.gatherings.franchise.minecraft-services.net/public/\"}},\"realmsfrontend\":{\"prod\":{\"serviceUri\":\"https://frontend.realms.minecraft-services.net\",\"playfabTitleId\":\"20CA2\"}},\"net\":{\"prod\":{\"serviceUri\":\"https://net-secondary.web.minecraft-services.net\"}},\"client_features\":{\"prod\":{\"nxAccountLink\":\"false\",\"signInHeroMessage\":\"1\"}},\"legacyrealms-frontend\":{\"prod\":{\"serviceUri\":\"https://bedrock.frontendlegacy.realms.minecraft-services.net/\"}},\"legacyrealms-payments\":{\"prod\":{\"serviceUri\":\"https://paymentslegacy.realms.minecraft-services.net\"}},\"realms_frontend_bedrock_legacy\":{\"prod\":{\"serviceUri\":\"https://bedrock.frontendlegacy.realms.minecraft-services.net\"}},\"realms_frontend_java_legacy\":{\"prod\":{\"serviceUri\":\"https://java.frontendlegacy.realms.minecraft-services.net\"}},\"realms_payments_legacy\":{\"prod\":{\"serviceUri\":\"https://paymentslegacy.realms.minecraft-services.net\"}}},\"supportedEnvironments\":{\"1.0.0.0\":[\"prod\"]}}}")) {
+            try (StringReader reader = new StringReader("{\"result\":{\"serviceEnvironments\":{\"persona\":{\"prod\":{\"serviceUri\":\"https://persona-secondary.franchise.minecraft-services.net\",\"playfabTitleId\":\"20CA2\"}},\"store\":{\"prod\":{\"serviceUri\":\"https://store.mktpl.minecraft-services.net\",\"playfabTitleId\":\"20CA2\",\"eduPlayFabTitleId\":\"6955F\"}},\"auth\":{\"prod\":{\"serviceUri\":\"https://authorization.franchise.minecraft-services.net\",\"issuer\":\"https://authorization.franchise.minecraft-services.net\",\"playfabTitleId\":\"20CA2\",\"eduPlayFabTitleId\":\"6955F\"}},\"signaling\":{\"prod\":{\"serviceUri\":\"wss://signal-eastasia.franchise.minecraft-services.net\",\"stunUri\":\"stun:turn.azure.com:3478\",\"turnUri\":\"turn:turn.azure.com:3478\"}},\"filetocloud\":{\"prod\":{\"serviceUri\":\"https://client.support-files.minecraft-services.net\"}},\"safety\":{\"prod\":{\"serviceUri\":\"https://safety-secondary.franchise.minecraft-services.net\"}},\"mpsas\":{\"prod\":{\"serviceUri\":\"https://secondary.allocation.multiplayer.minecraft-services.net\"}},\"gatherings\":{\"prod\":{\"serviceUri\":\"https://gatherings-secondary.franchise.minecraft-services.net\"}},\"messaging\":{\"prod\":{\"serviceUri\":\"https://messaging.mktpl.minecraft-services.net\"}},\"entitlements\":{\"prod\":{\"serviceUri\":\"https://entitlements.mktpl.minecraft-services.net\",\"playfabTitleId\":\"20CA2\"}},\"frontend\":{\"prod\":{\"serviceUri\":\"https://client.allocation.multiplayer.minecraft-services.net\"}},\"multiplayer\":{\"prod\":{\"serviceUri\":\"https://secondary.multiplayer.minecraft-services.net\"}},\"cdn\":{\"prod\":{\"serviceUri\":\"https://cdn.gatherings.franchise.minecraft-services.net/public/\"}},\"realmsfrontend\":{\"prod\":{\"serviceUri\":\"https://frontend.realms.minecraft-services.net\",\"playfabTitleId\":\"20CA2\"}},\"net\":{\"prod\":{\"serviceUri\":\"https://net-secondary.web.minecraft-services.net\"}},\"client_features\":{\"prod\":{\"nxAccountLink\":\"false\",\"signInHeroMessage\":\"1\"}},\"legacyrealms-frontend\":{\"prod\":{\"serviceUri\":\"https://bedrock.frontendlegacy.realms.minecraft-services.net/\"}},\"legacyrealms-payments\":{\"prod\":{\"serviceUri\":\"https://paymentslegacy.realms.minecraft-services.net\"}},\"realms_frontend_bedrock_legacy\":{\"prod\":{\"serviceUri\":\"https://bedrock.frontendlegacy.realms.minecraft-services.net\"}},\"realms_frontend_java_legacy\":{\"prod\":{\"serviceUri\":\"https://java.frontendlegacy.realms.minecraft-services.net\"}},\"realms_payments_legacy\":{\"prod\":{\"serviceUri\":\"https://paymentslegacy.realms.minecraft-services.net\"}},\"layout\":{\"prod\":{\"serviceUri\":\"https://layout.mktpl.minecraft-services.net\",\"playfabTitleId\":\"20CA2\"}},\"creatorregistration\":{\"prod\":{\"serviceUri\":\"https://creatorreg.mktpl.minecraft-services.net\"}}},\"supportedEnvironments\":{\"1.0.0.0\":[\"prod\"]}}}")) {
                 return (Map<String, Object>) JSON_PARSER.parse(reader);
             }
         } catch (ParseException | IOException e) {
@@ -142,7 +147,7 @@ public class EncUtils {
 
         String openIdConfigUrl = serviceUri + "/.well-known/openid-configuration";
         try {
-            try (StringReader reader = new StringReader("{\"claims_supported\":[\"aud\",\"iss\",\"sub\",\"exp\",\"ipt\",\"did\",\"dip\",\"atyp\",\"mem\",\"cap\",\"ver\",\"plat\",\"dtyp\",\"lang\",\"lc\",\"rc\",\"ugeo\",\"ofl\",\"qfl\",\"prop\",\"erole\",\"eaid\",\"etid\",\"ssrc\",\"itr\",\"pre\",\"pmid\",\"xid\",\"mid\",\"pfcd\",\"tid\",\"xname\",\"pid\",\"pname\",\"nid\",\"nname\",\"cpk\"],\"id_token_signing_alg_values_supported\":[\"RS256\"],\"issuer\":\"https://authorization.franchise.minecraft-services.net/\",\"jwks_uri\":\"https://authorization.franchise.minecraft-services.net/.well-known/keys\",\"response_types_supported\":[\"token id_token\"],\"subject_types_supported\":[\"pairwise\"],\"token_endpoint\":\"https://authorization.franchise.minecraft-services.net/api/v1.0/session/start\",\"token_endpoint_auth_methods_supported\":[\"private_key_jwt\"]}")) {
+            try (StringReader reader = new StringReader("{\"claims_supported\":[\"aud\",\"iss\",\"sub\",\"exp\",\"ipt\",\"did\",\"dip\",\"atyp\",\"mem\",\"cap\",\"hmt\",\"ver\",\"plat\",\"dtyp\",\"lang\",\"lc\",\"rc\",\"age\",\"ugeo\",\"ofl\",\"qfl\",\"prop\",\"erole\",\"eoid\",\"etid\",\"ssrc\",\"itr\",\"pre\",\"pmid\",\"xid\",\"mid\",\"pfcd\",\"tid\",\"xname\",\"pid\",\"pname\",\"nid\",\"nname\",\"cpk\"],\"id_token_signing_alg_values_supported\":[\"RS256\"],\"issuer\":\"https://authorization.franchise.minecraft-services.net/\",\"jwks_uri\":\"https://authorization.franchise.minecraft-services.net/.well-known/keys\",\"response_types_supported\":[\"token id_token\"],\"subject_types_supported\":[\"pairwise\"],\"token_endpoint\":\"https://authorization.franchise.minecraft-services.net/api/v1.0/session/start\",\"token_endpoint_auth_methods_supported\":[\"private_key_jwt\"]}")) {
                 return (Map<String, Object>) JSON_PARSER.parse(reader);
             }
         } catch (ParseException | IOException e) {
@@ -251,7 +256,7 @@ public class EncUtils {
                     }
 
                     // the second chain entry has to be signed by Mojang
-                    if (i == 1 && !currentKey.equals(MOJANG_PUBLIC_KEY)) {
+                    if (i == 1 && (!currentKey.equals(MOJANG_PUBLIC_KEY) && !currentKey.equals(OLD_MOJANG_PUBLIC_KEY))) {
                         throw new IllegalStateException("The chain isn't signed by Mojang!");
                     }
 
