@@ -66,7 +66,7 @@ public class DownstreamInitialHandler implements BedrockPacketHandler {
         var identityData = new AuthData(extraData.displayName,
                 extraData.xuid);
 
-        if (identityData.xuid().isEmpty() && Ouranos.getOuranos().getConfig().online_mode) {
+        if (identityData.xuid().isEmpty() || (!chain.signed() && Ouranos.getOuranos().getConfig().online_mode)) {
             this.downstream.disconnect("You need to authenticate to Xbox Live.");
             return null;
         }
