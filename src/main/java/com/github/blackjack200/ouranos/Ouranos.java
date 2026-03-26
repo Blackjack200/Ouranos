@@ -35,6 +35,7 @@ import org.apache.logging.log4j.core.config.Configurator;
 import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.RakServerChannel;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
+import org.cloudburstmc.netty.channel.raknet.config.RakServerCookieMode;
 import org.cloudburstmc.netty.handler.codec.raknet.server.RakServerRateLimiter;
 import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.BedrockPong;
@@ -130,7 +131,7 @@ public class Ouranos {
                 .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .option(RakChannelOption.RAK_PACKET_LIMIT, 200)
                 .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[]{11, 10, 9})
-                .option(RakChannelOption.RAK_SEND_COOKIE, true)
+                .option(RakChannelOption.RAK_SERVER_COOKIE_MODE, RakServerCookieMode.ACTIVE)
                 .group(this.bossGroup, this.workerGroup)
                 .childHandler(new BedrockChannelInitializer<ProxyServerSession>() {
                     @Override
