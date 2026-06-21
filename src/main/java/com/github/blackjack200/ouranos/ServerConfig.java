@@ -10,15 +10,15 @@ import java.net.InetSocketAddress;
 @Log4j2
 public class ServerConfig {
     public String server_ipv4 = "0.0.0.0";
-    public short server_port_v4 = 19132;
+    public int server_port_v4 = 19132;
     public boolean server_ipv6_enabled = true;
     public String server_ipv6 = "::0";
-    public short server_port_v6 = 19133;
+    public int server_port_v6 = 19133;
 
     public String remote_host = "127.0.0.1";
-    public short remote_port = 19135;
+    public int remote_port = 19135;
 
-    public short maximum_player = 10;
+    public int maximum_player = 10;
 
     public boolean online_mode = true;
 
